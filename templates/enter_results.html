@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+
+    <title>Enter Results</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/enter_results.css') }}">
+
+
+</head>
+<body>
+
+<div class="main-card">
+
+    <div class="page-header">
+        <h2>🧪 Enter Laboratory Results</h2>
+    </div>
+
+    <div class="patient-card">
+
+        <div class="patient-grid">
+
+            <div>
+                <strong>Patient ID</strong><br>
+                {{ patient[0] }}
+            </div>
+
+            <div>
+                <strong>Patient Name</strong><br>
+                {{ patient[1] }}
+            </div>
+
+        </div>
+
+    </div>
+
+    <form method="POST">
+
+    {% for test_name, params in parameters.items() %}
+
+        <div class="test-card">
+
+            <div class="test-title">
+                {{ test_name }}
+            </div>
+
+            <table class="report-table">
+
+                <thead>
+
+                    <tr>
+
+                        <th width="30%">Parameter</th>
+
+                        <th width="25%">Result</th>
+
+                        <th width="20%">Unit</th>
+
+                        <th width="25%">Reference Range</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for p in params %}
+
+                    <tr>
+
+                        <td>{{ p[0] }}</td>
+
+                        <td>
+
+                            <input
+                                type="text"
+                                name="{{ test_name }}_{{ p[0] }}"
+                                class="result-input">
+
+                        </td>
+
+                        <td>{{ p[1] }}</td>
+
+                        <td>{{ p[2] }}</td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    {% endfor %}
+
+    <div class="btn-area">
+
+        <button type="submit" class="btn-save">
+
+            💾 Save Results
+
+        </button>
+
+    </div>
+
+    </form>
+
+</div>
+
+</body>
+</html>

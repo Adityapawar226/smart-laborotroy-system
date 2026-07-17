@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Patient Search</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/patient_search.css') }}">
+
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+          rel="stylesheet">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Patient Search</h1>
+
+    <form method="GET" action="/patient-search" class="search-box">
+
+        <input
+            type="text"
+            name="search"
+            placeholder="Search Patient ID / Name / Mobile"
+            value="{{ search }}">
+
+        <button type="submit">
+            <i class="fas fa-search"></i>
+            Search
+        </button>
+
+    </form>
+
+
+    <table>
+
+        <thead>
+
+        <tr>
+
+            <th>Patient ID</th>
+            <th>Name</th>
+            <th>Age</th>
+            <th>Gender</th>
+            <th>Mobile</th>
+            <th>Doctor</th>
+            <th>Actions</th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for patient in patients %}
+
+        <tr>
+
+            <td>{{ patient[0] }}</td>
+            <td>{{ patient[1] }}</td>
+            <td>{{ patient[2] }}</td>
+            <td>{{ patient[3] }}</td>
+            <td>{{ patient[4] }}</td>
+            <td>{{ patient[5] }}</td>
+
+            <td>
+
+                <a href="/view-bill/{{ patient[0] }}"
+                   class="btn bill">
+                    Bill
+                </a>
+
+                <a href="/view-report/{{ patient[0] }}"
+                   class="btn report">
+                    Report
+                </a>
+               
+               
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+</body>
+
+</html>

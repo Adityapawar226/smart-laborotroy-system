@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Parameter{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-warning">
+            <h3>Edit Parameter</h3>
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+
+                <div class="mb-3">
+                    <label class="form-label">Parameter Name</label>
+                    <input
+                        type="text"
+                        name="parameter_name"
+                        class="form-control"
+                        value="{{ parameter[3] }}"
+                        required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Unit</label>
+                    <input
+                        type="text"
+                        name="unit"
+                        class="form-control"
+                        value="{{ parameter[4] }}"
+                        required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Reference Range</label>
+                    <input
+                        type="text"
+                        name="reference_range"
+                        class="form-control"
+                        value="{{ parameter[5] }}"
+                        required>
+                </div>
+
+                <button class="btn btn-success">
+                    Update Parameter
+                </button>
+
+                <a href="{{ url_for('manage_parameters', test_id=test_id) }}"
+                   class="btn btn-secondary">
+                    Cancel
+                </a>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

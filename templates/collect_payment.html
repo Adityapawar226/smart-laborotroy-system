@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Collect Payment</title>
+
+    <style>
+
+        body{
+            font-family: Arial;
+            background:#f4f6f9;
+        }
+
+        .box{
+
+            width:500px;
+            margin:40px auto;
+            background:white;
+            padding:25px;
+            border-radius:10px;
+            box-shadow:0 0 10px lightgray;
+
+        }
+
+        input{
+
+            width:100%;
+            padding:10px;
+            margin-top:5px;
+            margin-bottom:20px;
+
+        }
+
+        button{
+
+            background:green;
+            color:white;
+            border:none;
+            padding:12px 25px;
+            cursor:pointer;
+            border-radius:5px;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="box">
+
+<h2>Collect Pending Payment</h2>
+
+<p><b>Patient :</b> {{ payment.patient_name }}</p>
+
+<p><b>Patient ID :</b> {{ payment.patient_id }}</p>
+
+<p><b>Mobile :</b> {{ payment.mobile }}</p>
+
+<p><b>Total Bill :</b> ₹{{ payment.total_amount }}</p>
+
+<p><b>Already Paid :</b> ₹{{ payment.paid_amount }}</p>
+
+<p><b>Remaining :</b> ₹{{ payment.pending_amount }}</p>
+
+<hr>
+
+<form method="POST">
+
+<label>Receive Amount</label>
+
+<input
+type="number"
+step="0.01"
+name="receive_amount"
+required>
+<label>Payment Mode</label>
+
+<select name="payment_mode" required>
+
+    <option value="Cash">Cash</option>
+
+    <option value="UPI">UPI</option>
+
+</select>
+
+<button type="submit">
+
+Collect Payment
+
+</button>
+
+</form>
+
+</div>
+
+</body>
+
+</html>

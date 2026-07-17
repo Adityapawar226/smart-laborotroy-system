@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Edit Test</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f5f7fb;
+}
+
+.container{
+width:600px;
+margin:40px auto;
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 5px 20px rgba(0,0,0,.15);
+}
+
+h2{
+margin-bottom:25px;
+}
+
+label{
+display:block;
+margin-top:15px;
+font-weight:bold;
+}
+
+input,
+select,
+textarea{
+
+width:100%;
+padding:10px;
+margin-top:5px;
+border:1px solid #ccc;
+border-radius:5px;
+
+}
+
+button{
+
+margin-top:25px;
+padding:12px 30px;
+background:#ff9800;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+
+}
+
+button:hover{
+
+background:#e68900;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Edit Laboratory Test</h2>
+
+<form method="POST">
+
+<label>Test Name</label>
+
+<input
+type="text"
+name="test_name"
+value="{{ test.test_name }}"
+required>
+
+<label>Category</label>
+
+<select name="category">
+
+<option value="Blood Test"
+{% if test.category=="Blood Test" %}selected{% endif %}>
+Blood Test
+</option>
+
+<option value="Urine Test"
+{% if test.category=="Urine Test" %}selected{% endif %}>
+Urine Test
+</option>
+
+<option value="Hormone Test"
+{% if test.category=="Hormone Test" %}selected{% endif %}>
+Hormone Test
+</option>
+
+<option value="Serology"
+{% if test.category=="Serology" %}selected{% endif %}>
+Serology
+</option>
+
+<option value="Biochemistry"
+{% if test.category=="Biochemistry" %}selected{% endif %}>
+Biochemistry
+</option>
+
+</select>
+
+<label>Price</label>
+
+<input
+type="number"
+name="price"
+value="{{ test.price }}"
+required>
+
+<label>Sample Type</label>
+
+<select name="sample_type">
+
+<option value="Blood"
+{% if test.sample_type=="Blood" %}selected{% endif %}>
+Blood
+</option>
+
+<option value="Urine"
+{% if test.sample_type=="Urine" %}selected{% endif %}>
+Urine
+</option>
+
+<option value="Serum"
+{% if test.sample_type=="Serum" %}selected{% endif %}>
+Serum
+</option>
+
+<option value="Plasma"
+{% if test.sample_type=="Plasma" %}selected{% endif %}>
+Plasma
+</option>
+
+</select>
+
+<label>Report Time</label>
+
+<select name="report_time">
+
+<option value="Same Day"
+{% if test.report_time=="Same Day" %}selected{% endif %}>
+Same Day
+</option>
+
+<option value="1 Day"
+{% if test.report_time=="1 Day" %}selected{% endif %}>
+1 Day
+</option>
+
+<option value="2 Days"
+{% if test.report_time=="2 Days" %}selected{% endif %}>
+2 Days
+</option>
+
+<option value="3 Days"
+{% if test.report_time=="3 Days" %}selected{% endif %}>
+3 Days
+</option>
+
+</select>
+
+<label>Description</label>
+
+<textarea name="description">{{ test.description }}</textarea>
+
+<label>Status</label>
+
+<select name="status">
+
+<option value="Active"
+{% if test.status=="Active" %}selected{% endif %}>
+Active
+</option>
+
+<option value="Inactive"
+{% if test.status=="Inactive" %}selected{% endif %}>
+Inactive
+</option>
+
+</select>
+
+<button>Update Test</button>
+
+</form>
+
+</div>
+
+</body>
+</html>

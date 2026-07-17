@@ -1,0 +1,243 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+   
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/reports.css') }}">
+</head>
+<body>
+
+<div class="page-header">
+
+    <div>
+
+        <h1 class="page-title">
+            📋 Reports Management
+        </h1>
+
+     
+        
+
+    </div>
+
+</div>
+
+<div class="content-card">
+    <div class="stats-container">
+
+    <div class="stat-card blue">
+    
+    <div class="card-icon">
+        📄
+    </div>
+
+    <div class="card-content">
+        <div class="card-title">Total Reports</div>
+        <div class="card-number">{{ total_reports }}</div>
+        <div class="card-subtitle">All reports</div>
+    </div>
+
+</div>
+
+    <div class="stat-card green">
+
+    <div class="card-icon">
+        ✅
+    </div>
+
+    <div class="card-content">
+        <div class="card-title">Completed</div>
+        <div class="card-number">{{ completed_reports }}</div>
+        <div class="card-subtitle">Completed reports</div>
+    </div>
+
+</div>
+    <div class="stat-card orange">
+
+    <div class="card-icon">
+        ⏰
+    </div>
+
+    <div class="card-content">
+        <div class="card-title">Pending</div>
+        <div class="card-number">{{ pending_reports }}</div>
+        <div class="card-subtitle">Pending reports</div>
+    </div>
+
+</div>
+
+    <div class="stat-card purple">
+
+    <div class="card-icon">
+        🧪
+    </div>
+
+    <div class="card-content">
+        <div class="card-title">Today's Reports</div>
+        <div class="card-number">{{ today_reports }}</div>
+        <div class="card-subtitle">Reports generated today</div>
+    </div>
+
+</div>
+
+</div>
+
+   <div class="search-filter">
+
+    <input
+    type="text"
+    id="searchInput"
+    placeholder="Search by Patient ID, Name or Test..."
+    class="search-box">
+
+    <select id="statusFilter" class="status-filter">
+        <option value="">All Reports</option>
+        <option value="Completed">Completed</option>
+        <option value="Pending">Pending</option>
+    </select>
+
+</div>
+
+
+    <div class="table-container">
+
+      <table class="report-table">
+
+    <tr>
+        <th>Patient ID</th>
+        <th>Patient Name</th>
+        <th>Tests</th>
+        <th>Report Status</th>
+        <th class="text-center">Actions</th>
+    </tr>
+
+    {% for report in reports %}
+
+    <tr>
+
+        <td>{{ report[0] }}</td>
+        <td>{{ report[1] }}</td>
+        <td>{{ report[2] }}</td>
+
+        <td>
+
+            {% if report[3] == 'Completed' %}
+
+                <span class="status completed">
+                    ✓ Completed
+                </span>
+
+            {% else %}
+
+                <span class="status pending">
+                    ⏰ Pending
+                </span>
+
+            {% endif %}
+
+        </td>
+
+        <td class="action-buttons">
+
+{% if report[3] == 'Completed' %}
+
+<a href="/view-report/{{ report[0] }}">
+    <button class="view-btn">
+        👁 View
+    </button>
+</a>
+
+<a href="/edit-report/{{ report[0] }}">
+    <button class="edit-btn">
+        ✏ Edit
+    </button>
+</a>
+
+<form action="/delete-report/{{ report[0] }}"
+      method="POST"
+      style="display:inline;"
+      onsubmit="return confirm('Delete this report?');">
+
+    <button type="submit"
+            class="action-btn delete-btn"
+            title="Delete Report">
+        🗑
+    </button>
+
+</form>
+
+{% else %}
+
+<a href="/enter-results/{{ report[0] }}">
+    <button class="enter-btn">
+        ✏ Enter Results
+    </button>
+</a>
+
+{% endif %}
+
+</td>
+
+    </tr>
+
+    {% endfor %}
+
+</table>
+
+    </div>
+
+</div>
+<button onclick="window.print()" class="print-btn">
+    🖨 Print Report
+</button>
+<script>
+
+const searchInput = document.getElementById("searchInput");
+const statusFilter = document.getElementById("statusFilter");
+
+function filterTable() {
+
+    const searchText = searchInput.value.toLowerCase();
+    const statusText = statusFilter.value.toLowerCase();
+
+    const rows = document.querySelectorAll(".report-table tr");
+
+    rows.forEach(row => {
+
+        if(row.querySelector("th")){
+            return;
+        }
+
+        const rowText = row.innerText.toLowerCase();
+
+        const statusCell = row.querySelector(".status");
+
+        const status = statusCell
+            ? statusCell.innerText.toLowerCase()
+            : "";
+
+        const searchMatch =
+            rowText.includes(searchText);
+
+        const statusMatch =
+            statusText === "" ||
+            status.includes(statusText);
+
+        row.style.display =
+            searchMatch && statusMatch
+            ? ""
+            : "none";
+
+    });
+
+}
+
+searchInput.addEventListener("keyup", filterTable);
+statusFilter.addEventListener("change", filterTable);
+
+</script>
+
+</body>
+</html>

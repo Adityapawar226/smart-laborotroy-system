@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    
+
+
+    <div class="cards-section">
+
+        <div class="stat-card">
+
+            <div class="icon blue">
+                <i class="bi bi-people"></i>
+            </div>
+
+            <div>
+                <p>Today's Patients</p>
+                <h2>{{ patient_count }}</h2>
+            </div>
+
+        </div>
+
+        <div class="stat-card">
+
+            <div class="icon green">
+                <i class="bi bi-currency-rupee"></i>
+            </div>
+
+            <div>
+                <p>Today's Income</p>
+               <h2>₹{{ total_income }}</h2>
+            </div>
+
+        </div>
+
+    <div class="stat-card"
+     style="cursor:pointer;"
+     onclick="window.location.href='/reports-management'">
+
+    <div class="icon orange">
+        <i class="bi bi-file-earmark-medical"></i>
+    </div>
+
+    <div>
+        <h4>Reports Management</h4>
+        
+    </div>
+
+</div>
+
+       
+        <a href="/pending-payments"
+   style="text-decoration:none;color:inherit;">
+
+<div class="stat-card" style="cursor:pointer;">
+
+    <div class="icon violet">
+        <i class="bi bi-cash"></i>
+    </div>
+
+    <div>
+        <p>Pending Payments</p>
+        <h2>₹{{ pending_amount }}</h2>
+    </div>
+
+</div>
+
+</a>
+
+    </div>
+    <div class="middle-section">
+
+     <div class="registrations-box">
+
+       <div class="box-header">
+
+    <h4>Recent Registrations</h4>
+
+    <div class="header-actions">
+
+        <form action="/dashboard" method="GET" class="search-form">
+
+            <input
+                type="text"
+                name="search"
+                placeholder="Search Patient ID / Name / Mobile"
+                class="search-box">
+
+            <button type="submit" class="search-btn">
+                <i class="bi bi-search"></i>
+            </button>
+
+        </form>
+
+        <button class="view-btn">
+            View All
+        </button>
+
+    </div>
+
+</div>
+
+        <table class="custom-table">
+            <thead>
+                <tr>
+                    <th>Patient ID</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Test</th>
+                    <th>Amount</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            
+
+                <tbody>
+
+                         {% for patient in patients %}
+                         <tr>
+                          <td>{{ patient[0] }}</td>
+                          <td>{{ patient[1] }}</td>
+                          <td>{{ patient[2] }}</td>
+                          <td>{{ patient[3] }}</td>
+                          <td>₹{{ patient[4] }}</td>
+                          <td>{{ patient[5] }}</td>
+                          <td>{{ patient[6] }}</td>
+                         </tr>
+                        {% endfor %}
+
+                </tbody>
+
+            
+        </table>
+
+    </div>
+
+    <div class="payment-box">
+
+        <div class="box-header">
+            <h4>Payment Summary</h4>
+        </div>
+
+        <div class="payment-cards">
+<div class="payment-card">
+    <h4>Cash</h4>
+    <h2>₹{{ cash_total }}</h2>
+    <p>{{ cash_count }} Transactions</p>
+</div>
+
+<div class="payment-card">
+    <h4>UPI</h4>
+    <h2>₹{{ upi_total }}</h2>
+    <p>{{ upi_count }} Transactions</p>
+</div>
+
+            <div class="payment-card">
+               <p>Pending Payments</p>
+               <h2>₹{{ pending_amount }}</h2>
+                <p>6 Transactions</p>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+<div class="middle-section">
+
+    <div class="registrations-box">
+
+        <div class="box-header">
+            <h4>Latest Payments</h4>
+            <button class="view-btn">View All</button>
+        </div>
+
+        <table class="custom-table">
+
+            <thead>
+                <tr>
+                    <th>Receipt No</th>
+                    <th>Patient Name</th>
+                    <th>Amount</th>
+                    <th>Payment Mode</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+
+            
+
+               <tbody>
+
+{% for payment in payments %}
+
+<tr>
+    <td>{{ payment[0] }}</td>
+    <td>{{ payment[1] }}</td>
+    <td>₹{{ payment[2] }}</td>
+    <td>{{ payment[3] }}</td>
+    <td>{{ payment[4] }}</td>
+</tr>
+
+{% endfor %}
+
+</tbody>
+        
+
+        </table>
+
+    </div>
+
+    <div class="payment-box">
+
+        <div class="box-header">
+            <h4>Quick Actions</h4>
+        </div>
+
+        <div class="payment-cards">
+
+            <div class="payment-card">
+                <i class="bi bi-person-plus" style="font-size:30px;"></i>
+                <h5>Add Patient</h5>
+            </div>
+
+            <div class="payment-card">
+                <i class="bi bi-search" style="font-size:30px;"></i>
+                <h5>Search Patient</h5>
+            </div>
+
+            <div class="payment-card">
+                <i class="bi bi-receipt" style="font-size:30px;"></i>
+                <h5>Create Bill</h5>
+            </div>
+
+            <div class="payment-card">
+                <i class="bi bi-cash-stack" style="font-size:30px;"></i>
+                <h5>Receive Payment</h5>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+<div style="
+background:white;
+margin:20px;
+padding:15px;
+border-radius:12px;
+box-shadow:0 2px 10px rgba(0,0,0,.08);
+display:flex;
+justify-content:space-around;
+">
+
+    <div>
+        <strong>Total Patients :</strong>  {{ total_patients }}
+    </div>
+
+    <div>
+        <strong>Total Income :</strong> ₹{{ grand_total_income }}
+
+    </div>
+
+    <div>
+        <strong>Total Tests :</strong> {{ total_tests }}
+    </div>
+
+    <div>
+        <strong>Total Reports :</strong>  {{ total_reports }}
+    </div>
+    {% endblock %}
+
+
+
+</body>
+</html>

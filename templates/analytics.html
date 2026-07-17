@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analytics</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static',
+          filename='css/analytics.css') }}">
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Analytics Dashboard</h1>
+    <form method="GET" class="filter-form">
+
+    <input type="date"
+           name="from_date"
+           value="{{ from_date }}">
+
+    <input type="date"
+           name="to_date"
+           value="{{ to_date }}">
+
+    <button type="submit">
+        Apply Filter
+    </button>
+
+</form>
+
+    <div class="cards">
+
+        <div class="card">
+            <h3>Total Income</h3>
+            <h2>₹{{ total_income }}</h2>
+        </div>
+
+        <div class="card">
+            <h3>Cash Income</h3>
+            <h2>₹{{ cash_income }}</h2>
+        </div>
+
+        <div class="card">
+            <h3>UPI Income</h3>
+            <h2>₹{{ upi_income }}</h2>
+        </div>
+        <div class="chart-card">
+    <h3>Patient Registration Trend</h3>
+    <canvas id="patientTrendChart"></canvas>
+</div>
+
+    </div>
+
+    <div class="charts-container">
+
+    <div class="chart-box">
+        <canvas id="paymentChart"></canvas>
+    </div>
+
+    <div class="chart-box">
+        <canvas id="incomeChart"></canvas>
+    </div>
+
+</div>
+<h3 class="mb-3">Monthly Income Report</h3>
+
+<div class="month-report">
+    {% for month in monthly_income %}
+    <div class="month-card">
+        <div class="month-name">{{ month[0] }}</div>
+        <div class="month-income">₹{{ "%.2f"|format(month[1]) }}</div>
+    </div>
+    {% endfor %}
+</div>
+<div class="chart-card">
+    <h3>Top Revenue Generating Tests</h3>
+    <canvas id="topTestsChart"></canvas>
+</div>
+
+</div>
+
+<script>
+
+const ctx = document.getElementById('paymentChart');
+
+new Chart(ctx, {
+    type: 'pie',
+    data: {
+        labels: ['Cash', 'UPI'],
+        datasets: [{
+            data: [
+                {{ cash_income }},
+                {{ upi_income }}
+            ]
+        }]
+    }
+});
+
+</script>
+<script>
+
+const incomeCtx = document.getElementById('incomeChart');
+
+new Chart(incomeCtx, {
+    type: 'bar',
+    data: {
+        labels: {{ dates|tojson }},
+        datasets: [{
+            label: 'Daily Income',
+            data: {{ amounts|tojson }}
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+
+</script>
+
+
+<script>
+new Chart(document.getElementById('topTestsChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ test_names|tojson }},
+        datasets: [{
+            label: 'Revenue',
+            data: {{ test_revenue|tojson }},
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+</script>
+<script>
+new Chart(document.getElementById('patientTrendChart'), {
+    type: 'line',
+    data: {
+        labels: {{ patient_dates|tojson }},
+        datasets: [{
+            label: 'Patients Registered',
+            data: {{ patient_counts|tojson }},
+            borderWidth: 3,
+            fill: false,
+            tension: 0.4
+        }]
+    },
+    options: {
+        responsive: true
+    }
+});
+</script>
+
+
+</body>
+</html>

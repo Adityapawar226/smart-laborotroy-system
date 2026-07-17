@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Register New Laboratory</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static',
+          filename='css/register_lab.css') }}">
+
+    <link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="register-container">
+
+    <div class="register-left">
+
+        <img src="{{ url_for('static',
+        filename='images/System_logo.png') }}"
+        class="logo">
+
+        <h1>Smart Laboratory</h1>
+
+        <h3>Management System</h3>
+
+        <p>
+
+            Register your laboratory and start
+            managing Patients, Reports,
+            Billing and Laboratory Operations
+            securely.
+
+        </p>
+
+    </div>
+
+
+    <div class="register-right">
+
+        <div class="register-card">
+
+            <h2>Register New Laboratory</h2>
+
+            <p>Create your laboratory account.</p>
+           
+
+            <form method="POST">
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-hospital"></i>
+
+                    <input
+                    type="text"
+                    name="lab_name"
+                    placeholder="Laboratory Name"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-user"></i>
+
+                    <input
+                    type="text"
+                    name="owner_name"
+                    placeholder="Owner Name"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-phone"></i>
+
+                    <input
+                    type="text"
+                    name="mobile"
+                    placeholder="Mobile Number"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-envelope"></i>
+
+                    <input
+                    type="email"
+                    name="email"
+                    placeholder="Email Address"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-location-dot"></i>
+
+                   <input type="text"
+       name="address"
+       class="form-control"
+       placeholder="Address"
+       required>
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-user-shield"></i>
+
+                    <input
+                    type="text"
+                    name="username"
+                    placeholder="Admin Username"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                    id="password"
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                    type="password"
+                    name="confirm_password"
+                    placeholder="Confirm Password"
+                    required>
+
+                </div>
+
+                <button type="submit">
+
+                    <i class="fa-solid fa-building-circle-check"></i>
+
+                    Register Laboratory
+
+                </button>
+
+            </form>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        <div class="flash-container">
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endwith %}
+
+            <div class="login-link">
+
+                Already Registered?
+
+                <a href="{{ url_for('login') }}">
+
+                    Login
+
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

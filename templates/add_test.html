@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Add Test</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#f5f7fb;
+}
+
+.container{
+width:600px;
+margin:40px auto;
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 5px 20px rgba(0,0,0,.15);
+}
+
+h2{
+margin-bottom:25px;
+}
+
+label{
+display:block;
+margin-top:15px;
+font-weight:bold;
+}
+
+input,
+select,
+textarea{
+
+width:100%;
+padding:10px;
+margin-top:5px;
+border:1px solid #ccc;
+border-radius:5px;
+
+}
+
+button{
+
+margin-top:25px;
+padding:12px 30px;
+background:#1677ff;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+
+}
+
+button:hover{
+
+background:#0056d2;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Add New Laboratory Test</h2>
+
+<form method="POST">
+
+<label>Test Name</label>
+<input type="text" name="test_name" required>
+
+<label>Category</label>
+
+<select name="category">
+
+<option>Blood Test</option>
+
+<option>Urine Test</option>
+
+<option>Hormone Test</option>
+
+<option>Serology</option>
+
+<option>Biochemistry</option>
+
+</select>
+
+<label>Price</label>
+
+<input type="number" name="price" required>
+
+<label>Sample Type</label>
+
+<select name="sample_type">
+
+<option>Blood</option>
+
+<option>Urine</option>
+
+<option>Serum</option>
+
+<option>Plasma</option>
+
+</select>
+
+<label>Report Time</label>
+
+<select name="report_time">
+
+<option>Same Day</option>
+
+<option>1 Day</option>
+
+<option>2 Days</option>
+
+<option>3 Days</option>
+
+</select>
+
+<label>Description</label>
+
+<textarea name="description"></textarea>
+
+<label>Status</label>
+
+<select name="status">
+
+<option>Active</option>
+
+<option>Inactive</option>
+
+</select>
+
+<button>Add Test</button>
+
+</form>
+
+</div>
+
+</body>
+
+</html>

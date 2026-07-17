@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Parameters{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid mt-4">
+
+    <div class="card shadow-lg border-0">
+
+        <div class="card-header bg-primary text-white">
+
+            <div class="d-flex justify-content-between align-items-center">
+
+                <h3 class="mb-0">
+                    <i class="bi bi-sliders"></i>
+                    Manage Parameters
+                </h3>
+
+                <span class="badge bg-light text-dark fs-6">
+                    {{ test[1] }}
+                </span>
+
+            </div>
+
+        </div>
+
+        <div class="card-body">
+
+            <!-- Add Parameter -->
+
+            <form method="POST">
+
+                <div class="row">
+
+    <div class="col-md-3 mb-3">
+
+        <label class="form-label">Parameter Name</label>
+
+        <input
+            type="text"
+            name="parameter_name"
+            class="form-control"
+            required>
+
+    </div>
+
+    <div class="col-md-3 mb-3">
+
+        <label class="form-label">Section</label>
+
+        <input
+            type="text"
+            name="section"
+            class="form-control"
+            placeholder="Example: CBC"
+            required>
+
+    </div>
+
+    <div class="col-md-2 mb-3">
+
+        <label class="form-label">Unit</label>
+
+        <input
+            type="text"
+            name="unit"
+            class="form-control"
+            required>
+
+    </div>
+
+    <div class="col-md-2 mb-3">
+
+        <label class="form-label">Reference Range</label>
+
+        <input
+            type="text"
+            name="reference_range"
+            class="form-control"
+            required>
+
+    </div>
+
+    <div class="col-md-1 mb-3">
+
+        <label class="form-label">Order</label>
+
+        <input
+            type="number"
+            name="display_order"
+            class="form-control"
+            value="1"
+            required>
+
+    </div>
+
+    <div class="col-md-1 d-flex align-items-end mb-3">
+
+        <button
+            type="submit"
+            class="btn btn-success w-100">
+            Add
+        </button>
+
+    </div>
+
+</div>
+
+            </form>
+
+            <hr>
+
+            <!-- Parameter Table -->
+
+            <table class="table table-bordered table-hover">
+
+                <thead class="table-dark">
+
+                    <tr>
+
+                       <tr>
+    <th width="60">ID</th>
+    <th>Section</th>
+    <th>Parameter</th>
+    <th>Unit</th>
+    <th>Reference Range</th>
+    <th>Order</th>
+    <th width="180">Action</th>
+</tr>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for p in parameters %}
+<tr>
+
+    <td>{{ p[0] }}</td>   <!-- ID -->
+<td>{{ p[2] }}</td>   <!-- Section -->
+<td>{{ p[3] }}</td>   <!-- Parameter -->
+<td>{{ p[4] }}</td>   <!-- Unit -->
+<td>{{ p[5] }}</td>   <!-- Reference Range -->
+<td>{{ p[7] }}</td>   <!-- Display Order -->
+    <td>
+        <a href="{{ url_for('edit_parameter',
+                    parameter_id=p[0],
+                    test_id=test[0]) }}"
+   class="btn btn-warning btn-sm">
+    Edit
+</a>
+        <a href="{{ url_for('delete_parameter',
+                    parameter_id=p[0],
+                    test_id=test[0]) }}"
+   class="btn btn-danger btn-sm"
+   onclick="return confirm('Delete this parameter?')">
+
+    Delete
+
+</a>
+    </td>
+
+</tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

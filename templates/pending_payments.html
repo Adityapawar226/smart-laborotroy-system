@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pending Payments</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/pending_payments.css') }}">
+</head>
+<body>
+
+<a href="/dashboard" class="back-btn">
+    ← Dashboard
+</a>
+
+<h2 class="page-title">Pending Payments</h2>
+
+<div class="container">
+<table class="pending-table">
+<tr>
+    <th>Receipt No</th>
+    <th>Patient ID</th>
+    <th>Patient Name</th>
+    <th>Mobile</th>
+    <th>Total Bill</th>
+    <th>Paid</th>
+    <th>Pending</th>
+    <th>Report Date</th>
+    <th>Due Date</th>
+    <th>Status</th>
+    <th>Action</th>
+</tr>
+
+{% for row in data %}
+<tr>
+
+    <td>{{ row[1] }}</td>   <!-- Receipt No -->
+
+    <td>{{ row[2] }}</td>   <!-- Patient ID -->
+
+    <td>{{ row[3] }}</td>   <!-- Patient Name -->
+
+    <td>{{ row[4] }}</td>   <!-- Mobile -->
+
+    <td>₹{{ row[5] }}</td>  <!-- Total Bill -->
+
+    <td>₹{{ row[6] }}</td>  <!-- Paid -->
+
+    <td class="amount">
+        ₹{{ row[7] }}
+    </td>
+
+    <td>{{ row[8] }}</td>   <!-- Report Date -->
+
+    <td>{{ row[9] }}</td>   <!-- Due Date -->
+
+    <td>
+        <span class="status">
+            {{ row[10] }}
+        </span>
+    </td>
+
+    <td>
+    <a href="{{ url_for('collect_payment', payment_id=row[0]) }}"
+       class="btn btn-success">
+        Mark Paid
+    </a>
+</td>
+
+</tr>
+{% endfor %}
+
+</table>
+</div>
+
+</body>
+</html>

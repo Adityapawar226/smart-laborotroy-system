@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Laboratory Report</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static',
+          filename='css/view_report.css') }}">
+
+</head>
+
+<body>
+
+<a href="/reports-management" class="back-btn">
+
+    <button>
+
+        ← Back
+
+    </button>
+
+</a>
+
+
+{% for test_name, test in results.items() %}
+
+<div class="report-page">
+
+    <div class="report-content">
+
+    <!-- ================= HEADER SPACE ================= -->
+
+    <div class="header-space">
+
+        <!-- Blank Space
+             Reserved for Preprinted Letter Head -->
+
+    </div>
+
+    <!-- ================= PATIENT DETAILS ================= -->
+
+    <div class="patient-card">
+
+        <div class="info-item">
+
+            <strong>Patient Name :</strong>
+
+            {{ patient_name }}
+
+        </div>
+
+        <div class="info-item">
+
+            <strong>Patient ID :</strong>
+
+            {{ patient_id }}
+
+        </div>
+
+        <div class="info-item">
+
+            <strong>Age / Gender :</strong>
+
+            {{ age_gender }}
+
+        </div>
+
+        <div class="info-item">
+
+            <strong>Doctor :</strong>
+
+            {{ doctor_name }}
+
+        </div>
+
+        <div class="info-item">
+
+            <strong>Report Date :</strong>
+
+            {{ report_date }}
+
+        </div>
+
+        <div class="info-item">
+
+          <strong> Sample :
+</strong>
+{{ test.sample_type }}
+        </div>
+
+        <div class="info-item">
+
+            <strong>Collected On :</strong>
+
+            {{ collection_date }}
+
+        </div>
+
+        <div class="info-item">
+
+            <strong>Report No :</strong>
+
+            REP-{{ patient_id }}
+
+        </div>
+
+    </div>
+
+    <!-- ================= DEPARTMENT ================= -->
+
+    {% if test.department %}
+
+    <div class="department-title">
+
+        {{ test.department|upper }}
+
+    </div>
+
+
+    {% endif %}
+    <hr class="patient-divider">
+
+    <!-- ================= TEST NAME ================= -->
+ 
+    <div class="test-title">
+
+        {{ test_name }}
+
+    </div>
+
+    <!-- ================= TABLE START ================= -->
+
+    <table class="report-table">
+
+        <thead>
+
+            <tr>
+
+                <th style="width:45%">Parameter</th>
+
+                <th style="width:18%">Result</th>
+
+                <th style="width:15%">Unit</th>
+
+                <th style="width:22%">Reference Range</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% set ns = namespace(last_section='') %}
+
+        {% set ns = namespace(last_section='') %}
+
+        {% for row in test.rows %}
+
+            {% if row.section and row.section != ns.last_section %}
+
+          
+
+            {% set ns.last_section = row.section %}
+
+            {% endif %}
+
+            <tr>
+
+                <td>{{ row.parameter }}</td>
+
+                <td class="{{ row.status }}">
+                    {{ row.result }}
+                </td>
+
+                <td>{{ row.unit }}</td>
+
+                <td>{{ row.reference }}</td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+   </table>
+
+</div>
+
+<div class="report-footer-area">
+
+<div class="signature-section">
+
+    <div class="sign-box">
+
+        ______________________
+
+        <br>
+
+        Lab Technician
+
+    </div>
+
+    <div class="sign-box">
+
+        ______________________
+
+        <br>
+
+        Pathologist
+
+    </div>
+
+</div>
+
+<div class="report-note">
+
+    This is a computer generated report.
+
+    <br>
+
+    Kindly correlate clinically.
+
+</div>
+
+<div class="page-number">
+
+    Page {{ loop.index }} of {{ results|length }}
+
+</div>
+
+<div class="footer-space"></div>
+
+</div>
+
+</div>
+
+   
+
+{% if not loop.last %}
+<div class="page-break"></div>
+{% endif %}
+
+{% endfor %}
+
+
+
+<button class="print-btn" onclick="window.print()">
+    Print Report
+</button>
+
+</body>
+</html>

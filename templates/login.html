@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Smart Laboratory Management System</title>
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='css/login.css') }}">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+</head>
+
+<body>
+
+<div class="login-container">
+
+    <div class="login-left">
+
+        <img src="{{ url_for('static', filename='images/System_logo.png') }}"
+     class="logo"
+     alt="Smart Laboratory Logo">
+
+        <h1>Smart Laboratory</h1>
+
+        <h3>Management System</h3>
+
+        <p>
+            Secure Laboratory Information System for
+            Patient Registration, Billing,
+            Reports & Laboratory Management.
+        </p>
+
+    </div>
+
+
+    <div class="login-right">
+
+        <div class="login-card">
+
+            <h2>Welcome Back</h2>
+
+            <p>Please login to continue.</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+
+            {% for category,message in messages %}
+
+            <div class="alert {{category}}">
+                {{message}}
+            </div>
+
+            {% endfor %}
+
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="input-box">
+
+    <i class="fa-solid fa-building"></i>
+
+    <input
+        type="text"
+        name="lab_id"
+        placeholder="Laboratory ID (LAB0001)"
+        required>
+
+</div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-user"></i>
+
+                    <input
+                    type="text"
+                    name="username"
+                    placeholder="Username"
+                    required>
+
+                </div>
+
+                <div class="input-box">
+
+                    <i class="fa-solid fa-lock"></i>
+
+                    <input
+                    id="password"
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    required>
+
+                    <span id="togglePassword">
+                        <i class="fa-solid fa-eye"></i>
+                    </span>
+
+                </div>
+
+                <div class="login-options">
+
+                    <label>
+
+                        <input type="checkbox">
+
+                        Remember Me
+
+                    </label>
+
+                    <a href="#">
+                        Forgot Password?
+                    </a>
+
+                </div>
+
+                <button type="submit">
+
+                    <i class="fa-solid fa-right-to-bracket"></i>
+
+                    Login
+
+                </button>
+                <div class="divider">
+    <span>OR</span>
+</div>
+
+<a href="{{ url_for('register_lab') }}" class="register-btn">
+    <i class="fa-solid fa-hospital-user"></i>
+    Register New Laboratory
+</a>
+
+            </form>
+
+            <div class="footer">
+
+                Version 1.0 • © 2026
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+
+</body>
+</html>

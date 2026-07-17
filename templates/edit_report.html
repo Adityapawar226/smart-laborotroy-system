@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Report</title>
+    <style>
+
+body{
+    background:#eef2f7;
+    font-family:'Segoe UI',sans-serif;
+}
+
+.report-card{
+    max-width:1000px;
+    margin:40px auto;
+    border:none;
+    border-radius:15px;
+    overflow:hidden;
+    box-shadow:0 10px 25px rgba(0,0,0,.15);
+}
+
+.card-header{
+    background:#0d6efd;
+    color:white;
+    padding:18px 25px;
+}
+
+.patient-box{
+    background:#f8f9fa;
+    border-left:5px solid #0d6efd;
+    padding:15px 20px;
+    border-radius:8px;
+    margin-bottom:25px;
+}
+
+.table th{
+    background:#212529;
+    color:white;
+    text-align:center;
+    vertical-align:middle;
+}
+
+.table td{
+    vertical-align:middle;
+}
+
+.result-input{
+    width:120px;
+    text-align:center;
+}
+
+.btn-update{
+    background:#198754;
+    color:white;
+    padding:10px 35px;
+    font-size:17px;
+    font-weight:600;
+    border:none;
+    border-radius:8px;
+}
+
+.btn-update:hover{
+    background:#157347;
+}
+
+.test-title{
+    color:#0d6efd;
+    font-weight:700;
+    margin-top:35px;
+    margin-bottom:15px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<div class="card report-card">
+
+<div class="card-header">
+
+<h2 class="mb-0">
+Edit Laboratory Report
+</h2>
+
+</div>
+
+<div class="card-body">
+
+<div class="patient-box">
+
+<div class="row">
+
+<div class="col-md-4">
+<b>Patient ID</b><br>
+{{ patient_id }}
+</div>
+
+<div class="col-md-4">
+<b>Patient Name</b><br>
+{{ patient[0] }}
+</div>
+
+<div class="col-md-4">
+<b>Doctor</b><br>
+{{ patient[3] }}
+</div>
+
+</div>
+
+</div>
+
+<form method="POST">
+
+<table class="table table-bordered table-hover">
+
+<thead>
+
+<tr>
+
+<th width="35%">Parameter</th>
+<th width="20%">Result</th>
+<th width="20%">Unit</th>
+<th width="25%">Reference Range</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for r in results %}
+
+<tr>
+
+<td>{{ r[3] }}</td>
+
+<td>
+
+<input
+type="text"
+name="result_{{ loop.index }}"
+value="{{ r[4] }}"
+class="form-control result-input">
+
+</td>
+
+<td>{{ r[5] }}</td>
+
+<td>{{ r[6] }}</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+<div class="text-center mt-4">
+
+<button
+type="submit"
+class="btn-update">
+
+💾 Update Report
+
+</button>
+
+</div>
+
+</form>
+
+</div>
+
+</div>
+
+</div>
+
+</body>
+</html>

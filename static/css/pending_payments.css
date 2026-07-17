@@ -1,0 +1,81 @@
+{
+    font-family: 'Segoe UI', sans-serif;
+    background:#f4f6fb;
+    margin:0;
+    padding:30px;
+}
+
+.page-title{
+    font-size:32px;
+    font-weight:700;
+    color:#1f2937;
+    margin-bottom:25px;
+}
+
+.container{
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    box-shadow:0 4px 15px rgba(0,0,0,0.08);
+}
+
+.pending-table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.pending-table thead{
+    background:#356AE6;
+    color:white;
+}
+
+.pending-table th{
+    padding:15px;
+    text-align:left;
+}
+
+.pending-table td{
+    padding:15px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+.pending-table tr:hover{
+    background:#f8f9ff;
+}
+
+.status{
+    background:#fff3cd;
+    color:#b7791f;
+    padding:6px 12px;
+    border-radius:20px;
+    font-weight:600;
+}
+
+.pay-btn{
+    background:#22c55e;
+    color:white;
+    border:none;
+    padding:10px 16px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.pay-btn:hover{
+    background:#16a34a;
+}
+
+.amount{
+    font-weight:700;
+    color:#111827;
+}
+
+.back-btn{
+    display:inline-block;
+    margin-bottom:20px;
+    text-decoration:none;
+    background:#356AE6;
+    color:white;
+    padding:10px 18px;
+    border-radius:8px;
+}

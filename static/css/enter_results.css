@@ -1,0 +1,125 @@
+body{
+    background:#eef3f8;
+    font-family:'Segoe UI',sans-serif;
+}
+
+.main-card{
+    max-width:1200px;
+    margin:35px auto;
+    background:#fff;
+    border-radius:15px;
+    box-shadow:0 8px 25px rgba(0,0,0,.12);
+    overflow:hidden;
+}
+
+.page-header{
+  
+   
+    background:linear-gradient(135deg,#0F4C81,#1976D2);
+
+    color:#fff;
+    padding:22px 30px;
+}
+
+
+.page-header h2{
+    margin:0;
+    font-weight:600;
+}
+
+.patient-card{
+    padding:25px 30px;
+    background:#fff;
+    border-bottom:1px solid #ddd;
+}
+
+.patient-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px 40px;
+}
+
+.patient-grid strong{
+    color:#333;
+}
+
+.test-card{
+    margin:25px;
+    border-radius:10px;
+    overflow:hidden;
+    box-shadow:0 3px 10px rgba(0,0,0,.08);
+}
+
+.test-title{
+    
+    background:#1976D2;
+    color:#fff;
+
+    padding:12px 18px;
+    font-size:20px;
+    font-weight:600;
+}
+
+.report-table input{
+    border:2px solid #dbe7f4;
+    background:#fcfdff;
+    transition:.3s;
+}
+
+.report-table th{
+    background:#0F4C81;
+    color:#fff;
+
+    padding:12px;
+    text-align:center;
+}
+
+.report-table td{
+    padding:12px;
+    text-align:center;
+    border:1px solid #ddd;
+}
+
+.report-table input{
+    width:100%;
+    padding:8px;
+    border:1px solid #ced4da;
+    border-radius:6px;
+}
+
+.report-table input:focus{
+    outline:none;
+    border-color:#0d6efd;
+    box-shadow:0 0 5px rgba(13,110,253,.3);
+}
+
+.btn-area{
+    text-align:center;
+    padding:20px 0 30px;
+}
+
+.btn-save{
+    background:#1976D2;
+    color:white;
+    border:none;
+    padding:13px 40px;
+    border-radius:10px;
+    font-size:18px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.btn-save:hover{
+    background:#0F4C81;
+    transform:translateY(-2px);
+}
+.report-table tbody tr:nth-child(even){
+    background:#f8fbff;
+}
+
+.report-table tbody tr:hover{
+    background:#eaf4ff;
+}
+.patient-card{
+    background:#fafcff;
+}

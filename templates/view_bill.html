@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Bill Receipt</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/view_bill.css') }}">
+
+</head>
+
+<body>
+
+<div class="bill-container">
+
+    <div class="top-buttons">
+
+        <button onclick="window.print()">
+            🖨 Print
+        </button>
+
+        <a href="{{ url_for('billing') }}">
+            <button>
+                ← Back
+            </button>
+        </a>
+
+        <!-- PDF button (we'll connect later) -->
+        
+
+    </div>
+
+    <div class="bill">
+
+        <h2>Bill Receipt</h2>
+
+        <div class="patient-details">
+
+            <div class="left">
+
+                <p><strong>Patient Name :</strong> {{ bill[2] }}</p>
+
+                <p><strong>Age / Gender :</strong>
+                    {{ bill[3] }} Years /
+                    {{ bill[4] }}
+                </p>
+
+                <p><strong>Referral Name :</strong>
+                    {{ bill[5] }}
+                </p>
+
+            </div>
+
+            <div class="right">
+
+                <p><strong>Lab Name :</strong><br>
+                    NIDAN PATHOLOGY LAB &
+                    DIAGNOSTICS
+                </p>
+
+                <p><strong>Pt. ID / Sp. ID :</strong>
+
+                    {{ bill[1] }}
+
+                </p>
+
+                <p><strong>Bill Date :</strong>
+
+                    {{ bill[11].strftime('%d/%m/%Y') if bill[11] else '' }}
+                </p>
+
+            </div>
+
+        </div>
+
+        <hr>
+
+        <table class="bill-table">
+
+            <thead>
+
+            <tr>
+
+                <th width="10%">Sr. No</th>
+
+                <th width="70%">Test Name</th>
+
+                <th width="20%">Price</th>
+
+            </tr>
+
+            </thead>
+
+            <tbody>
+
+            {% for test in tests %}
+
+            <tr>
+
+                <td>{{ loop.index }}</td>
+
+                <td>{{ test[0] }}</td>
+
+                <td>{{ "%.2f"|format(test[1]) }}</td>
+
+            </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+        <hr>
+
+        <table class="total-table">
+
+            <tr>
+
+                <td class="label">Total</td>
+
+                <td>{{ "%.2f"|format(bill[6]) }}</td>
+
+            </tr>
+
+            <tr>
+
+                <td class="label">
+
+                    Total Payable Amount :
+
+                </td>
+
+                <td>
+
+                    {{ "%.2f"|format(bill[7]) }}
+
+                </td>
+
+            </tr>
+
+            {% if bill[10]=="Paid" %}
+
+            <tr>
+
+                <td class="label">
+
+                    Total Paid :
+
+                </td>
+
+                <td>
+
+                    {{ "%.2f"|format(bill[6]) }}
+
+                </td>
+
+            </tr>
+
+            <tr>
+
+                <td class="label">
+
+                    Due Amount :
+
+                </td>
+
+                <td>
+
+                   {{ "%.2f"|format(bill[8]) }}
+
+                </td>
+
+            </tr>
+
+            {% else %}
+
+            <tr>
+
+                <td class="label">
+
+                    Total Paid :
+
+                </td>
+
+                <td>
+
+                   {{ "%.2f"|format(bill[7]) }}
+
+                </td>
+
+            </tr>
+
+            <tr>
+
+                <td class="label">
+
+                    Due Amount :
+
+                </td>
+
+                <td>
+
+                   {{ "%.2f"|format(bill[8]) }}
+                </td>
+
+            </tr>
+
+            {% endif %}
+
+        </table>
+
+        <hr>
+
+        <div class="footer">
+
+            <div class="thank">
+
+                <strong>**Thank You**</strong>
+
+            </div>
+
+            <div class="well">
+
+                <strong>** Get Well Soon **</strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>

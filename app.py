@@ -3376,7 +3376,7 @@ def inject_lab_settings():
         return dict(lab_settings=None)
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(buffered=True)
 
     try:
         cursor.execute("""

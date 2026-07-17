@@ -1,21 +1,44 @@
-from flask import Flask, render_template, request, redirect,url_for, flash
+import os
+from dotenv import load_dotenv
+
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 import mysql.connector
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from decimal import Decimal
-import os
 from werkzeug.utils import secure_filename
 from flask_bcrypt import Bcrypt
-from flask import session
 from functools import wraps
+
+print("=" * 50)
+print("APP.PY LOADED")
+print("=" * 50)
+print("APP STARTED")
+
+# Load .env file
+load_dotenv()
 print("=" * 50)
 print("APP.PY LOADED")
 print("=" * 50)
 
 print("APP STARTED")
 
+load_dotenv()
+
+# Test if .env is loaded
+print("DB_HOST:", os.getenv("DB_HOST"))
+print("DB_NAME:", os.getenv("DB_NAME"))
+
 app = Flask(__name__)
-app.secret_key = "CHANGE_THIS_TO_A_RANDOM_SECRET_KEY_2026"
+app.secret_key = os.getenv("SECRET_KEY")
+
+bcrypt = Bcrypt(app)
+
+app = Flask(__name__)
+
+# Read SECRET_KEY from .env
+app.secret_key = os.getenv("SECRET_KEY")
+
 bcrypt = Bcrypt(app)
 def login_required(f):
     @wraps(f)
@@ -48,11 +71,13 @@ def role_required(*roles):
 
 def get_db():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="Aditya@2264",
-        database="smart_lab"
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME")
     )
+    
+    
 
 UPLOAD_LOGO = "static/uploads/logo"
 UPLOAD_SIGNATURE = "static/uploads/signature"

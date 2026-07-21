@@ -130,3 +130,15 @@ tr:hover{
 
     background:#6d28d9;
 }
+.btn.delete{
+    background:#dc3545;
+    color:white;
+}
+
+.btn.delete:hover{
+    background:#bb2d3b;
+}
+
+.btn.delete i{
+    margin-right:6px;
+}

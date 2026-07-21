@@ -1,0 +1,5 @@
+HOST = "127.0.0.1"
+PORT = 5001
+
+MACHINE_ID = "SIM-CBC-001"
+MACHINE_NAME = "Virtual CBC Analyzer"

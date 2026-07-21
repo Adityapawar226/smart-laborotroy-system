@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Smart Laboratory Management System</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- CSS -->
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/landing.css') }}">
+
+</head>
+
+<body>
+
+    <!-- Scroll Progress -->
+    <div id="progress-bar"></div>
+
+    <!-- Navbar -->
+    <header class="navbar">
+
+        <div class="logo">
+
+            <i class="fa-solid fa-flask"></i>
+
+            Smart Lab
+
+        </div>
+
+        <nav>
+
+            <a href="#home">Home</a>
+            <a href="#about">About</a>
+            <a href="#features">Features</a>
+            <a href="#contact">Contact</a>
+
+        </nav>
+
+        <a href="/login" class="login-btn">
+
+            Login
+
+        </a>
+
+    </header>
+
+    <!-- Hero -->
+    <section class="hero" id="home">
+
+        <div class="hero-left">
+
+            <h1>
+                Smart Laboratory
+                Management System
+            </h1>
+
+            <p>
+
+                A modern laboratory automation platform for patient registration,
+                billing, reports, security, analytics and future machine integration.
+
+            </p>
+
+            <div class="hero-buttons">
+
+                <a href="/login" class="primary-btn">
+
+                    Login
+
+                </a>
+
+                <a href="#about" class="secondary-btn">
+
+                    Learn More
+
+                </a>
+
+            </div>
+
+        </div>
+
+        <div class="hero-right">
+
+            <img src="{{ url_for('static', filename='images/dashboard.png') }}"
+                alt="Dashboard">
+
+        </div>
+
+    </section>
+
+    <!-- JS -->
+
+    <script src="{{ url_for('static', filename='js/landing.js') }}"></script>
+
+</body>
+
+</html>

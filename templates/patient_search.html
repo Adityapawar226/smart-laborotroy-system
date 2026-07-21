@@ -76,6 +76,20 @@
                    class="btn report">
                     Report
                 </a>
+                {% if session.role == "Developer" or session.role == "Admin" %}
+
+<form action="{{ url_for('delete_patient', patient_id=patient[0]) }}"
+      method="POST"
+      style="display:inline;"
+      onsubmit="return confirm('Delete this patient permanently?\n\nAll reports, payments, commissions and records will also be deleted.');">
+
+    <button class="btn delete">
+        <i class="fas fa-trash"></i> Delete
+    </button>
+
+</form>
+
+{% endif %}
                
                
 

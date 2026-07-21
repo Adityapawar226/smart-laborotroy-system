@@ -282,6 +282,92 @@
                         </div>
 
                     </div>
+                </div>
+                    <!-- ========================================= -->
+<!-- USER ACCESS MANAGEMENT -->
+<!-- ========================================= -->
+
+<div class="card mt-4">
+
+    <div class="card-header bg-dark text-white">
+        <h4><i class="bi bi-people-fill"></i> User Access Management</h4>
+    </div>
+
+    <div class="card-body">
+        <h4>Total Users : {{ users|length }}</h4>
+
+        {% for user in users %}
+
+        <form action="{{ url_for('update_user_access') }}" method="POST">
+
+            <input type="hidden" name="role" value="{{ user.role }}">
+
+            <div class="row">
+
+                <div class="col-md-3">
+                    <label><strong>{{ user.role }} Username</strong></label>
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="username"
+                        value="{{ user.username }}"
+                        required>
+                </div>
+
+                <div class="col-md-3">
+                    <label>New Password</label>
+                    <input
+                        type="password"
+                        class="form-control"
+                        name="password"
+                        placeholder="Leave blank to keep old password">
+                </div>
+
+                <div class="col-md-2">
+                    <label>Status</label>
+
+                    <select
+                        class="form-control"
+                        name="status">
+
+                        <option
+                            value="Active"
+                            {% if user.status=="Active" %}selected{% endif %}>
+                            Active
+                        </option>
+
+                        <option
+                            value="Inactive"
+                            {% if user.status=="Inactive" %}selected{% endif %}>
+                            Inactive
+                        </option>
+
+                    </select>
+                </div>
+
+                <div class="col-md-2 d-flex align-items-end">
+
+                    <button
+                        class="btn btn-primary w-100"
+                        type="submit">
+
+                        Update
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </form>
+
+        <hr>
+
+        {% endfor %}
+
+    </div>
+
+
 
                 </div>
 
@@ -289,23 +375,20 @@
                 <!-- Save Button -->
                 <!-- ====================== -->
 
-                <div class="text-center mb-3">
+               <div class="text-center mb-3">
+    <button type="submit" class="btn btn-success btn-lg px-5">
+        <i class="fas fa-save"></i>
+        Save Settings
+    </button>
+</div>
 
-                    <button type="submit" class="btn btn-success btn-lg px-5">
+</form>
+            
 
-                        <i class="fas fa-save"></i>
-
-                        Save Settings
-
-                    </button>
-
-                </div>
-
-            </form>
-
-        </div>
+        
 
     </div>
+
 
 </div>
 

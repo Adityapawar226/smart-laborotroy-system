@@ -57,18 +57,22 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
 
+            print("=" * 50)
+            print("Current Role :", session.get("role"))
+            print("Allowed Roles:", roles)
+            print("=" * 50)
+
             if "user_id" not in session:
                 return redirect(url_for("login"))
 
             if session.get("role") not in roles:
-                return "403 Forbidden - You don't have permission to access this page.", 403
+                return "403 Forbidden", 403
 
             return f(*args, **kwargs)
 
         return decorated_function
 
     return decorator
-
 def get_db():
     return mysql.connector.connect(
         host=os.getenv("DB_HOST"),
@@ -94,6 +98,10 @@ os.makedirs(UPLOAD_STAMP, exist_ok=True)
 
 
 
+# ------------------------------------
+# Landing Page
+# ------------------------------------
+
 
 
 
@@ -108,34 +116,71 @@ def login():
         if request.method == "POST":
 
             lab_id = request.form["lab_id"].strip().upper()
-            username = request.form["username"].strip()
+            username = request.form["username"].strip().lower()
             password = request.form["password"]
+
+            # ------------------------------------------------
+            # STEP 1 : Verify User Login
+            # ------------------------------------------------
 
             cursor.execute("""
                 SELECT *
-                FROM laboratories
+                FROM users
                 WHERE lab_id=%s
                 AND username=%s
                 AND status='Active'
             """, (lab_id, username))
 
+            user = cursor.fetchone()
+
+            if not user:
+                flash("Invalid Lab ID, Username or Password", "danger")
+                return redirect(url_for("login"))
+
+            if not bcrypt.check_password_hash(user["password"], password):
+                flash("Invalid Lab ID, Username or Password", "danger")
+                return redirect(url_for("login"))
+
+            # ------------------------------------------------
+            # STEP 2 : Load Laboratory Information
+            # ------------------------------------------------
+
+            cursor.execute("""
+                SELECT *
+                FROM laboratories
+                WHERE lab_id=%s
+                AND status='Active'
+            """, (lab_id,))
+
             lab = cursor.fetchone()
 
-            if lab and bcrypt.check_password_hash(lab["password"], password):
+            if not lab:
+                flash("Laboratory not found.", "danger")
+                return redirect(url_for("login"))
 
-                session.clear()
+            # ------------------------------------------------
+            # STEP 3 : Create Session
+            # ------------------------------------------------
 
-                session["lab_id"] = lab["lab_id"]
-                session["lab_name"] = lab["lab_name"]
-                session["owner_name"] = lab["owner_name"]
-                session["username"] = lab["username"]
-                session["user_id"] = lab["id"]
-                session["role"] = lab["role"]
+            session.clear()
 
-                return redirect(url_for("dashboard"))
+            # User Information
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["role"] = user["role"]
 
-            flash("Invalid Lab ID, Username or Password", "danger")
-            return redirect(url_for("login"))
+            # Laboratory Information
+            session["lab_id"] = lab["lab_id"]
+            session["lab_name"] = lab["lab_name"]
+            session["owner_name"] = lab["owner_name"]
+            
+            print("=" * 50)
+            print("USERNAME :", session["username"])
+            print("ROLE     :", session["role"])
+            print("LAB ID   :", session["lab_id"])
+            print("=" * 50)
+
+            return redirect(url_for("dashboard"))
 
         return render_template("login.html")
 
@@ -662,9 +707,9 @@ WHERE lab_id=%s
 
         next_no = cursor.fetchone()[0] + 1
 
-        current_year = datetime.now().year
+        year = datetime.now().year
 
-        patient_id = f"{lab_id}-{patient_prefix}-{current_year}-{next_no:04d}"
+        patient_id = f"PAT-{year}-{next_no:04d}"
 
         # -------------------------------
         # Save Patient
@@ -826,7 +871,7 @@ LIMIT 1
 
         current_year = datetime.now().year
 
-        receipt_no = f"{lab_id}-{receipt_prefix}-{current_year}-{payment_id:04d}"
+        receipt_no = f"RCPT-{current_year}-{next_no:04d}"
 
         cursor.execute("""
 UPDATE payments
@@ -3126,7 +3171,7 @@ def payment_entries():
 def payment_details(receipt_no):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor(dictionary=True, buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -3224,12 +3269,17 @@ def payment_details(receipt_no):
 
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
-@role_required("Admin", "Developer")
+@role_required("Developer", "Admin")
 def settings():
+
+    print("METHOD =", request.method)
 
     db = get_db()
     cursor = db.cursor(dictionary=True, buffered=True)
     lab_id = session["lab_id"]
+    print("=" * 50)
+    print("Session Lab ID:", session["lab_id"])
+    print("=" * 50)
 
     try:
 
@@ -3298,8 +3348,11 @@ def settings():
             )
 
             if existing:
-
-                cursor.execute("""
+             print("EXISTING =", existing)
+             print("LAB ID =", lab_id)
+             print("Receipt =", request.form["receipt_prefix"])
+             print("Patient =", request.form["patient_prefix"])
+             cursor.execute("""
                 UPDATE lab_settings SET
 
                     lab_name=%s,
@@ -3368,8 +3421,16 @@ def settings():
                     signature_name,
                     stamp_name
                 ))
+                print("Rows Updated:", cursor.rowcount)
 
             db.commit()
+            cursor.execute("""
+SELECT receipt_prefix, patient_prefix
+FROM lab_settings
+WHERE lab_id=%s
+""", (lab_id,))
+
+            print(cursor.fetchone())
 
             return redirect(url_for("settings"))
 
@@ -3381,11 +3442,24 @@ def settings():
         """, (lab_id,))
 
         settings = cursor.fetchone()
+        print("=" * 60)
+        print("SETTINGS DATA:")
+        print(settings)
+        print("=" * 60)
+        cursor.execute("""
+SELECT username, role, status
+FROM users
+WHERE lab_id=%s
+ORDER BY role
+""", (session["lab_id"],))
 
+        users = cursor.fetchall()
+        
         return render_template(
-            "settings.html",
-            settings=settings
-        )
+    "settings.html",
+    settings=settings,
+    users=users
+)
 
     except Exception:
         db.rollback()
@@ -3418,6 +3492,185 @@ def inject_lab_settings():
     finally:
         cursor.close()
         db.close()
+@app.route("/update-user-access", methods=["POST"])
+@login_required
+@role_required("Admin")
+def update_user_access():
+
+    db = get_db()
+    cursor = db.cursor()
+
+    try:
+
+        username = request.form["username"].strip().lower()
+        password = request.form["password"]
+        role = request.form["role"]
+        status = request.form["status"]
+
+        if password:
+
+            hashed = bcrypt.generate_password_hash(password).decode("utf-8")
+
+            cursor.execute("""
+                UPDATE users
+                SET
+                    username=%s,
+                    password=%s,
+                    status=%s
+                WHERE
+                    lab_id=%s
+                    AND role=%s
+            """, (
+                username,
+                hashed,
+                status,
+                session["lab_id"],
+                role
+            ))
+
+        else:
+
+            cursor.execute("""
+                UPDATE users
+                SET
+                    username=%s,
+                    status=%s
+                WHERE
+                    lab_id=%s
+                    AND role=%s
+            """, (
+                username,
+                status,
+                session["lab_id"],
+                role
+            ))
+
+        db.commit()
+
+        flash(f"{role} account updated successfully.", "success")
+
+    except Exception as e:
+
+        db.rollback()
+        flash(str(e), "danger")
+
+    finally:
+
+        cursor.close()
+        db.close()
+
+    return redirect(url_for("settings"))
+@app.route("/delete-patient/<patient_id>", methods=["POST"])
+@login_required
+@role_required("Developer", "Admin")
+def delete_patient(patient_id):
+
+    db = get_db()
+    cursor = db.cursor(buffered=True)
+
+    lab_id = session["lab_id"]
+    print("Delete route called")
+    print(patient_id)
+    print(lab_id)
+
+    try:
+        db.start_transaction()
+
+        # Patient Exists?
+        cursor.execute("""
+            SELECT patient_id
+            FROM patients
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+
+        if cursor.fetchone() is None:
+            flash("Patient not found.", "danger")
+            return redirect(url_for("patient_search"))
+
+        # -------------------------
+        # Delete Child Records
+        # -------------------------
+
+       
+
+        cursor.execute("""
+            DELETE FROM test_results
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted test_results")
+
+        cursor.execute("""
+            DELETE FROM reports
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted report")
+
+        cursor.execute("""
+            DELETE FROM patient_tests
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted Patient_test")
+
+        cursor.execute("""
+            DELETE FROM payment_transactions
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted payment_transation")
+
+        cursor.execute("""
+            DELETE FROM pending_payments
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted pending_payment")
+
+        cursor.execute("""
+            DELETE FROM payments
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted payments")
+
+
+        # -------------------------
+        # Delete Patient
+        # -------------------------
+
+        cursor.execute("""
+            DELETE FROM patients
+            WHERE patient_id=%s
+            AND lab_id=%s
+        """, (patient_id, lab_id))
+        print("Deleted patients")
+
+        db.commit()
+
+        flash("Patient deleted successfully.", "success")
+
+    except Exception as e:
+     db.rollback()
+
+     print("="*60)
+     print("DELETE ERROR")
+     print(e)
+
+     import traceback
+     traceback.print_exc()
+     print("="*60)
+
+     flash(str(e), "danger")
+
+    finally:
+
+        cursor.close()
+        db.close()
+
+    return redirect(url_for("patient_search"))
 
 if __name__ == "__main__":
     print("APP STARTED")

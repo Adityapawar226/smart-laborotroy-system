@@ -1,25 +1,29 @@
+import os
+from dotenv import load_dotenv
+
 import mysql.connector
 from flask_bcrypt import Bcrypt
 from flask import Flask
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 bcrypt = Bcrypt(app)
 
 db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Aditya@2264",
-    database="smart_lab"
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    database=os.getenv("DB_NAME")
 )
 
 cursor = db.cursor()
 
 cursor.execute("SELECT id, password FROM users")
-
 users = cursor.fetchall()
 
 for user in users:
-
     user_id = user[0]
     plain_password = user[1]
 
@@ -37,5 +41,8 @@ for user in users:
     )
 
 db.commit()
+
+cursor.close()
+db.close()
 
 print("All passwords converted successfully!")

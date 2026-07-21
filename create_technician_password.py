@@ -1,11 +1,9 @@
 import os
 from dotenv import load_dotenv
-
 from flask import Flask
 from flask_bcrypt import Bcrypt
 import mysql.connector
 
-# Load .env
 load_dotenv()
 
 app = Flask(__name__)
@@ -20,16 +18,17 @@ db = mysql.connector.connect(
 
 cursor = db.cursor()
 
-new_password = bcrypt.generate_password_hash("admin123").decode("utf-8")
+hashed = bcrypt.generate_password_hash("Tech123@").decode("utf-8")
 
-cursor.execute(
-    "UPDATE users SET password=%s WHERE username=%s",
-    (new_password, "admin")
-)
+cursor.execute("""
+UPDATE users
+SET password=%s
+WHERE username='technician'
+""", (hashed,))
 
 db.commit()
 
 cursor.close()
 db.close()
 
-print("Admin password reset successfully!")
+print("Technician password created successfully.")

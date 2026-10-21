@@ -59,14 +59,23 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 import bcrypt
 import smtplib
+import logging
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+logger.info("DIAGNOSTIC: app.py imports started")
 from email.message import EmailMessage
 
 
 
 load_dotenv()
 
+logger.info("DIAGNOSTIC: Creating Flask application")
+
 app = Flask(__name__)
+
+logger.info("DIAGNOSTIC: Flask application created")
 app.register_blueprint(analyzer_management_bp)
 
 bcrypt = Bcrypt(app)

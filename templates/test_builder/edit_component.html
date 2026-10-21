@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}
+Edit Component
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <button type="button" class="back-btn" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+    <h2>Edit Component</h2>
+    <hr>
+
+    <form method="POST">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Component Name</label>
+            <input type="text" name="component_name" value="{{ component.component_name }}" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Component Type</label>
+            <select name="component_type" class="form-select" required>
+                <option value="parameter" {% if component.component_type in ['parameter', 'Parameter Table'] %}selected{% endif %}>Parameter Table</option>
+                <option value="heading" {% if component.component_type in ['heading', 'Heading'] %}selected{% endif %}>Heading</option>
+                <option value="paragraph" {% if component.component_type in ['paragraph', 'Paragraph'] %}selected{% endif %}>Paragraph</option>
+                <option value="formula" {% if component.component_type in ['formula', 'Formula'] %}selected{% endif %}>Formula</option>
+                <option value="image" {% if component.component_type in ['image', 'Image'] %}selected{% endif %}>Image</option>
+                <option value="interpretation" {% if component.component_type in ['interpretation', 'Interpretation'] %}selected{% endif %}>Interpretation</option>
+            </select>
+        </div>
+
+        <!-- Content Area for text-based types -->
+        <div class="mb-3">
+            <label class="form-label fw-bold">Component Content / Text</label>
+            <textarea class="form-control" name="component_content" rows="3" placeholder="Enter text content here...">{{ component.component_content }}</textarea>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Display Order</label>
+            <input type="number" name="display_order" value="{{ component.display_order }}" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">Update Component</button>
+        <a href="{{ url_for('test_builder.component_list', section_id=component.section_id) }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+{% endblock %}

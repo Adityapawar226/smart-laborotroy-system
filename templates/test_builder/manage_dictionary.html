@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Dictionary{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>
+
+        {{ dictionary.dictionary_name }}
+
+    </h2>
+
+    <p>
+
+        {{ dictionary.description }}
+
+    </p>
+
+    <hr>
+
+    <form method="POST" class="row g-3">
+
+        <div class="col-md-10">
+
+            <input
+                type="text"
+                class="form-control"
+                name="value_text"
+                placeholder="Enter dictionary value..."
+                required>
+
+        </div>
+
+        <div class="col-md-2">
+
+            <button class="btn btn-success w-100">
+
+                Add
+
+            </button>
+
+        </div>
+
+    </form>
+
+    <br>
+
+    <table class="table table-bordered">
+
+        <thead class="table-light">
+
+        <tr>
+
+            <th width="80">
+
+                ID
+
+            </th>
+
+            <th>
+
+                Dictionary Value
+
+            </th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for value in values %}
+
+        <tr>
+
+            <td>
+
+                {{ value.id }}
+
+            </td>
+
+            <td>
+
+                {{ value.value_text }}
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

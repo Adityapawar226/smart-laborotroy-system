@@ -8,22 +8,135 @@
         href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
         rel="stylesheet">
 
+    <style>
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 12mm;
+            }
+
+            body {
+                background: #fff !important;
+                font-size: 11px;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .container-fluid {
+                width: 100% !important;
+                padding: 0 !important;
+            }
+
+            .card {
+                border: 1px solid #ddd !important;
+                box-shadow: none !important;
+            }
+
+            table {
+                width: 100% !important;
+                font-size: 10px !important;
+            }
+
+            thead {
+                display: table-header-group;
+            }
+
+            tr {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            h2 {
+                margin-top: 0 !important;
+            }
+        }
+    </style>
+
 </head>
 
 <body>
 
 <div class="container-fluid px-4 py-4">
 
-    <a href="/expenses"
-       class="btn btn-secondary mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+        <a href="{{ url_for('expenses') }}"
+           class="btn btn-secondary">
+            ← Back
+        </a>
 
-        ← Back
+        <button type="button"
+                class="btn btn-primary"
+                onclick="window.print()">
+            🖨 Print
+        </button>
+    </div>
 
-    </a>
+    <div class="d-flex justify-content-between align-items-center">
+        <h2 class="mb-0">{{ doctor_name }}</h2>
 
-    <h2>{{ doctor_name }}</h2>
+        {% if from_date or to_date %}
+            <span class="badge bg-info text-dark">
+                Filter:
+                {{ from_date if from_date else 'Beginning' }}
+                to
+                {{ to_date if to_date else 'Today' }}
+            </span>
+        {% else %}
+            <span class="badge bg-secondary">
+                All Dates
+            </span>
+        {% endif %}
+    </div>
 
     <hr>
+
+    <div class="card mb-4 no-print">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Filter Patients</h5>
+        </div>
+
+        <div class="card-body">
+            <form method="GET"
+                  action="{{ url_for('doctor_patients', doctor_id=doctor_id) }}">
+
+                <div class="row g-3 align-items-end">
+
+                    <div class="col-md-4">
+                        <label class="form-label">From Date</label>
+                        <input type="date"
+                               name="from_date"
+                               class="form-control"
+                               value="{{ from_date }}">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">To Date</label>
+                        <input type="date"
+                               name="to_date"
+                               class="form-control"
+                               value="{{ to_date }}">
+                    </div>
+
+                    <div class="col-md-2">
+                        <button type="submit"
+                                class="btn btn-primary w-100">
+                            Search
+                        </button>
+                    </div>
+
+                    <div class="col-md-2">
+                        <a href="{{ url_for('doctor_patients', doctor_id=doctor_id) }}"
+                           class="btn btn-secondary w-100">
+                            Reset
+                        </a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="row mb-4">
 
@@ -91,6 +204,18 @@
 
         </div>
 
+    </div>
+
+    <div class="mb-2 print-report-title">
+        <strong>Patient Visit Report</strong>
+        {% if from_date or to_date %}
+            <span>
+                | Date Range:
+                {{ from_date if from_date else 'Beginning' }}
+                to
+                {{ to_date if to_date else 'Today' }}
+            </span>
+        {% endif %}
     </div>
 
     <table class="table table-bordered table-hover">

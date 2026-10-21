@@ -1,110 +1,460 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
+{% block title %}Patient Search | Smart Lab{% endblock %}
 
-<head>
-    <meta charset="UTF-8">
-    <title>Patient Search</title>
+{% block extra_css %}
+<style>
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/patient_search.css') }}">
+:root {
+    --ps-primary: #3068f5;
+    --ps-primary-dark: #204fd0;
+    --ps-background: #f3f6fc;
+    --ps-text: #172b4d;
+    --ps-muted: #71819b;
+    --ps-border: #e5ebf4;
+    --ps-green: #13a467;
+    --ps-purple: #8050ef;
+    --ps-red: #e9434d;
+}
+.patient-search-page {
+    padding: 24px;
+    color: var(--ps-text);
+}
+.patient-search-page * { box-sizing: border-box; }
+.patient-search-page button,
+.patient-search-page input { font: inherit; }
+.patient-search-page .page-heading {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; margin-bottom: 24px;
+}
+.patient-search-page .page-heading h1 {
+    margin: 0 0 8px; font-size: 29px; font-weight: 750; letter-spacing: -.5px;
+}
+.patient-search-page .page-heading p {
+    margin: 0; color: var(--ps-muted); font-size: 14px;
+}
+.patient-search-page .patient-count {
+    white-space: nowrap; padding: 12px 17px; border-radius: 12px;
+    background: #e8efff; color: var(--ps-primary-dark); font-weight: 700; font-size: 13px;
+}
+.patient-search-page .card {
+    background: #fff; border: 1px solid var(--ps-border); border-radius: 18px;
+    box-shadow: 0 8px 30px rgba(22,48,92,.055); overflow: hidden;
+}
+.patient-search-page .card-header { padding: 25px 25px 20px; }
+.patient-search-page .card-title-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 15px; margin-bottom: 8px;
+}
+.patient-search-page .card-title { margin: 0; font-size: 20px; font-weight: 750; }
+.patient-search-page .card-subtitle { margin: 0 0 20px; color: var(--ps-muted); font-size: 13px; }
+.patient-search-page .search-row { display: flex; align-items: center; gap: 12px; }
+.patient-search-page .search-box {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px;
+    height: 54px; padding: 0 16px; border: 1px solid #dbe4f1; border-radius: 12px;
+    background: #fff; transition: border-color .2s, box-shadow .2s;
+}
+.patient-search-page .search-box:focus-within {
+    border-color: var(--ps-primary); box-shadow: 0 0 0 4px rgba(48,104,245,.10);
+}
+.patient-search-page .search-icon { font-size: 20px; color: #7185a5; }
+.patient-search-page .search-box input {
+    flex: 1; min-width: 0; height: 100%; outline: none; border: 0;
+    background: transparent; color: var(--ps-text); font-size: 14px;
+}
+.patient-search-page .search-box input::placeholder { color: #94a3b8; }
+.patient-search-page .clear-button {
+    display: none; align-items: center; justify-content: center; width: 30px; height: 30px;
+    border: 0; border-radius: 8px; background: #eef3fc; color: #536784;
+    cursor: pointer; font-size: 18px;
+}
+.patient-search-page .clear-button.visible { display: flex; }
+.patient-search-page .search-status {
+    display: flex; justify-content: space-between; gap: 12px; margin-top: 13px;
+    color: var(--ps-muted); font-size: 12px;
+}
+.patient-search-page .live-indicator { display: inline-flex; align-items: center; gap: 7px; }
+.patient-search-page .live-dot {
+    width: 8px; height: 8px; background: #12b981; border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(18,185,129,.12);
+}
+.patient-search-page .table-wrapper { width: 100%; overflow-x: auto; border-top: 1px solid var(--ps-border); }
+.patient-search-page table { width: 100%; border-collapse: collapse; text-align: left; white-space: nowrap; }
+.patient-search-page thead { background: #f2f5fb; }
+.patient-search-page th {
+    padding: 17px 19px; color: #41516c; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .65px; font-weight: 800;
+}
+.patient-search-page td {
+    padding: 16px 19px; border-top: 1px solid #edf1f7; font-size: 13px; vertical-align: middle;
+}
+.patient-search-page tbody tr { transition: background .15s ease; }
+.patient-search-page tbody tr:hover { background: #f8faff; }
+.patient-search-page .patient-id { color: var(--ps-primary); font-weight: 750; }
+.patient-search-page .patient-name { font-weight: 700; color: #172b4d; }
+.patient-search-page .gender-badge {
+    display: inline-flex; padding: 5px 10px; border-radius: 8px;
+    background: #eef3fc; color: #526581; font-size: 12px;
+}
+.patient-search-page .actions { display: flex; align-items: center; gap: 7px; }
+.patient-search-page .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 12px; border: 0; border-radius: 9px; color: #fff;
+    text-decoration: none; font-size: 12px; font-weight: 700; cursor: pointer;
+    transition: transform .15s, filter .15s;
+}
+.patient-search-page .btn:hover { filter: brightness(.95); transform: translateY(-1px); color: #fff; }
+.patient-search-page .btn-bill { background: var(--ps-green); }
+.patient-search-page .btn-report { background: var(--ps-purple); }
+.patient-search-page .btn-delete { background: var(--ps-red); }
+.patient-search-page .empty-state {
+    padding: 55px 20px; text-align: center; color: var(--ps-muted); white-space: normal;
+}
+.patient-search-page .empty-icon { display: block; font-size: 38px; margin-bottom: 12px; }
+.patient-search-page .empty-state strong {
+    display: block; margin-bottom: 7px; color: #334765; font-size: 16px;
+}
+.patient-search-page .empty-state p { margin: 0; font-size: 13px; }
+.patient-search-page .table-footer {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 16px 25px; border-top: 1px solid var(--ps-border);
+    color: var(--ps-muted); font-size: 12px;
+}
+.patient-search-page .loading { opacity: .55; pointer-events: none; }
+.patient-search-page .error-message { color: #d92d3a; }
+@media (max-width: 760px) {
+    .patient-search-page { padding: 17px 12px; }
+    .patient-search-page .page-heading { align-items: flex-start; flex-direction: column; }
+    .patient-search-page .page-heading h1 { font-size: 24px; }
+    .patient-search-page .patient-count { padding: 9px 11px; font-size: 11px; }
+    .patient-search-page .card-header { padding: 19px 15px; }
+    .patient-search-page .search-status { align-items: flex-start; flex-direction: column; }
+    .patient-search-page .table-footer { padding: 14px 15px; }
+    .patient-search-page th, .patient-search-page td { padding: 13px; }
+}
 
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-          rel="stylesheet">
-</head>
+</style>
+{% endblock %}
 
-<body>
+{% block content %}
+<section class="patient-search-page">
+    
 
-<div class="container">
+    <section class="card">
+        <div class="card-header">
+            <div class="card-title-row">
+                <h2 class="card-title">Patient Records</h2>
+            </div>
+            
 
-    <h1>Patient Search</h1>
+            <div class="search-row">
+                <label class="search-box" for="patientSearch">
+                    <span class="search-icon">⌕</span>
+                    <input
+                        type="search"
+                        id="patientSearch"
+                        placeholder="Start typing a patient ID, name, mobile number..."
+                        value="{{ search|default('', true) }}"
+                        autocomplete="off"
+                        spellcheck="false"
+                    >
+                    <button type="button" id="clearSearch" class="clear-button"
+                            aria-label="Clear search" title="Clear search">×</button>
+                </label>
+                <!-- Lab name shown only in the printed PDF -->
 
-    <form method="GET" action="/patient-search" class="search-box">
-
-        <input
-            type="text"
-            name="search"
-            placeholder="Search Patient ID / Name / Mobile"
-            value="{{ search }}">
-
-        <button type="submit">
-            <i class="fas fa-search"></i>
-            Search
-        </button>
-
-    </form>
-
-
-    <table>
-
-        <thead>
-
-        <tr>
-
-            <th>Patient ID</th>
-            <th>Name</th>
-            <th>Age</th>
-            <th>Gender</th>
-            <th>Mobile</th>
-            <th>Doctor</th>
-            <th>Actions</th>
-
-        </tr>
-
-        </thead>
-
-        <tbody>
-
-        {% for patient in patients %}
-
-        <tr>
-
-            <td>{{ patient[0] }}</td>
-            <td>{{ patient[1] }}</td>
-            <td>{{ patient[2] }}</td>
-            <td>{{ patient[3] }}</td>
-            <td>{{ patient[4] }}</td>
-            <td>{{ patient[5] }}</td>
-
-            <td>
-
-                <a href="/view-bill/{{ patient[0] }}"
-                   class="btn bill">
-                    Bill
-                </a>
-
-                <a href="/view-report/{{ patient[0] }}"
-                   class="btn report">
-                    Report
-                </a>
-                {% if session.role == "Developer" or session.role == "Admin" %}
-
-<form action="{{ url_for('delete_patient', patient_id=patient[0]) }}"
-      method="POST"
-      style="display:inline;"
-      onsubmit="return confirm('Delete this patient permanently?\n\nAll reports, payments, commissions and records will also be deleted.');">
-
-    <button class="btn delete">
-        <i class="fas fa-trash"></i> Delete
+                <div class="print-toolbar">
+    <button type="button" onclick="window.print()" class="print-button">
+        🖨️ Print
     </button>
-
-</form>
-
-{% endif %}
-               
-               
-
-            </td>
-
-        </tr>
-
-        {% endfor %}
-
-        </tbody>
-
-    </table>
-
 </div>
+<!-- Visible only in the PDF -->
+<div class="print-header">
+    <h1>{{ lab_settings.lab_name if lab_settings and lab_settings.lab_name else 'Aarogyam' }}</h1>
+    
+    <p>Printed on: <span id="printDate"></span></p>
+</div>
+<style>
+.print-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+}
 
-</body>
+.print-button {
+    padding: 10px 18px;
+    background: #3068f5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
 
-</html>
+.print-button:hover {
+    background: #204fd0;
+}
+
+@media print {
+    .print-toolbar {
+        display: none !important;
+    }
+    
+    
+}
+/* Normal webpage */
+.print-header {
+    display: none !important;
+}
+
+/* Print/PDF only */
+@media print {
+    .print-header {
+        display: block !important;
+        text-align: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #222;
+    }
+
+    .print-header h1 {
+        font-size: 24px;
+        margin: 0 0 5px;
+    }
+
+    .print-header h2 {
+        font-size: 18px;
+        margin: 0 0 5px;
+    }
+
+    .print-header p {
+        font-size: 12px;
+        margin: 0;
+    }
+
+    .print-toolbar {
+        display: none !important;
+    }
+
+    .card-subtitle {
+        display: none !important;
+    }
+}
+</style>
+                <div class="page-heading">
+        <div class="patient-count">
+            👥 <span id="patientCount">{{ patients|length }}</span> Patients
+        </div>
+
+    </div>
+            </div>
+
+            <div class="search-status">
+                <span id="searchMessage" aria-live="polite">Showing all patient records</span>
+                
+            </div>
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient ID</th>
+                        <th>Patient Name</th>
+                        <th>Age</th>
+                        <th>Gender</th>
+                        <th>Mobile</th>
+                        <th>Doctor</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="patientTableBody">
+                {% for patient in patients %}
+                    <tr>
+                        <td><span class="patient-id">{{ patient[0] or '-' }}</span></td>
+                        <td><span class="patient-name">{{ patient[1] or '-' }}</span></td>
+                        <td>{{ patient[2] if patient[2] is not none else '-' }}</td>
+                        <td><span class="gender-badge">{{ patient[3] or '-' }}</span></td>
+                        <td>{{ patient[4] or '-' }}</td>
+                        <td>{{ patient[5] or '-' }}</td>
+                        <td>
+                            <div class="actions">
+                                <a class="btn btn-bill"
+                                   href="{{ url_for('billing', patient_id=patient[0]) }}">▤ Bill</a>
+                                <a class="btn btn-report"
+                                   href="/view-report/{{ patient[0]|urlencode }}">▣ Report</a>
+                                <button class="btn btn-delete" type="button"
+                                        data-patient-id="{{ patient[0] }}"
+                                        onclick="showDeleteNotice(this)">▤ Delete</button>
+                            </div>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <span class="empty-icon">♙</span>
+                                <strong>No patient records found</strong>
+                                <p>Patient records will appear here when available.</p>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <footer class="table-footer">
+            <span id="tableFooter">Showing {{ patients|length }} patient(s)</span>
+            <span>Smart Lab · Patient Records</span>
+        </footer>
+    </section>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(() => {
+    const searchInput = document.getElementById("patientSearch");
+    const clearButton = document.getElementById("clearSearch");
+    const tableBody = document.getElementById("patientTableBody");
+    const patientCount = document.getElementById("patientCount");
+    const searchMessage = document.getElementById("searchMessage");
+    const tableFooter = document.getElementById("tableFooter");
+    const tableWrapper = document.getElementById("tableWrapper");
+
+    let debounceTimer = null;
+    let activeController = null;
+
+    function escapeHTML(value) {
+        const element = document.createElement("span");
+        element.textContent = value == null ? "" : String(value);
+        return element.innerHTML;
+    }
+
+    function displayValue(value) {
+        return value === null || value === undefined || value === ""
+            ? "-" : escapeHTML(value);
+    }
+
+    function renderEmptyState(title, description) {
+        tableBody.innerHTML = `
+            <tr><td colspan="7">
+                <div class="empty-state">
+                    <span class="empty-icon">⌕</span>
+                    <strong>${escapeHTML(title)}</strong>
+                    <p>${escapeHTML(description)}</p>
+                </div>
+            </td></tr>`;
+        patientCount.textContent = "0";
+        tableFooter.textContent = "Showing 0 patient(s)";
+    }
+
+    function renderPatients(patients) {
+        patientCount.textContent = patients.length;
+        tableFooter.textContent = `Showing ${patients.length} patient(s)`;
+
+        if (!patients.length) {
+            renderEmptyState(
+                "No patients found",
+                "Try another patient ID, name, mobile number, or doctor."
+            );
+            return;
+        }
+
+        tableBody.innerHTML = patients.map(patient => {
+            const id = patient.patient_id ?? "";
+            const safeId = encodeURIComponent(String(id));
+            return `
+                <tr>
+                    <td><span class="patient-id">${displayValue(patient.patient_id)}</span></td>
+                    <td><span class="patient-name">${displayValue(patient.name)}</span></td>
+                    <td>${displayValue(patient.age)}</td>
+                    <td><span class="gender-badge">${displayValue(patient.gender)}</span></td>
+                    <td>${displayValue(patient.mobile)}</td>
+                    <td>${displayValue(patient.doctor_name)}</td>
+                    <td><div class="actions">
+                        <a class="btn btn-bill" href="{{ url_for('billing') }}?patient_id=${safeId}">▤ Bill</a>
+                        <a class="btn btn-report" href="/view-report/${safeId}">▣ Report</a>
+                        <button class="btn btn-delete" type="button"
+                                data-patient-id="${escapeHTML(id)}"
+                                onclick="showDeleteNotice(this)">▤ Delete</button>
+                    </div></td>
+                </tr>`;
+        }).join("");
+    }
+
+    async function performLiveSearch() {
+        const query = searchInput.value.trim();
+        clearButton.classList.toggle("visible", query.length > 0);
+
+        if (activeController) activeController.abort();
+        activeController = new AbortController();
+
+        tableWrapper.classList.add("loading");
+        searchMessage.textContent = "Searching patients...";
+
+        try {
+            const url = new URL("{{ url_for('patient_search') }}", window.location.origin);
+            url.searchParams.set("search", query);
+            url.searchParams.set("live", "1");
+
+            const response = await fetch(url.toString(), {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                signal: activeController.signal
+            });
+
+            if (!response.ok) throw new Error(`Search request failed: ${response.status}`);
+
+            const data = await response.json();
+            if (!data.success || !Array.isArray(data.patients)) {
+                throw new Error("Unexpected response from patient search.");
+            }
+
+            renderPatients(data.patients);
+            searchMessage.textContent = query
+                ? `${data.patients.length} matching patient(s) found`
+                : "Showing all patient records";
+        } catch (error) {
+            if (error.name === "AbortError") return;
+            console.error("Patient live-search error:", error);
+            searchMessage.innerHTML =
+                '<span class="error-message">Unable to load patients. Check the Flask terminal.</span>';
+            renderEmptyState(
+                "Unable to load patient records",
+                "Check the browser console and Flask terminal for the error."
+            );
+        } finally {
+            tableWrapper.classList.remove("loading");
+        }
+    }
+
+    searchInput.addEventListener("input", () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(performLiveSearch, 250);
+    });
+
+    clearButton.addEventListener("click", () => {
+        searchInput.value = "";
+        searchInput.focus();
+        clearTimeout(debounceTimer);
+        performLiveSearch();
+    });
+
+    // This is intentionally a notice only; it does not delete patient records.
+    window.showDeleteNotice = function(button) {
+        alert(
+            "Patient ID: " + button.dataset.patientId +
+            "\\n\\nThe delete action is not connected to a deletion route yet."
+        );
+    };
+
+    performLiveSearch();
+})();
+document.getElementById("printDate").textContent =
+    new Date().toLocaleString("en-IN");
+</script>
+{% endblock %}

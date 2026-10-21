@@ -1,115 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-
-
-    <title>Enter Results</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/enter_results.css') }}">
-
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter Lab Results - Smart Lab System</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
 
-<div class="main-card">
-
-    <div class="page-header">
-        <h2>🧪 Enter Laboratory Results</h2>
-    </div>
-
-    <div class="patient-card">
-
-        <div class="patient-grid">
-
-            <div>
-                <strong>Patient ID</strong><br>
-                {{ patient[0] }}
+    <div class="container my-4">
+        <!-- Top Navigation / Header Card -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card shadow-sm border-0 bg-primary text-white">
+                    <div class="card-body d-flex justify-content-between align-items-center py-3">
+                        <div>
+                            <h4 class="mb-1 fw-bold">
+                                <i class="fas fa-user-injured me-2"></i>{{ patient[2] }}
+                            </h4>
+                            <p class="mb-0 text-white-50 small">
+                                Patient ID: <span class="text-white fw-semibold">{{ patient[1] }}</span> | 
+                                Age: <span class="text-white fw-semibold">{{ patient[3] }}</span> | 
+                                Gender: <span class="text-white fw-semibold">{{ patient[4] }}</span>
+                            </p>
+                        </div>
+                        <div>
+                            <a href="{{ url_for('reports_management') }}" class="btn btn-light btn-sm fw-semibold shadow-sm">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Reports
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
-
-            <div>
-                <strong>Patient Name</strong><br>
-                {{ patient[1] }}
-            </div>
-
         </div>
 
-    </div>
+        <!-- Result Entry Form -->
+        <form method="POST">
+            {% for test in report_structure %}
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h3 class="h5 text-primary mb-0 fw-bold">
+                            <i class="fas fa-flask me-2"></i>{{ test.test_name }}
+                        </h3>
+                    </div>
+                    <div class="card-body bg-white">
+                        {% for section in test.sections %}
+                            <div class="mb-4">
+                                <h5 class="text-dark fw-bold border-bottom pb-2 mb-3">
+                                    {{ section.section_name }}
+                                </h5>
+                                {% if section.description %}
+                                    <p class="text-muted small mb-3">{{ section.description }}</p>
+                                {% endif %}
 
-    <form method="POST">
+                                {% for component in section.components %}
+                                <div class="card border mb-3 bg-light bg-opacity-25">
+                                    <div class="card-body">
+                                        
+                                        <!-- Check Component Types safely with context passed -->
+                                        {% include "includes/enter_results/component_renderer.html" with context %}
 
-    {% for test_name, params in parameters.items() %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
 
-        <div class="test-card">
-
-            <div class="test-title">
-                {{ test_name }}
+            <!-- Lab Technician Description / Additional Report Notes -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-comment-medical me-2"></i>
+                        Lab Technician Description / Additional Notes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <label for="report_description" class="form-label fw-bold">
+                        Report Description
+                    </label>
+                    <textarea
+                        id="report_description"
+                        name="report_description"
+                        class="form-control"
+                        rows="5"
+                        maxlength="3000"
+                        placeholder="Enter any additional description or notes to be included at the end of the report..."
+                    >{{ report_description|default('', true) }}</textarea>
+                    <div class="form-text">
+                        Optional. This description can be written by the lab technician and included at the end of the report.
+                    </div>
+                </div>
             </div>
 
-            <table class="report-table">
+            <!-- Report Authorization Card -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-signature me-2"></i>
+                        Report Authorization
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Primary Signatory -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">
+                                Primary Signatory
+                                <span class="text-danger">*</span>
+                            </label>
+                            <select name="primary_signatory_id" class="form-select" required>
+                                <option value="">Select Signatory</option>
+                                {% for user in signatories %}
+                                    <option value="{{ user[0] }}">{{ user[1] }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Name only. Designation will appear on the report.</small>
+                        </div>
 
-                <thead>
+                        <!-- Additional Signatory -->
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">
+                                Additional Signatory
+                                <small class="text-muted">(Optional)</small>
+                            </label>
+                            <select class="form-select" name="secondary_signatory_id">
+                                <option value="">None</option>
+                                {% for user in signatories %}
+                                    <option value="{{ user[0] }}">{{ user[1] }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Leave blank if not required.</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                    <tr>
-
-                        <th width="30%">Parameter</th>
-
-                        <th width="25%">Result</th>
-
-                        <th width="20%">Unit</th>
-
-                        <th width="25%">Reference Range</th>
-
-                    </tr>
-
-                </thead>
-
-                <tbody>
-
-                {% for p in params %}
-
-                    <tr>
-
-                        <td>{{ p[0] }}</td>
-
-                        <td>
-
-                            <input
-                                type="text"
-                                name="{{ test_name }}_{{ p[0] }}"
-                                class="result-input">
-
-                        </td>
-
-                        <td>{{ p[1] }}</td>
-
-                        <td>{{ p[2] }}</td>
-
-                    </tr>
-
-                {% endfor %}
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    {% endfor %}
-
-    <div class="btn-area">
-
-        <button type="submit" class="btn-save">
-
-            💾 Save Results
-
-        </button>
-
+            <!-- Save Action Bar -->
+            <div class="row">
+                <div class="col-md-12 text-end mb-5">
+                    <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm">
+                        <i class="fas fa-save me-2"></i>Save & Process Results
+                    </button>
+                </div>
+            </div>
+        </form>
     </div>
 
-    </form>
-
-</div>
-
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/formula_live.js') }}"></script>
+    
 </body>
 </html>

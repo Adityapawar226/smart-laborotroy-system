@@ -1,570 +1,1079 @@
-/* ==========================================================
-   LAB REPORT CSS
-   PART 1
-========================================================== */
+/* =========================================================
+   MEDILENS VIEW REPORT — CLEAN PRINT CSS
+   Matches the existing view_report.html class names.
+   A4 portrait, repeated header/footer, one test per page.
+   ========================================================= */
 
-@page{
-    size:A4;
-    margin:0;
+* {
+    box-sizing: border-box;
 }
 
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+html,
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+    color: #111;
+    background: #555;
 }
 
-body{
-
-    background:#ececec;
-    font-family:Arial, Helvetica, sans-serif;
-    color:#222;
-
+/* Screen controls */
+.report-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    background: #333;
+    padding: 10px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
-/* ==========================================================
-   REPORT PAGE
-========================================================== */
-
-.report-page{
-
-    width:190mm;
-    min-height:277mm;
-
-    margin:0 auto;
-
-    padding-top:35mm;
-    padding-left:12mm;
-    padding-right:12mm;
-    padding-bottom:35mm;
-
-    position:relative;
-    box-sizing:border-box;
-
-    page-break-after:always;
-    break-after:page;
-
-    background:white;
+.back-btn,
+.print-btn {
+    display: inline-block;
+    padding: 7px 14px;
+    border: 0;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 13px;
 }
 
-/* ==========================================================
-   RESERVED HEADER
-========================================================== */
+.back-btn { background: #444; color: #fff; }
+.print-btn { background: #198754; color: #fff; }
 
-.header-space{
-
-height:135px;
-
+.hf-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    cursor: pointer;
+    user-select: none;
 }
 
-/* ==========================================================
-   PATIENT DETAILS
-========================================================== */
-
-.patient-card{
-
-    display:grid;
-
-    grid-template-columns:1fr 1fr;
-
-    column-gap:45px;
-
-    row-gap:10px;
-
-    padding:0 22px;
-
-    margin-bottom:18px;
-
+/* Screen A4 preview */
+.print-layout-wrap {
+    width: 210mm;
+    margin: 20px auto;
+    background: #fff;
+    box-shadow: 0 0 15px rgba(0, 0, 0, .4);
 }
 
-.patient-card div{
-
-    font-size:15px;
-
-    line-height:24px;
-
+.print-layout {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    table-layout: fixed;
+    background: #fff;
 }
 
-.patient-card strong{
-
-    font-weight:600;
-
+.print-layout td {
+    border: 0;
 }
 
-/* ==========================================================
-   DEPARTMENT TITLE
-========================================================== */
-
-.department-title{
-
-    width:calc(100% - 40px);
-
-    margin:0 auto;
-
-    text-align:center;
-
-    background:#f4f4f4;
-
-    border:1px solid #000;
-
-    padding:6px;
-
-    font-size:18px;
-
-    font-weight:bold;
-
-    text-transform:uppercase;
-
+/* Header */
+.report-header {
+    width: 190mm;
+    height: 36mm;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin: 0 auto;
 }
 
-/* ==========================================================
-   TEST TITLE
-========================================================== */
-
-.test-title{
-
-    width:calc(100% - 40px);
-
-    margin:8px auto;
-
-    text-align:center;
-
-    font-size:22px;
-
-    font-weight:bold;
-
+.report-header-image {
+    display: block;
+    width: 190mm;
+    max-width: 100%;
+    max-height: 35mm;
+    object-fit: contain;
+    margin: 0 auto;
 }
 
-/* ==========================================================
-   REPORT TABLE
-========================================================== */
-
-.report-table{
-
-    width:calc(100% - 40px);
-
-    margin:auto;
-
-    border-collapse:collapse;
-
-    table-layout:fixed;
-
+/* Main content */
+.report-flow {
+    width: 100%;
 }
 
-.report-table thead th{
-
-    border-top:2px solid #000;
-
-    border-bottom:2px solid #000;
-
-    padding:8px;
-
-    background:white;
-
-    color:#000;
-
-    font-size:17px;
-
-    text-align:left;
-
+.test-block {
+    width: 100%;
+    margin: 0 0 6mm;
+    break-inside: auto;
+    page-break-inside: auto;
 }
 
-.report-table tbody td{
-
-    padding:8px;
-
-    border-bottom:1px solid #dcdcdc;
-
-    font-size:17px;
-
-    vertical-align:middle;
-
+/* Each test after the first starts on a new page */
+.test-block + .test-block {
+    break-before: page;
+    page-break-before: always;
 }
 
-/* ==========================================================
-   COLUMN WIDTHS
-========================================================== */
-
-.report-table th:nth-child(1),
-.report-table td:nth-child(1){
-
-    width:40%;
-
+/* Patient details */
+.patient-card {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 30mm;
+    column-gap: 5mm;
+    row-gap: 2mm;
+    align-items: center;
 }
 
-.report-table th:nth-child(2),
-.report-table td:nth-child(2){
-
-    width:18%;
-
-    text-align:center;
-
+.patient-card .info-item {
+    margin: 0;
+    padding: 0;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
-.report-table th:nth-child(3),
-.report-table td:nth-child(3){
-
-    width:18%;
-
+.qr-report-box {
+    grid-column: 3;
+    grid-row: 1 / span 7;
+    width: 30mm;
+    min-height: 30mm;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
 }
 
-.report-table th:nth-child(4),
-.report-table td:nth-child(4){
-
-    width:24%;
-
+.report-qr {
+    width: 25mm !important;
+    height: 25mm !important;
+    max-width: 25mm !important;
+    max-height: 25mm !important;
+    display: block !important;
+    object-fit: contain !important;
+    margin: 0 auto 1mm !important;
 }
 
-/* ==========================================================
-   SECTION HEADING
-========================================================== */
-
-.section-row td{
-
-    background:#efefef;
-
-    font-size:19px;
-
-    font-weight:bold;
-
-    text-align:center;
-
-    padding:9px;
-
-    border:none;
-
+.qr-title {
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-top: 1px;
 }
 
-/* ==========================================================
-   RESULT COLORS
-========================================================== */
-
-.high{
-
-    color:#d60000;
-
-    font-weight:bold;
-
+.qr-subtitle {
+    font-size: 6px;
+    line-height: 1.1;
+    color: #666;
+    margin-top: 1px;
 }
 
-.low{
-
-    color:#d60000;
-
-    font-weight:bold;
-
+.patient-divider {
+    width: 100%;
+    border: 0;
+    border-top: 1px solid #bdbdbd;
+    margin: 5mm 0 4mm;
 }
 
-.normal{
-
-    color:#000;
-
+.test-title {
+    width: 100%;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 4mm;
+    overflow-wrap: anywhere;
 }
 
-/* ==========================================================
-   BUTTONS
-========================================================== */
-
-.back-btn{
-
-    margin:12px;
-
+/* Test sections */
+.section-block {
+    width: 100%;
+    margin-bottom: 4mm;
 }
 
-.back-btn button{
-
-    padding:7px 18px;
-
-    cursor:pointer;
-
+.section-title {
+    background: #f2f2f2;
+    border-left: 4px solid #111;
+    padding: 2mm 3mm;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 2mm;
+    break-after: avoid;
+    page-break-after: avoid;
 }
 
-.print-btn{
-
-    position:fixed;
-
-    bottom:20px;
-
-    left:20px;
-
-    padding:10px 20px;
-
-    background:#28a745;
-
-    color:white;
-
-    border:none;
-
-    border-radius:6px;
-
-    cursor:pointer;
-
-    font-size:15px;
-
-}
-/* ==========================================================
-   FOOTER RESERVED SPACE
-========================================================== */
-
-.footer-space{
-
-    height:90px;
-
+.section-description {
+    margin: 0 0 2mm;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
-/* ==========================================================
-   SIGNATURE SECTION
-========================================================== */
-
-.signature-section{
-
-    width:calc(100% - 40px);
-
-    margin:55px auto 0 auto;
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:flex-end;
-
+.report-heading {
+    font-weight: 700;
+    margin: 2mm 0;
+    break-after: avoid;
+    page-break-after: avoid;
 }
 
-.sign-box{
-
-    width:260px;
-
-    text-align:center;
-
-    font-size:16px;
-
-    color:#000;
-
+.report-paragraph {
+    margin: 2mm 0 3mm;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
-.sign-line{
-
-    border-top:1px solid #000;
-
-    margin-bottom:8px;
-
+/* Result tables */
+.report-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 11px;
+    margin: 0 0 3mm;
 }
 
-/* ==========================================================
-   REPORT FOOTER
-========================================================== */
-
-.report-footer{
-
-    position:absolute;
-
-    left:12mm;
-    right:12mm;
-    bottom:12mm;
-
-    font-size:13px;
+.report-table thead {
+    display: table-header-group;
 }
 
-.report-note{
-
-    width:100%;
-
-    text-align:center;
-
-    line-height:1.6;
-
-    margin-top:12px;
+.report-table th {
+    border-top: 2px solid #111;
+    border-bottom: 2px solid #111;
+    padding: 2mm;
+    text-align: left;
+    font-weight: 700;
 }
 
-.page-number{
-
-    margin-top:12px;
-
-    font-size:11px;
-
-    color:#666;
-
+.report-table td {
+    border-bottom: 1px solid #d8d8d8;
+    padding: 1.5mm 2mm;
+    vertical-align: top;
+    overflow-wrap: anywhere;
 }
 
-/* ==========================================================
-   PAGE BREAK
-========================================================== */
+.parameter-column { width: 40%; }
+.result-column {
+    width: 15%;
+    text-align: left !important;
+}
+.unit-column { width: 17%; }
+.reference-column { width: 28%; }
 
-.page-break{
-    display:block;
-    page-break-before:always;
-    break-before:page;
-    height:0;
-    margin:0;
-    padding:0;
+.report-table tr,
+.reference-text-row,
+.parameter-group,
+.dropdown-table tr,
+.dictionary-result,
+.sign-box {
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 
-/* ==========================================================
-   TABLE PRINT
-========================================================== */
-
-.report-table{
-
-    page-break-inside:auto;
-
+.reference-text-row td {
+    border-top: 0;
+    border-bottom: 1px solid #ddd;
+    padding: .7mm 2mm 2mm !important;
 }
 
-.report-table tr{
-
-    page-break-inside:avoid;
-
-    page-break-after:auto;
-
+.reference-text-inline {
+    font-size: 9.5px;
+    line-height: 1.3;
+    margin-left: 2px;
 }
 
-.report-table thead{
-
-    display:table-header-group;
-
+.high,
+.low {
+    color: #c00;
+    font-weight: 700;
 }
 
-.report-table tfoot{
-
-    display:table-footer-group;
-
+.normal {
+    color: #111;
 }
 
-/* ==========================================================
-   PREVENT SPLITTING
-========================================================== */
-
-.department-title,
-.test-title,
-.patient-card,
-.signature-section{
-
-    page-break-inside:avoid;
-
+.dropdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0;
+    font-size: 11px;
 }
 
-/* ==========================================================
-   PRINT
-========================================================== */
+.dropdown-table .dropdown-label {
+    width: 40%;
+    padding: 2mm;
+    border-bottom: 1px solid #d8d8d8;
+    text-align: left;
+    font-weight: 700;
+    vertical-align: top;
+}
 
-@media print{
+.dropdown-table .dropdown-result {
+    width: 60%;
+    padding: 2mm 4mm;
+    border-bottom: 1px solid #d8d8d8;
+    text-align: left;
+    font-weight: 400;
+    vertical-align: top;
+}
+
+.dictionary-result {
+    margin: 3mm 0;
+    padding: 2mm 0;
+    font-size: 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+.dictionary-result-label {
+    display: inline-block;
+    min-width: 55mm;
+    font-weight: 700;
+}
+
+.dictionary-result-value {
+    display: inline-block;
+    font-weight: 400;
+}
+
+/* Report description */
+.report-description-block {
+    margin: 6mm 0;
+    padding: 3mm;
+    border: 1px solid #d7dde5;
+    break-inside: auto;
+    page-break-inside: auto;
+}
+
+.report-description-title {
+    margin: 0 0 2mm;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.report-description-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+    font-size: 11px;
+}
+
+/* Signature and footer */
+.signature-footer-block {
+    width: 190mm;
+    margin: 0 auto;
+}
+
+.report-signatories {
+    width: 100%;
+    min-height: 24mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    text-align: center;
+    margin-bottom: 2mm;
+    gap: 8mm;
+}
+
+.sign-box {
+    width: 40%;
+    text-align: center;
+}
+
+.signature-image {
+    max-width: 35mm;
+    max-height: 14mm;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 1.5mm;
+}
+
+.sign-name {
+    font-weight: 700;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+
+.sign-designation {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+}
+
+.report-footer {
+    width: 100%;
+    text-align: center;
+    font-size: 9px;
+    color: #555;
+    border-top: 1px dashed #ccc;
+    padding-top: 2mm;
+}
+
+.report-footer-image {
+    width: 190mm;
+    max-width: 100%;
+    max-height: 12mm;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Header/footer visibility toggle */
+body.hide-hf .toggleable-header,
+body.hide-hf .toggleable-footer {
+    visibility: hidden;
+}
+
+body.show-hf .toggleable-header,
+body.show-hf .toggleable-footer {
+    visibility: visible;
+}
+
+/* Print rules: only one authoritative print block */
+@page {
+    size: A4 portrait;
+    margin: 0;
+}
+
+@media print {
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: auto !important;
+        background: #fff !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .report-controls {
+        display: none !important;
+    }
+
+    .print-layout-wrap {
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        background: #fff !important;
+    }
+
+    .print-layout {
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        table-layout: fixed !important;
+        background: #fff !important;
+    }
+
+    /* The table header and footer repeat on printed pages. */
+    .print-layout > thead {
+        display: table-header-group !important;
+    }
+
+    .print-layout > tbody {
+        display: table-row-group !important;
+    }
+
+    .print-layout > tfoot {
+        display: table-footer-group !important;
+    }
+
+    .print-layout > thead > tr > td {
+        height: 38mm !important;
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    .print-layout > tbody > tr > td {
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    .print-layout > tfoot > tr > td {
+        padding: 0 10mm 2mm !important;
+        vertical-align: bottom !important;
+    }
+
+    .report-header {
+        width: 190mm !important;
+        height: 36mm !important;
+        margin: 0 auto !important;
+    }
+
+    .report-header-image {
+        width: 190mm !important;
+        max-width: 190mm !important;
+        max-height: 35mm !important;
+    }
+
+    .report-flow {
+        width: 190mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Each test starts on a new page after the first.
+       Use only break-before; do not also add break-after. */
+    .test-block {
+        width: 100% !important;
+        margin: 0 0 5mm !important;
+        padding: 0 !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    .test-block + .test-block {
+        break-before: page !important;
+        page-break-before: always !important;
+    }
+
+    .patient-card,
+    .qr-report-box,
+    .report-signatories,
+    .sign-box {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .report-table {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    .report-table thead {
+        display: table-header-group !important;
+    }
+
+    .report-table tr,
+    .parameter-group,
+    .reference-text-row,
+    .dropdown-table tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .test-title,
+    .section-title,
+    .report-heading {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+    }
+
+    .signature-footer-block {
+        width: 190mm !important;
+    }
+
+    .report-footer-image {
+        width: 190mm !important;
+        max-width: 190mm !important;
+        max-height: 12mm !important;
+    }
+
+    .report-description-block {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+    }
+
+    img {
+        max-width: 100%;
+    }
+}
+
+
+/* === FIX: each test is a separate outer table/page === */
+.print-layout-wrap {
+    width: 210mm;
+    margin: 20px auto;
+}
+
+table.print-layout.report-test-page {
+    width: 210mm;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 0 auto 12mm;
+    background: #fff;
+}
+
+@media print {
+    .print-layout-wrap {
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    table.print-layout.report-test-page {
+        width: 210mm !important;
+        margin: 0 !important;
+        border-collapse: collapse !important;
+        page-break-after: always !important;
+        break-after: page !important;
+    }
+
+    table.print-layout.report-test-page:last-child {
+        page-break-after: auto !important;
+        break-after: auto !important;
+    }
+
+    table.print-layout.report-test-page > thead {
+        display: table-header-group !important;
+    }
+
+    table.print-layout.report-test-page > tfoot {
+        display: table-footer-group !important;
+    }
+
+    table.print-layout.report-test-page > tbody {
+        display: table-row-group !important;
+    }
+}
+/* ============================================
+   MEDILENS: SEPARATE A4 PAGE FOR EACH TEST
+   ============================================ */
+
+/* Screen preview: show each test as a separate A4 sheet */
+@media screen {
+
+    .print-layout-wrap {
+        width: 210mm !important;
+        margin: 20px auto !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    table.print-layout.report-test-page {
+        display: table !important;
+        width: 210mm !important;
+        height: 297mm !important;
+        min-height: 297mm !important;
+        margin: 0 auto 20px !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        background: #fff !important;
+        box-shadow: 0 0 12px rgba(0, 0, 0, 0.25) !important;
+    }
+}
+
+/* Actual printing / Save as PDF */
+@media print {
+
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
 
     html,
-    body{
-
-        width:210mm;
-
-        background:white;
-
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 210mm !important;
+        background: #fff !important;
     }
 
-    .back-btn,
-    .print-btn{
-
-        display:none !important;
-
+    .report-controls {
+        display: none !important;
     }
 
-    .report-page{
-
-        width:210mm;
-
-        min-height:297mm;
-
-        margin:0;
-
-        padding:0;
-
-        page-break-after:always;
-
-        overflow:hidden;
-
+    .print-layout-wrap {
+        display: block !important;
+        width: 210mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
-    .header-space{
+    table.print-layout.report-test-page {
+        display: table !important;
+        width: 210mm !important;
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+        box-shadow: none !important;
 
-        height:190px;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
 
+        break-after: page !important;
+        page-break-after: always !important;
     }
 
-    .footer-space{
+    table.print-layout.report-test-page:last-of-type {
+        break-after: auto !important;
+        page-break-after: auto !important;
+    }
 
-height:50px;
+    table.print-layout.report-test-page > thead {
+        display: table-header-group !important;
+    }
 
+    table.print-layout.report-test-page > tbody {
+        display: table-row-group !important;
+    }
+
+    table.print-layout.report-test-page > tfoot {
+        display: table-footer-group !important;
+    }
+}
+/* ============================================
+   SIGNATURE AND FOOTER AT BOTTOM OF A4 PAGE
+   ============================================ */
+
+@media print {
+
+    @page {
+        size: A4 portrait;
+        margin: 0;
+    }
+
+    table.print-layout.report-test-page {
+        width: 210mm !important;
+        height: 297mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        table-layout: fixed !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+        break-after: page !important;
+        page-break-after: always !important;
+    }
+
+    table.print-layout.report-test-page:last-of-type {
+        break-after: auto !important;
+        page-break-after: auto !important;
+    }
+
+    /* Header */
+    table.print-layout.report-test-page > thead > tr > td {
+        height: 38mm !important;
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    /* Test content */
+    table.print-layout.report-test-page > tbody > tr > td {
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    /* Footer row occupies the bottom of the page */
+    table.print-layout.report-test-page > tfoot {
+        display: table-footer-group !important;
+    }
+
+    table.print-layout.report-test-page > tfoot > tr > td {
+        height: 45mm !important;
+        padding: 0 10mm 5mm !important;
+        vertical-align: bottom !important;
+    }
+
+    /* Signature section */
+    .signature-footer-block {
+        width: 190mm !important;
+        margin: 0 auto !important;
+    }
+
+    .report-signatories {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-end !important;
+        width: 100% !important;
+        min-height: 25mm !important;
+        margin: 0 0 3mm !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .sign-box {
+        width: 40% !important;
+        text-align: center !important;
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+    }
+
+    .signature-image {
+        display: block !important;
+        max-width: 35mm !important;
+        max-height: 14mm !important;
+        margin: 0 auto 2mm !important;
+        object-fit: contain !important;
+    }
+
+    /* Footer image at the bottom */
+    .report-footer {
+        width: 100% !important;
+        margin: 0 !important;
+        padding-top: 2mm !important;
+        text-align: center !important;
+        border-top: 1px dashed #ccc !important;
+    }
+
+    .report-footer-image {
+        display: block !important;
+        width: 190mm !important;
+        max-width: 190mm !important;
+        max-height: 15mm !important;
+        margin: 0 auto !important;
+        object-fit: contain !important;
+    }
+}
+/* ==========================================
+   FIX: REMOVE EXCESSIVE BLANK SPACE
+   Keep signature/footer at bottom when printing
+   ========================================== */
+
+/* Screen preview */
+@media screen {
+    table.print-layout.report-test-page {
+        height: auto !important;
+        min-height: 297mm !important;
+    }
+
+    table.print-layout.report-test-page > thead > tr > td {
+        height: auto !important;
+        padding: 0 10mm !important;
+    }
+
+    .report-header {
+        height: auto !important;
+        min-height: 0 !important;
+        margin-bottom: 5mm !important;
+    }
+
+    .report-header-image {
+        max-height: 35mm !important;
+        object-fit: contain !important;
+    }
+
+    .patient-card {
+        margin-top: 0 !important;
+    }
 }
 
-   .patient-card{
-
-margin-bottom:8px;
-
-}
-
-    .signature-section{
-
-margin:20px auto;
-
-}
-
-    .report-footer{
-
-        margin-top:18px;
-
+/* Printed A4 pages */
+@media print {
+    table.print-layout.report-test-page {
+        height: 297mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
     }
 
-}
-
-/* ==========================================================
-   MOBILE VIEW
-========================================================== */
-
-@media screen and (max-width:900px){
-
-    .report-page{
-
-        width:100%;
-
-        min-height:auto;
-
+    table.print-layout.report-test-page > thead > tr > td {
+        height: auto !important;
+        padding: 0 10mm !important;
+        vertical-align: top !important;
     }
 
-    .patient-card{
-
-        grid-template-columns:1fr;
-
+    .report-header {
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 auto 5mm !important;
+        padding: 0 !important;
     }
 
-    .department-title,
-    .test-title,
-    .report-table,
-    .signature-section,
-    .report-footer{
-
-        width:96%;
-
+    .report-header-image {
+        display: block !important;
+        width: 190mm !important;
+        max-width: 190mm !important;
+        max-height: 35mm !important;
+        object-fit: contain !important;
+        margin: 0 auto !important;
     }
 
+    table.print-layout.report-test-page > tbody > tr > td {
+        vertical-align: top !important;
+        padding: 0 10mm !important;
+    }
+
+    table.print-layout.report-test-page > tfoot > tr > td {
+        vertical-align: bottom !important;
+        height: 45mm !important;
+        padding: 0 10mm 5mm !important;
+    }
 }
-.report-page{
+/* FIX: REMOVE LARGE GAP BELOW REPORT HEADER */
 
-display:flex;
-flex-direction:column;
+@media print {
 
+    table.print-layout.report-test-page > thead,
+    table.print-layout.report-test-page > thead > tr {
+        height: auto !important;
+        min-height: 0 !important;
+    }
+
+    table.print-layout.report-test-page > thead > tr > td {
+        height: auto !important;
+        min-height: 0 !important;
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    .report-header {
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 auto 3mm !important;
+        padding: 0 !important;
+        line-height: 0 !important;
+    }
+
+    .report-header-image {
+        display: block !important;
+        width: 190mm !important;
+        height: auto !important;
+        max-width: 190mm !important;
+        max-height: 35mm !important;
+        margin: 0 auto !important;
+        object-fit: contain !important;
+    }
+
+    table.print-layout.report-test-page > tbody > tr > td {
+        padding-top: 0 !important;
+        vertical-align: top !important;
+    }
+
+    .patient-card {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+}
+/* ==========================================
+   SMART LAB REPORT — COMPACT PREVIEW SPACING
+   ========================================== */
+
+@media screen {
+
+    /* Keep the A4 page but prevent fixed-height
+       rules from adding unnecessary vertical gaps. */
+    table.print-layout.report-test-page {
+        height: auto !important;
+        min-height: 297mm !important;
+        border-collapse: collapse !important;
+        border-spacing: 0 !important;
+    }
+
+    /* Remove excess space around the header. */
+    table.print-layout.report-test-page > thead > tr > td {
+        height: auto !important;
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    .report-header {
+        height: auto !important;
+        min-height: 0 !important;
+        margin: 0 auto 2mm !important;
+        padding: 0 !important;
+        line-height: 0 !important;
+        align-items: flex-start !important;
+    }
+
+    .report-header-image {
+        display: block !important;
+        width: 190mm !important;
+        max-width: 100% !important;
+        height: auto !important;
+        max-height: 35mm !important;
+        object-fit: contain !important;
+        margin: 0 auto !important;
+    }
+
+    /* Start patient details immediately below header. */
+    table.print-layout.report-test-page > tbody > tr > td {
+        padding: 0 10mm !important;
+        vertical-align: top !important;
+    }
+
+    .report-flow,
+    .test-block,
+    .test-start {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+
+    .patient-card {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        row-gap: 1mm !important;
+        column-gap: 3mm !important;
+    }
+
+    .patient-card .info-item {
+        line-height: 1.25 !important;
+    }
+
+    .patient-divider {
+        margin: 3mm 0 2mm !important;
+    }
+
+    .test-title {
+        margin: 0 0 2mm !important;
+        font-size: 16px !important;
+    }
+
+    .section-block {
+        margin-bottom: 2mm !important;
+    }
+
+    .section-title {
+        padding: 1.5mm 2mm !important;
+        margin-bottom: 1mm !important;
+        font-size: 12px !important;
+    }
+
+    .report-table {
+        margin-bottom: 2mm !important;
+        font-size: 10px !important;
+    }
+
+    .report-table th {
+        padding: 1.2mm 1.5mm !important;
+    }
+
+    .report-table td {
+        padding: 0.8mm 1.5mm !important;
+    }
+
+    .dictionary-result {
+        margin: 1.5mm 0 !important;
+        padding: 1mm 0 !important;
+        font-size: 11px !important;
+    }
+
+    .report-description-block {
+        margin: 3mm 0 !important;
+        padding: 2mm !important;
+    }
+
+    /* Keep signatures and footer compact. */
+    .signature-footer-block {
+        width: 190mm !important;
+        margin: 0 auto !important;
+    }
+
+    .report-signatories {
+        min-height: 18mm !important;
+        margin-bottom: 1mm !important;
+    }
+
+    .signature-image {
+        max-height: 12mm !important;
+    }
+
+    .report-footer {
+        padding-top: 1.5mm !important;
+    }
+
+    .report-footer-image {
+        max-height: 12mm !important;
+    }
+}
+/* Center the test name */
+.test-title {
+    text-align: center !important;
+    width: 100% !important;
+    margin: 0 auto 2mm !important;
 }
 
-.report-content{
-
-padding-bottom:140px;
-
-}
-
-
-.report-footer-area{
-
-position:absolute;
-
-left:0;
-
-right:0;
-
-bottom:90px;
-
+/* Hide department name (e.g. Cytology, Hematology) */
+.section-title {
+    display: none !important;
 }

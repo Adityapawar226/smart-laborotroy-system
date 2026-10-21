@@ -1,0 +1,46 @@
+.page-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.card{
+    background:#fff;
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+}
+
+.card-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:20px;
+}
+
+.table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+.table th{
+    background:#2563eb;
+    color:#fff;
+    padding:12px;
+}
+
+.table td{
+    padding:12px;
+    border-bottom:1px solid #eee;
+}
+
+.badge-success{
+    color:#198754;
+    font-weight:bold;
+}
+
+.badge-danger{
+    color:#dc3545;
+    font-weight:bold;
+}

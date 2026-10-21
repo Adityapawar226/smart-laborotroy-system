@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}
+Configure Tests
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+ <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+
+        <i class="fas fa-arrow-left"></i>
+        Back
+
+    </button>
+    <h2>Configure Laboratory Tests</h2>
+
+    <hr>
+
+    <table class="table table-bordered">
+
+        <thead>
+
+            <tr>
+
+                <th>ID</th>
+                <th>Test Name</th>
+                <th>Department</th>
+                <th>Price</th>
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for test in tests %}
+
+            <tr>
+
+                <td>{{ test.id }}</td>
+                <td>{{ test.test_name }}</td>
+                <td>{{ test.department }}</td>
+                <td>₹ {{ test.price }}</td>
+
+              <td> <a
+    href="{{ url_for('test_builder.configure_single_test',
+                     test_id=test.id) }}"
+    class="btn btn-primary btn-sm">
+
+    Configure
+
+</a>
+</td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

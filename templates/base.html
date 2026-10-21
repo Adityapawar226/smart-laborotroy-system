@@ -2,200 +2,577 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title>{% block title %}Smart Lab{% endblock %}</title>
 
     <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+    <!-- Common CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/common.css') }}">
 
     <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+        rel="stylesheet">
 
     <!-- Font Awesome -->
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    <!-- CSS -->
-    <link rel="stylesheet"
-      href="{{ url_for('static', filename='css/base.css') }}">
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <!-- Existing CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/base.css') }}">
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/settings.css') }}">
-          <script>
-if (localStorage.getItem("sidebar") === "collapsed") {
-    document.documentElement.classList.add("sidebar-collapsed");
-}
-</script>
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/dashboard.css') }}">
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/test_builder.css') }}">
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/settings.css') }}">
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/test_form.css') }}">
+
+    {% block extra_css %}{% endblock %}
+
+    <!-- Restore saved sidebar state -->
+    <script>
+        try {
+            if (localStorage.getItem("sidebar") === "collapsed") {
+                document.documentElement.classList.add("sidebar-collapsed");
+            }
+        } catch (error) {
+            console.warn("Unable to restore sidebar state:", error);
+        }
+    </script>
+
+    <!-- Notification and topbar CSS -->
+    <style>
+        .topbar {
+            position: relative;
+            z-index: 1000;
+        }
+
+        .topbar .left,
+        .topbar .right {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+
+        .topbar .left {
+            gap: 16px;
+        }
+
+        .topbar .right {
+            gap: 18px;
+            overflow: visible;
+        }
+
+        #menu-toggle {
+            flex-shrink: 0;
+            cursor: pointer;
+            font-size: 28px;
+        }
+
+        .lab-title {
+            margin: 0;
+        }
+
+        /* Notification wrapper */
+        .notification-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            z-index: 5000;
+        }
+
+        /* Clickable bell */
+        .notification-btn {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .notification-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .notification-btn .notification {
+            color: #ffffff;
+            font-size: 20px;
+        }
+
+        .notification-btn:focus-visible {
+            outline: 2px solid #ffffff;
+            outline-offset: 3px;
+        }
+
+        /* Unread badge */
+        .notification-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 4px;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #3269ef;
+            border-radius: 999px;
+            background: #dc3545;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        /* Notification popup */
+        .topbar .notification-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            left: auto;
+            width: 350px;
+            max-width: calc(100vw - 24px);
+            max-height: 420px;
+            overflow-y: auto;
+            background: #ffffff;
+            color: #172b4d;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+            z-index: 6000;
+        }
+
+        .notification-dropdown-header {
+            padding: 14px 16px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .notification-dropdown-footer {
+            padding: 13px 16px;
+            background: #f8fafc;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+        }
+
+        .notification-dropdown-footer a {
+            color: #2457d6;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .notification-dropdown-footer a:hover {
+            text-decoration: underline;
+        }
+
+        .notification-empty {
+            padding: 22px 16px;
+            text-align: center;
+            color: #718096;
+        }
+
+        .notification-item {
+            padding: 14px 16px;
+            border-bottom: 1px solid #e5e7eb;
+            overflow-wrap: anywhere;
+        }
+
+        .notification-item:last-child {
+            border-bottom: none;
+        }
+
+        .notification-item strong {
+            display: block;
+            color: #172b4d;
+        }
+
+        .notification-item p {
+            margin: 6px 0;
+            color: #4b5563;
+            white-space: pre-wrap;
+        }
+
+        .notification-item small {
+            color: #718096;
+        }
+
+        @media (max-width: 600px) {
+            .topbar .right {
+                gap: 8px;
+            }
+
+            .topbar .notification-dropdown {
+                right: -50px;
+                width: 320px;
+            }
+        }
+    </style>
 
 </head>
 
-<body>
+<body data-user-role="{{ session.get('role', '') | e }}">
 
-    <!-- ================= Sidebar ================= -->
+    <!-- ================= SIDEBAR ================= -->
 
     <div class="sidebar" id="sidebar">
 
         <div class="logo-section">
 
-    {% if lab_settings and lab_settings.logo %}
+            {% if lab_settings and lab_settings.logo %}
 
-        <img
-            src="{{ url_for('static', filename='uploads/logo/' + lab_settings.logo) }}"
-            class="lab-logo"
-            alt="Lab Logo">
+                <img
+                    src="{{ url_for('static', filename='uploads/logo/' + lab_settings.logo) }}"
+                    class="lab-logo"
+                    alt="Lab Logo">
 
-    {% else %}
+            {% else %}
 
-        <i class="bi bi-beaker"></i>
+                <i class="bi bi-beaker"></i>
 
-    {% endif %}
+            {% endif %}
 
-    <div>
+            <div>
+                <h4>
+                    {{ lab_settings.lab_name if lab_settings else "SMART LAB" }}
+                </h4>
 
-        <h4>
-            {{ lab_settings.lab_name if lab_settings else "SMART LAB" }}
-        </h4>
+                <span>Management System</span>
+            </div>
 
-        <span>Management System</span>
+        </div>
 
-    </div>
-
-</div>
+        <!-- Sidebar menu changes according to role -->
 
         <ul class="menu">
 
-            <li>
-                <a href="{{ url_for('dashboard') }}">
-                    <i class="bi bi-house-fill"></i>
-                    Dashboard
-                </a>
-            </li>
+            {% if session.get("role") == "Developer" %}
 
-            <li>
-                <a href="{{ url_for('patient_registration') }}">
-                    <i class="bi bi-person-plus-fill"></i>
-                    Patient Registration
-                </a>
-            </li>
+                <!-- DEVELOPER MENU -->
 
-            <li>
-                <a href="{{ url_for('patient_search') }}">
-                    <i class="bi bi-search"></i>
-                    Patient Search
-                </a>
-            </li>
+                <li>
+                    <a href="{{ url_for('super_admin_dashboard') }}">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Super Admin Dashboard</span>
+                    </a>
+                </li>
 
-            <li>
-                <a href="{{ url_for('billing') }}">
-                    <i class="bi bi-receipt"></i>
-                    Billing
-                </a>
-            </li>
+                <li>
+                    <a href="{{ url_for('super_admin_broadcasts') }}">
+                        <i class="bi bi-megaphone-fill"></i>
+                        <span>Broadcast Announcements</span>
+                    </a>
+                </li>
 
-            <li>
-                <a href="{{ url_for('payment_entries') }}">
-                    <i class="fa fa-money-bill"></i>
-                    Payment Entries
-                </a>
-            </li>
+                <li>
+                    <a href="{{ url_for('logout') }}">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </a>
+                </li>
 
-            <li>
-                <a href="{{ url_for('test_management') }}">
-                    <i class="bi bi-clipboard2-pulse"></i>
-                    Test Management
-                </a>
-            </li>
+            {% else %}
 
-            <li>
-                <a href="{{ url_for('analytics') }}">
-                    <i class="bi bi-graph-up"></i>
-                    Analytics
-                </a>
-            </li>
+                <!-- LABORATORY MENU -->
 
-            <li>
-                <a href="{{ url_for('expenses') }}">
-                    <i class="fas fa-wallet"></i>
-                    Expenses
-                </a>
-            </li>
+                <li>
+                    <a href="{{ url_for('dashboard') }}">
+                        <i class="bi bi-house-fill"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
 
-            {% if session.get("role") in ["Admin", "Developer"] %}
-<li>
-    <a href="{{ url_for('settings') }}">
-        <i class="fas fa-cog"></i>
-        Settings
-    </a>
-</li>
-{% endif %}
+                <li>
+                    <a href="{{ url_for('patient_registration') }}">
+                        <i class="bi bi-person-plus-fill"></i>
+                        <span>Patient Registration</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('patient_search') }}">
+                        <i class="bi bi-search"></i>
+                        <span>Patient Search</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('billing') }}">
+                        <i class="bi bi-receipt"></i>
+                        <span>Billing</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('payment_entries') }}">
+                        <i class="fa fa-money-bill"></i>
+                        <span>Payment Entries</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('test_builder.department_list') }}">
+                        <i class="bi bi-clipboard2-pulse"></i>
+                        <span>Test Management</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('analytics') }}">
+                        <i class="bi bi-graph-up"></i>
+                        <span>Analytics</span>
+                    </a>
+                </li>
+
+                <li>
+                    <a href="{{ url_for('expenses') }}">
+                        <i class="fas fa-wallet"></i>
+                        <span>Expenses</span>
+                    </a>
+                </li>
+
+                {% if session.get("role") == "Admin" %}
+
+                    <li>
+                        <a href="{{ url_for('settings') }}">
+                            <i class="fas fa-cog"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a href="{{ url_for('user_management') }}">
+                            <i class="fas fa-users-cog"></i>
+                            <span>User Management</span>
+                        </a>
+                    </li>
+
+                {% endif %}
+
+                {% if session.get("role") in ["Admin", "Technician"] %}
+
+                    <li>
+                        <a href="{{ url_for('analyzer_management.dashboard') }}">
+                            <i class="bi bi-cpu"></i>
+                            <span>Analyzer Management</span>
+                        </a>
+                    </li>
+
+                {% endif %}
+
+                <li>
+                    <a href="{{ url_for('logout') }}">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </a>
+                </li>
+
+            {% endif %}
 
         </ul>
 
     </div>
 
-    <!-- ================= Main Content ================= -->
+
+    <!-- ================= MAIN CONTENT ================= -->
 
     <div class="main-content" id="mainContent">
 
-        <!-- Topbar -->
+        <!-- ================= TOPBAR ================= -->
 
         <div class="topbar">
 
+            <!-- LEFT: Sidebar button and laboratory name -->
+
             <div class="left">
 
-                <!-- Sidebar Toggle -->
-                <i class="bi bi-list" id="menu-toggle" style="font-size:28px;cursor:pointer;"></i>
+                <!-- SIDEBAR OPEN / CLOSE BUTTON -->
 
-               <h3 class="lab-title">
-    <i class="bi bi-hospital"></i>
-    {{ session["lab_name"] }}
-</h3>
+                <button
+                    type="button"
+                    id="menu-toggle"
+                    aria-label="Toggle sidebar"
+                    aria-controls="sidebar"
+                    aria-expanded="true"
+                    style="
+                        border: none;
+                        background: transparent;
+                        color: inherit;
+                        padding: 0;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+
+                    <i class="bi bi-list" style="font-size: 28px;"></i>
+
+                </button>
+
+                <h3 class="lab-title">
+
+                    {% if session.get("role") == "Developer" %}
+
+                        <i class="bi bi-buildings"></i>
+                        System Administrator
+
+                    {% else %}
+
+                        <i class="bi bi-hospital"></i>
+                        {{ session.get("lab_name", "SMART LAB") }}
+
+                    {% endif %}
+
+                </h3>
 
             </div>
+
+
+            <!-- RIGHT: Time, notification bell, user menu -->
 
             <div class="right">
 
                 <span>{{ current_time }}</span>
 
-                <i class="bi bi-bell-fill notification"></i>
+                <!-- NOTIFICATION BELL -->
+
+                <div class="notification-wrapper">
+
+                    <button
+                        type="button"
+                        class="notification-btn"
+                        id="notificationBtn"
+                        aria-label="Open notifications"
+                        aria-controls="notificationDropdown"
+                        aria-expanded="false">
+
+                        <i class="bi bi-bell-fill notification"></i>
+
+                        <span
+                            id="notificationBadge"
+                            class="notification-badge"
+                            style="display: none;">0</span>
+
+                    </button>
+
+
+                    <!-- NOTIFICATION POPUP -->
+
+                    <div
+                        class="notification-dropdown"
+                        id="notificationDropdown"
+                        style="display: none;">
+
+                        <div class="notification-dropdown-header">
+
+                            <strong>
+                                {% if session.get("role") == "Developer" %}
+                                    Announcements
+                                {% else %}
+                                    Notifications
+                                {% endif %}
+                            </strong>
+
+                        </div>
+
+                        <div
+                            id="notificationList"
+                            class="notification-list">
+
+                            <div class="notification-empty">
+                                Loading notifications...
+                            </div>
+
+                        </div>
+
+                        {% if session.get("role") == "Developer" %}
+
+                            <div class="notification-dropdown-footer">
+
+                                <a href="{{ url_for('super_admin_broadcasts') }}">
+                                    Manage Announcements
+                                </a>
+
+                            </div>
+
+                        {% endif %}
+
+                    </div>
+
+                </div>
+
+
+                <!-- USER MENU -->
 
                 <div class="user-menu">
-   <button class="user-btn" onclick="toggleDropdown(event)">
 
-    <div class="user-details">
+                    <button
+                        type="button"
+                        class="user-btn"
+                        id="userMenuBtn"
+                        aria-expanded="false">
 
-        <span class="user-name">
-            {{ session["username"] }}
-        </span>
+                        <div class="user-details">
 
-        <small class="user-role">
-            {{ session["role"] }}
-        </small>
+                            <span class="user-name">
+                                {{ session.get("username", "User") }}
+                            </span>
 
-    </div>
+                            <small class="user-role">
+                                {{ session.get("role", "") }}
+                            </small>
 
-    <i class="bi bi-chevron-down"></i>
+                        </div>
 
-</button>
+                        <i class="bi bi-chevron-down"></i>
 
-    <div class="user-dropdown" id="userDropdown">
-        <a href="{{ url_for('logout') }}">
-            <i class="bi bi-box-arrow-right"></i>
-            Logout
-        </a>
-    </div>
-</div>
+                    </button>
+
+
+                    <div class="user-dropdown" id="userDropdown">
+
+                        <a href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+
+                    </div>
+
+                </div>
 
             </div>
 
         </div>
 
-        <!-- Page Content -->
+
+        <!-- ================= PAGE CONTENT ================= -->
 
         <div class="page-content">
 
@@ -206,53 +583,426 @@ if (localStorage.getItem("sidebar") === "collapsed") {
 
     </div>
 
-    <!-- Bootstrap -->
+
+    <!-- ================= SCRIPTS ================= -->
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Sidebar Toggle -->
 
-  <script>
-document.addEventListener("DOMContentLoaded", function () {
+    <!-- Sidebar toggle and user menu -->
 
-    const toggleBtn = document.getElementById("menu-toggle");
-    const sidebar = document.getElementById("sidebar");
-    const mainContent = document.getElementById("mainContent");
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
 
-    // Restore sidebar state
-    if (localStorage.getItem("sidebar") === "collapsed") {
-        sidebar.classList.add("collapsed");
-        mainContent.classList.add("expanded");
+            const toggleBtn = document.getElementById("menu-toggle");
+            const sidebar = document.getElementById("sidebar");
+            const mainContent = document.getElementById("mainContent");
+            const userMenuBtn = document.getElementById("userMenuBtn");
+            const userDropdown = document.getElementById("userDropdown");
+
+            function applySidebarState(collapsed) {
+
+                if (!sidebar || !mainContent) {
+                    return;
+                }
+
+                sidebar.classList.toggle("collapsed", collapsed);
+                mainContent.classList.toggle("expanded", collapsed);
+
+                document.documentElement.classList.toggle(
+                    "sidebar-collapsed",
+                    collapsed
+                );
+
+                if (toggleBtn) {
+                    toggleBtn.setAttribute(
+                        "aria-expanded",
+                        String(!collapsed)
+                    );
+                }
+            }
+
+            // Restore the previously saved state.
+
+            let savedSidebarState = "expanded";
+
+            try {
+                savedSidebarState =
+                    localStorage.getItem("sidebar") || "expanded";
+            } catch (error) {
+                console.warn("Unable to read sidebar state:", error);
+            }
+
+            applySidebarState(savedSidebarState === "collapsed");
+
+
+            // Sidebar open / close.
+
+            if (toggleBtn) {
+
+                toggleBtn.addEventListener("click", function (event) {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const willCollapse =
+                        !sidebar.classList.contains("collapsed");
+
+                    applySidebarState(willCollapse);
+
+                    try {
+                        localStorage.setItem(
+                            "sidebar",
+                            willCollapse ? "collapsed" : "expanded"
+                        );
+                    } catch (error) {
+                        console.warn("Unable to save sidebar state:", error);
+                    }
+
+                });
+
+            }
+
+
+            // User dropdown.
+
+            if (userMenuBtn && userDropdown) {
+
+                userMenuBtn.addEventListener("click", function (event) {
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    const isOpen = userDropdown.classList.contains("show");
+
+                    userDropdown.classList.toggle("show", !isOpen);
+
+                    userMenuBtn.setAttribute(
+                        "aria-expanded",
+                        String(!isOpen)
+                    );
+
+                });
+
+                userDropdown.addEventListener("click", function (event) {
+                    event.stopPropagation();
+                });
+
+            }
+
+
+            // Close user dropdown when clicking elsewhere.
+
+            document.addEventListener("click", function () {
+
+                if (userDropdown) {
+                    userDropdown.classList.remove("show");
+                }
+
+                if (userMenuBtn) {
+                    userMenuBtn.setAttribute("aria-expanded", "false");
+                }
+
+            });
+
+        });
+    </script>
+
+
+    <!-- Notification system -->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const bell = document.getElementById("notificationBtn");
+            const badge = document.getElementById("notificationBadge");
+            const dropdown = document.getElementById("notificationDropdown");
+            const list = document.getElementById("notificationList");
+
+            const isDeveloper = document.body.dataset.userRole === "Developer";
+
+            if (!bell || !badge || !dropdown || !list) {
+                return;
+            }
+
+
+            // Safely render server-provided text.
+
+            function escapeHTML(value) {
+
+                return String(value ?? "").replace(/[&<>"']/g, function (char) {
+
+                    return {
+                        "&": "&amp;",
+                        "<": "&lt;",
+                        ">": "&gt;",
+                        '"': "&quot;",
+                        "'": "&#39;"
+                    }[char];
+
+                });
+
+            }
+
+
+            // Load laboratory notifications.
+
+            async function loadNotifications() {
+
+                if (isDeveloper) {
+
+                    badge.style.display = "none";
+
+                    list.innerHTML = `
+                        <div class="notification-empty">
+                            Manage your announcements using the button below.
+                        </div>
+                    `;
+
+                    return;
+                }
+
+                try {
+
+                    const response = await fetch(
+                        "/api/lab-notifications",
+                        {
+                            method: "GET",
+                            credentials: "same-origin",
+                            cache: "no-store",
+                            headers: {
+                                "Accept": "application/json"
+                            }
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error("HTTP " + response.status);
+                    }
+
+                    const data = await response.json();
+
+                    const notifications = data.notifications || [];
+                    const unreadCount = Number(data.unread_count || 0);
+
+
+                    // Update unread badge.
+
+                    badge.textContent =
+                        unreadCount > 99 ? "99+" : String(unreadCount);
+
+                    badge.style.display =
+                        unreadCount > 0 ? "flex" : "none";
+
+
+                    // Empty state.
+
+                    if (notifications.length === 0) {
+
+                        list.innerHTML = `
+                            <div class="notification-empty">
+                                No notifications yet.
+                            </div>
+                        `;
+
+                        return;
+                    }
+
+
+                    // Render notifications.
+
+                    list.innerHTML = notifications.map(function (item) {
+    const isRead = Number(item.is_read) === 1;
+
+    return `
+        <div class="notification-item"
+             data-recipient-id="${Number(item.recipient_id)}"
+             data-is-read="${isRead ? "1" : "0"}"
+             style="
+                padding:14px 16px;
+                border-bottom:1px solid #e5e7eb;
+                background:${isRead ? "#ffffff" : "#eff6ff"};
+                cursor:${isRead ? "default" : "pointer"};
+             ">
+
+            <strong>${escapeHTML(item.title)}</strong>
+
+            <p style="
+                margin:6px 0;
+                color:#4b5563;
+                white-space:pre-wrap;
+            ">${escapeHTML(item.message)}</p>
+
+            <small style="color:#6b7280;">
+                ${escapeHTML(item.announcement_date || "")}
+                <span class="notification-read-status">
+                    ${isRead ? " • Read" : " • Unread — click to mark as read"}
+                </span>
+            </small>
+
+        </div>
+    `;
+}).join("");
+
+
+                } catch (error) {
+
+                    console.error(
+                        "Notification loading failed:",
+                        error
+                    );
+
+                    list.innerHTML = `
+                        <div class="notification-empty">
+                            Unable to load notifications.
+                            Please refresh and try again.
+                        </div>
+                    `;
+
+                }
+
+            }
+            list.addEventListener("click", async function (event) {
+    const itemElement = event.target.closest(".notification-item");
+
+    if (!itemElement) {
+        return;
     }
 
-    toggleBtn.addEventListener("click", function () {
+    if (itemElement.dataset.isRead === "1") {
+        return;
+    }
 
-        sidebar.classList.toggle("collapsed");
-        mainContent.classList.toggle("expanded");
+    const recipientId = Number(itemElement.dataset.recipientId);
 
-        // Save state
-       if (sidebar.classList.contains("collapsed")) {
-    localStorage.setItem("sidebar", "collapsed");
-    document.documentElement.classList.add("sidebar-collapsed");
-} else {
-    localStorage.setItem("sidebar", "expanded");
-    document.documentElement.classList.remove("sidebar-collapsed");
-}
+    if (!Number.isInteger(recipientId) || recipientId <= 0) {
+        console.error("Invalid notification recipient ID");
+        return;
+    }
 
-    });
+    const readStatus = itemElement.querySelector(
+        ".notification-read-status"
+    );
 
+    try {
+        const response = await fetch(
+            `/api/lab-notifications/${recipientId}/read`,
+            {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json"
+                }
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(
+                result.message || "Could not mark notification as read"
+            );
+        }
+
+        // Update the clicked notification immediately.
+        itemElement.dataset.isRead = "1";
+        itemElement.style.background = "#ffffff";
+        itemElement.style.cursor = "default";
+
+        if (readStatus) {
+            readStatus.textContent = " • Read";
+        }
+
+        // Refresh the unread badge from the server.
+        await loadNotifications();
+
+    } catch (error) {
+        console.error("Mark-as-read failed:", error);
+        alert("Unable to mark this notification as read. Please try again.");
+    }
 });
-</script>
-<script>
-function toggleDropdown(event){
-    event.stopPropagation();
-    document.getElementById("userDropdown").classList.toggle("show");
-}
 
-document.addEventListener("click", function(){
-    document.getElementById("userDropdown").classList.remove("show");
-});
-</script>
+
+            // Open / close notification popup.
+
+            bell.addEventListener("click", async function (event) {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const isOpen =
+                    dropdown.style.display === "block";
+
+                dropdown.style.display =
+                    isOpen ? "none" : "block";
+
+                bell.setAttribute(
+                    "aria-expanded",
+                    String(!isOpen)
+                );
+
+                if (!isOpen) {
+                    await loadNotifications();
+                }
+
+            });
+
+
+            // Clicking inside popup must not close it.
+
+            dropdown.addEventListener("click", function (event) {
+                event.stopPropagation();
+            });
+
+
+            // Close popup when clicking elsewhere.
+
+            document.addEventListener("click", function () {
+
+                dropdown.style.display = "none";
+
+                bell.setAttribute(
+                    "aria-expanded",
+                    "false"
+                );
+
+            });
+
+
+            // Close popup with Escape key.
+
+            document.addEventListener("keydown", function (event) {
+
+                if (event.key === "Escape") {
+
+                    dropdown.style.display = "none";
+
+                    bell.setAttribute(
+                        "aria-expanded",
+                        "false"
+                    );
+
+                }
+
+            });
+
+
+            // Initial unread count and periodic refresh for lab users.
+
+            loadNotifications();
+
+            if (!isDeveloper) {
+                setInterval(loadNotifications, 30000);
+            }
+
+        });
+    </script>
+
+
+    <!-- Page-specific JavaScript -->
+
+    {% block extra_js %}{% endblock %}
+
 </body>
 
 </html>

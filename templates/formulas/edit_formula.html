@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}
+Edit Formula
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button class="back-btn" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+
+    <h2>Edit Formula</h2>
+
+    <hr>
+
+    <form method="POST">
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Formula Name
+
+            </label>
+
+            <input
+                type="text"
+                name="formula_name"
+                value="{{ formula.formula_name }}"
+                class="form-control"
+                required>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Formula Expression
+
+            </label>
+
+            <textarea
+                name="formula_expression"
+                rows="4"
+                class="form-control"
+                required>{{ formula.formula_expression }}</textarea>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Description
+
+            </label>
+
+            <textarea
+                name="description"
+                rows="3"
+                class="form-control">{{ formula.description }}</textarea>
+
+        </div>
+        <select name="status" class="form-select">
+
+    <option value="active"
+        {% if formula.status=="active" %}selected{% endif %}>
+        Active
+    </option>
+
+    <option value="inactive"
+        {% if formula.status=="inactive" %}selected{% endif %}>
+        Inactive
+    </option>
+
+</select>
+
+        <button class="btn btn-success">
+
+            Update Formula
+
+        </button>
+
+        <a href="{{ url_for('test_builder.report_formulas') }}"
+           class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+{% endblock %}

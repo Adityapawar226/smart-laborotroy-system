@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}
+Parameter Builder
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+ <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+
+        <i class="fas fa-arrow-left"></i>
+        Back
+
+    </button>
+    <h2>{{ component.component_name }}</h2>
+
+    <h4>{{ component.test_name }}</h4>
+
+    <p>
+
+        Section :
+        <strong>{{ component.section_name }}</strong>
+
+    </p>
+
+    <hr>
+
+    <a href="{{ url_for('test_builder.add_parameter',
+                    component_id=component.id) }}"
+   class="btn btn-success">
+    + Add Parameter
+</a>
+
+    <br><br>
+
+    <table class="table table-bordered">
+
+        <thead>
+
+            <tr>
+
+                <th>Order</th>
+                <th>Parameter</th>
+                <th>Unit</th>
+                <th>Reference</th>
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for p in parameters %}
+
+        <tr>
+
+            <td>{{ p.display_order }}</td>
+
+            <td>{{ p.display_name }}</td>
+
+            <td>{{ p.unit }}</td>
+
+            <td>{{ p.reference_type }}</td>
+
+            <td>
+    <!-- Configure -->
+    <a href="{{ url_for('test_builder.reference_range_list', parameter_id=p.id) }}"
+       class="btn btn-primary btn-sm">
+        Configure
+    </a>
+
+    <!-- Edit -->
+    <a
+    href="{{ url_for(
+        'test_builder.edit_parameter',
+        parameter_id=p.id
+    ) }}"
+    class="btn btn-warning btn-sm">
+
+    Edit
+
+</a>
+
+    <!-- Delete -->
+    <form action="{{ url_for('delete_parameter', parameter_id=p.id) }}"
+          method="POST"
+          style="display:inline;"
+          onsubmit="return confirm('Delete this parameter?');">
+
+        <button type="submit" class="btn btn-danger btn-sm">
+            Delete
+        </button>
+    </form>
+</td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

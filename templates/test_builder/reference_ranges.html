@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}
+Reference Ranges
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+ <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+
+        <i class="fas fa-arrow-left"></i>
+        Back
+
+    </button>
+    <h2>{{ parameter.test_name }}</h2>
+
+<h3 class="text-primary">
+    Parameter : {{ parameter.display_name }}
+</h3>
+
+<p>
+    <strong>Unit :</strong> {{ parameter.unit }}
+</p>
+
+<p>
+    <strong>Section :</strong> {{ parameter.section_name }}
+</p>
+
+<p>
+    <strong>Component :</strong> {{ parameter.component_name }}
+</p>
+
+   
+    <hr>
+
+   <a href="{{ url_for('test_builder.add_reference_range',
+        parameter_id=parameter.id) }}"
+   class="btn btn-success">
+
+    + Add Reference Range
+
+</a>
+
+    <br><br>
+
+    <table class="table table-bordered">
+
+        <thead>
+
+            <tr>
+                <th>Gender</th>
+                <th>Age</th>
+                <th>Normal Range</th>
+                <th>Critical</th>
+                <th>Action</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for r in ranges %}
+
+            <tr>
+
+                <td>{{ r.gender }}</td>
+
+                <td>
+                  {% if r.age_from is not none and r.age_to is not none %}
+    {{ "%.0f"|format(r.age_from) }} -
+    {{ "%.0f"|format(r.age_to) }}
+    {{ r.age_unit }}
+{% else %}
+    All Ages
+{% endif %}
+                </td>
+
+               <td>
+{% if r.lower_value is not none and r.upper_value is not none %}
+    {{ r.lower_value }}
+    -
+    {{ r.upper_value }}
+    {{ parameter.unit }}
+{% else %}
+    <span class="text-danger">Reference range not set</span>
+{% endif %}
+</td>
+                <td>
+{% if r.critical_low is not none %}
+    {{ r.critical_low }}
+{% else %}
+    -
+{% endif %}
+
+-
+
+{% if r.critical_high is not none %}
+    {{ r.critical_high }}
+{% else %}
+    -
+{% endif %}
+
+{{ parameter.unit }}
+</td>
+
+               <td>
+    <a href="{{ url_for('test_builder.edit_reference_range', range_id=r.id) }}"
+       class="btn btn-warning btn-sm">
+        <i class="fas fa-edit"></i> Edit
+    </a>
+
+    <a href="{{ url_for('test_builder.delete_reference_range', range_id=r.id) }}"
+       class="btn btn-danger btn-sm"
+       onclick="return confirm('Delete this reference range?')">
+        <i class="fas fa-trash"></i> Delete
+    </a>
+</td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

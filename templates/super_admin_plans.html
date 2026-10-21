@@ -1,0 +1,705 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .plans-page {
+        padding: 8px 4px 30px;
+        color: #17345f;
+    }
+
+    .plans-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .plans-header h2 {
+        margin: 0 0 7px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #17345f;
+    }
+
+    .plans-header p {
+        margin: 0;
+        color: #718096;
+        font-size: 14px;
+    }
+
+    .admin-badge {
+        background: #e8f0ff;
+        color: #2864d7;
+        padding: 10px 16px;
+        border-radius: 25px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 24px;
+    }
+
+    .summary-card {
+        background: #fff;
+        padding: 22px;
+        border-radius: 13px;
+        border: 1px solid #edf1f7;
+        box-shadow: 0 4px 18px rgba(30, 50, 80, 0.06);
+    }
+
+    .summary-card .summary-label {
+        color: #718096;
+        font-size: 13px;
+        margin-bottom: 12px;
+    }
+
+    .summary-card .summary-value {
+        color: #17345f;
+        font-size: 29px;
+        font-weight: 700;
+    }
+
+    .summary-icon {
+        font-size: 22px;
+        margin-bottom: 14px;
+    }
+
+    .blue-icon {
+        color: #3478f6;
+    }
+
+    .green-icon {
+        color: #10a66a;
+    }
+
+    .orange-icon {
+        color: #ed8b20;
+    }
+
+    .plans-card {
+        background: #fff;
+        padding: 23px;
+        border-radius: 14px;
+        border: 1px solid #edf1f7;
+        box-shadow: 0 4px 18px rgba(30, 50, 80, 0.06);
+        margin-bottom: 22px;
+    }
+
+    .card-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+
+    .card-heading h3 {
+        margin: 0;
+        font-size: 19px;
+        font-weight: 700;
+        color: #17345f;
+    }
+
+    .btn {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+        white-space: nowrap;
+    }
+
+    .btn-primary {
+        background: #2f6df6;
+        color: #fff;
+    }
+
+    .btn-primary:hover {
+        background: #2058d4;
+        color: #fff;
+    }
+
+    .btn-light {
+        background: #edf2f8;
+        color: #405574;
+    }
+
+    .btn-light:hover {
+        background: #e0e8f3;
+        color: #17345f;
+    }
+
+    .filter-form {
+        display: grid;
+        grid-template-columns: minmax(200px, 2fr) minmax(150px, 1fr) auto auto;
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 7px;
+        color: #405574;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        min-height: 43px;
+        padding: 10px 12px;
+        border: 1px solid #dce4ef;
+        border-radius: 8px;
+        background: #fff;
+        color: #17345f;
+        font-size: 13px;
+        box-sizing: border-box;
+        outline: none;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+        border-color: #3478f6;
+        box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.10);
+    }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .plans-table {
+        width: 100%;
+        min-width: 1050px;
+        border-collapse: collapse;
+    }
+
+    .plans-table thead {
+        background: #f4f7fc;
+    }
+
+    .plans-table th {
+        text-align: left;
+        padding: 14px 12px;
+        color: #60728e;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        border-bottom: 1px solid #e6ecf4;
+        white-space: nowrap;
+    }
+
+    .plans-table td {
+        padding: 16px 12px;
+        border-bottom: 1px solid #edf1f7;
+        font-size: 13px;
+        color: #405574;
+        vertical-align: middle;
+    }
+
+    .plans-table tbody tr:hover {
+        background: #f9fbff;
+    }
+
+    .plan-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #17345f;
+        margin-bottom: 5px;
+    }
+
+    .plan-description {
+        font-size: 11px;
+        color: #8290a5;
+        max-width: 220px;
+        line-height: 1.5;
+        overflow-wrap: anywhere;
+    }
+
+    .price-value {
+        font-weight: 700;
+        color: #17345f;
+        white-space: nowrap;
+    }
+
+    .muted-text {
+        color: #8290a5;
+        font-size: 11px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-active {
+        background: #e4f8ed;
+        color: #13834b;
+    }
+
+    .status-inactive {
+        background: #edf0f5;
+        color: #64748b;
+    }
+
+    .feature-yes {
+        color: #13834b;
+        font-weight: 600;
+    }
+
+    .feature-no {
+        color: #d52e2e;
+        font-weight: 600;
+    }
+
+    .plan-count {
+        display: inline-block;
+        background: #edf4ff;
+        color: #2864d7;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 45px 15px !important;
+    }
+
+    .empty-state i {
+        display: block;
+        font-size: 36px;
+        color: #a8b7cb;
+        margin-bottom: 12px;
+    }
+
+    .empty-state strong {
+        display: block;
+        color: #405574;
+        font-size: 15px;
+        margin-bottom: 7px;
+    }
+
+    .empty-state span {
+        color: #8290a5;
+        font-size: 13px;
+    }
+
+    .alert {
+        padding: 13px 16px;
+        border-radius: 9px;
+        margin-bottom: 20px;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .alert-success {
+        background: #e8f8ef;
+        color: #147943;
+        border: 1px solid #bce8cd;
+    }
+
+    .alert-error {
+        background: #fff0f0;
+        color: #b42318;
+        border: 1px solid #f4c7c7;
+    }
+
+    .info-note {
+        padding: 15px;
+        background: #f2f7ff;
+        border: 1px solid #dce8ff;
+        border-radius: 9px;
+        color: #405574;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .info-note i {
+        color: #3478f6;
+        margin-right: 7px;
+    }
+
+    @media (max-width: 900px) {
+        .filter-form {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .summary-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 550px) {
+        .filter-form,
+        .summary-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .plans-card {
+            padding: 15px;
+        }
+
+        .plans-header h2 {
+            font-size: 23px;
+        }
+    }
+</style>
+
+<div class="plans-page">
+
+    <!-- Page Header -->
+    <div class="plans-header">
+        <div>
+            <h2>
+                <i class="bi bi-card-list"></i>
+                Subscription Plan Management
+            </h2>
+
+            <p>
+                Create, review and manage subscription plans for Smart Lab.
+            </p>
+        </div>
+
+        <div class="admin-badge">
+            <i class="bi bi-shield-check"></i>
+            Super Administrator
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+
+                <div class="alert
+                    {% if category == 'success' %}
+                        alert-success
+                    {% else %}
+                        alert-error
+                    {% endif %}">
+
+                    {{ message }}
+
+                </div>
+
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Summary Cards -->
+    <div class="summary-grid">
+
+        <div class="summary-card">
+            <div class="summary-icon blue-icon">
+                <i class="bi bi-collection"></i>
+            </div>
+
+            <div class="summary-label">
+                Total Plans
+            </div>
+
+            <div class="summary-value">
+                {{ statistics.total_plans or 0 }}
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-icon green-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+
+            <div class="summary-label">
+                Active Plans
+            </div>
+
+            <div class="summary-value">
+                {{ statistics.active_plans or 0 }}
+            </div>
+        </div>
+
+        <div class="summary-card">
+            <div class="summary-icon orange-icon">
+                <i class="bi bi-pause-circle"></i>
+            </div>
+
+            <div class="summary-label">
+                Inactive Plans
+            </div>
+
+            <div class="summary-value">
+                {{ statistics.inactive_plans or 0 }}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Plan Search and Filters -->
+    <div class="plans-card">
+
+        <div class="card-heading">
+            <h3>
+                <i class="bi bi-search"></i>
+                Search Subscription Plans
+            </h3>
+        </div>
+
+        <form method="GET"
+              action="{{ url_for('super_admin_plans') }}"
+              class="filter-form">
+
+            <div class="filter-group">
+                <label for="search">Search Plan</label>
+
+                <input
+                    type="text"
+                    id="search"
+                    name="search"
+                    value="{{ search }}"
+                    placeholder="Plan name or description"
+                >
+            </div>
+
+            <div class="filter-group">
+                <label for="status">Plan Status</label>
+
+                <select id="status" name="status">
+                    <option value="">All Statuses</option>
+
+                    <option value="Active"
+                        {% if status_filter == 'Active' %}selected{% endif %}>
+                        Active
+                    </option>
+
+                    <option value="Inactive"
+                        {% if status_filter == 'Inactive' %}selected{% endif %}>
+                        Inactive
+                    </option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+                Search
+            </button>
+
+            <a href="{{ url_for('super_admin_plans') }}"
+               class="btn btn-light">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+            </a>
+
+        </form>
+
+    </div>
+
+    <!-- Subscription Plans Table -->
+    <div class="plans-card">
+
+        <div class="card-heading">
+
+            <h3>
+                <i class="bi bi-list-ul"></i>
+                Existing Subscription Plans
+            </h3>
+
+            <!-- Create route will be added in the next step -->
+            <a href="{{ url_for('super_admin_create_plan') }}"
+   class="btn btn-primary">
+    <i class="bi bi-plus-circle"></i>
+    Create New Plan
+</a>
+
+        </div>
+
+        <div class="table-wrapper">
+
+            <table class="plans-table">
+
+                <thead>
+                    <tr>
+                        <th>Plan Details</th>
+                        <th>Monthly Price</th>
+                        <th>Annual Price</th>
+                        <th>Maximum Users</th>
+                        <th>Monthly Patients</th>
+                        <th>Analyzer</th>
+                        <th>Assigned Labs</th>
+                        <th>Status</th>
+                        <th>Created On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for plan in plans %}
+
+                    <tr>
+
+                        <td>
+                            <div class="plan-name">
+                                {{ plan.plan_name }}
+                            </div>
+
+                            <div class="plan-description">
+                                {{ plan.description or 'No description provided.' }}
+                            </div>
+
+                            <div class="muted-text">
+                                Plan ID: {{ plan.id }}
+                            </div>
+                        </td>
+
+                        <td>
+                            <span class="price-value">
+                                ₹{{ "%.2f"|format(plan.monthly_price|float) }}
+                            </span>
+                            <div class="muted-text">Per month</div>
+                        </td>
+
+                        <td>
+                            <span class="price-value">
+                                ₹{{ "%.2f"|format(plan.annual_price|float) }}
+                            </span>
+                            <div class="muted-text">Per year</div>
+                        </td>
+
+                        <td>
+                            {% if plan.max_users is none %}
+                                Unlimited
+                            {% else %}
+                                {{ plan.max_users }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if plan.max_patients_per_month is none %}
+                                Unlimited
+                            {% else %}
+                                {{ plan.max_patients_per_month }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if plan.analyzer_integration %}
+                                <span class="feature-yes">
+                                    <i class="bi bi-check-circle"></i>
+                                    Enabled
+                                </span>
+                            {% else %}
+                                <span class="feature-no">
+                                    <i class="bi bi-x-circle"></i>
+                                    Disabled
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <span class="plan-count">
+                                {{ plan.assigned_labs }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {% if plan.status == 'Active' %}
+                                <span class="status-badge status-active">
+                                    Active
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-inactive">
+                                    Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if plan.created_at %}
+                                {{ plan.created_at.strftime('%d %b %Y') }}
+                            {% else %}
+                                <span class="muted-text">N/A</span>
+                            {% endif %}
+                        </td>
+                        <td>
+    <a href="{{ url_for('super_admin_edit_plan', plan_id=plan.id) }}"
+       class="btn btn-sm btn-primary">
+        <i class="bi bi-pencil-square"></i>
+        Edit
+    </a>
+</td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="9" class="empty-state">
+                            <i class="bi bi-card-list"></i>
+
+                            <strong>No Subscription Plans Found</strong>
+
+                            <span>
+                                Try another search or change the status filter.
+                            </span>
+                        </td>
+                        
+                    </tr>
+                    
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+    <!-- Safety Information -->
+    <div class="plans-card">
+
+        <div class="card-heading">
+            <h3>
+                <i class="bi bi-shield-check"></i>
+                Plan Management Safety
+            </h3>
+        </div>
+
+        <div class="info-note">
+            <i class="bi bi-info-circle-fill"></i>
+
+            Plans assigned to laboratories should not be deleted
+            without checking their subscription history. Inactive plans
+            should remain available for historical records, while new
+            assignments should use active plans only.
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

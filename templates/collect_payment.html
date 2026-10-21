@@ -1,100 +1,976 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
-    <title>Collect Payment</title>
+{% block title %}Collect Payment | Smart Lab{% endblock %}
 
-    <style>
+{% block extra_css %}
+<style>
 
-        body{
-            font-family: Arial;
-            background:#f4f6f9;
+
+        * {
+            box-sizing: border-box;
+        }
+        .page-content { background: #f4f6f9; color: #222; }
+
+        .page-wrapper {
+            min-height: 100vh;
+            padding: 40px 20px;
         }
 
-        .box{
+        .payment-container {
+            max-width: 1000px;
+            margin: auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
 
-            width:500px;
-            margin:40px auto;
-            background:white;
-            padding:25px;
-            border-radius:10px;
-            box-shadow:0 0 10px lightgray;
+        /* -------------------------
+           PAYMENT INFORMATION
+        ------------------------- */
+
+        .box {
+            background: white;
+            padding: 28px;
+            border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+        }
+
+        .title {
+            font-size: 25px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: #1769e0;
+        }
+
+        .patient-info {
+            line-height: 1.9;
+            font-size: 16px;
+        }
+
+        .patient-info p {
+            margin: 5px 0;
+        }
+
+        .amount-box {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 10px;
+            background: #f8f9fa;
+        }
+
+        .amount-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .amount-row.remaining {
+            padding-top: 12px;
+            margin-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 20px;
+            font-weight: bold;
+            color: #dc3545;
+        }
+
+        /* -------------------------
+           FORM
+        ------------------------- */
+
+        .form-group {
+            margin-top: 22px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #d5dbe3;
+            border-radius: 8px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus,
+        select:focus {
+            border-color: #1769e0;
+            box-shadow: 0 0 0 3px rgba(23, 105, 224, 0.12);
+        }
+
+        .receive-hint {
+            margin-top: 7px;
+            font-size: 13px;
+            color: #777;
+        }
+
+        .collect-btn {
+            width: 100%;
+            margin-top: 25px;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background: #198754;
+            color: white;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .collect-btn:hover {
+            background: #157347;
+        }
+
+        /* -------------------------
+           UPI SECTION
+        ------------------------- */
+
+        .upi-box {
+            display: none;
+            margin-top: 25px;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .upi-header {
+            background: #198754;
+            color: white;
+            padding: 15px 20px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .upi-content {
+            padding: 25px;
+            text-align: center;
+        }
+
+        .qr-wrapper {
+            width: 260px;
+            height: 260px;
+            margin: 10px auto 20px;
+            padding: 15px;
+            background: white;
+            border: 1px solid #e1e5ea;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #upiQr {
+            width: 220px;
+            height: 220px;
+            object-fit: contain;
+        }
+
+        .upi-amount {
+            font-size: 28px;
+            font-weight: bold;
+            color: #198754;
+            margin: 10px 0;
+        }
+
+        .upi-status {
+            display: inline-block;
+            padding: 9px 16px;
+            border-radius: 20px;
+            background: #fff3cd;
+            color: #856404;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .upi-note {
+            margin-top: 18px;
+            padding: 14px;
+            background: #cff4fc;
+            color: #055160;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .qr-error {
+            display: none;
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        /* -------------------------
+           RESPONSIVE
+        ------------------------- */
+
+        @media (max-width: 800px) {
+
+            .payment-container {
+                grid-template-columns: 1fr;
+            }
+
+            .page-wrapper {
+                padding: 20px 12px;
+            }
 
         }
 
-        input{
+    
+</style>
+{% endblock %}
 
-            width:100%;
-            padding:10px;
-            margin-top:5px;
-            margin-bottom:20px;
+{% block content %}
+<div class="page-wrapper">
 
-        }
+    <div class="payment-container">
 
-        button{
+        <!-- ==========================================
+             PAYMENT INFORMATION
+        =========================================== -->
 
-            background:green;
-            color:white;
-            border:none;
-            padding:12px 25px;
-            cursor:pointer;
-            border-radius:5px;
+        <div class="box">
 
-        }
+            <div class="title">
+                💰 Collect Pending Payment
+            </div>
 
-    </style>
+            <div class="patient-info">
 
-</head>
+                <p>
+                    <b>Patient:</b>
+                    {{ payment.patient_name }}
+                </p>
 
-<body>
+                <p>
+                    <b>Patient ID:</b>
+                    {{ payment.patient_id }}
+                </p>
 
-<div class="box">
+                <p>
+                    <b>Mobile:</b>
+                    {{ payment.mobile }}
+                </p>
 
-<h2>Collect Pending Payment</h2>
+            </div>
 
-<p><b>Patient :</b> {{ payment.patient_name }}</p>
 
-<p><b>Patient ID :</b> {{ payment.patient_id }}</p>
+            <div class="amount-box">
 
-<p><b>Mobile :</b> {{ payment.mobile }}</p>
+                <div class="amount-row">
+                    <span>Total Bill</span>
+                    <b>₹{{ "%.2f"|format(payment.total_amount|float) }}</b>
+                </div>
 
-<p><b>Total Bill :</b> ₹{{ payment.total_amount }}</p>
+                <div class="amount-row">
+                    <span>Already Paid</span>
+                    <b>₹{{ "%.2f"|format(payment.paid_amount|float) }}</b>
+                </div>
 
-<p><b>Already Paid :</b> ₹{{ payment.paid_amount }}</p>
+                <div class="amount-row remaining">
+                    <span>Remaining</span>
+                    <span>
+                        ₹{{ "%.2f"|format(payment.pending_amount|float) }}
+                    </span>
+                </div>
 
-<p><b>Remaining :</b> ₹{{ payment.pending_amount }}</p>
+            </div>
 
-<hr>
 
-<form method="POST">
+            <!-- ==========================================
+                 PAYMENT FORM
+            =========================================== -->
 
-<label>Receive Amount</label>
+            <form method="POST" id="paymentForm">
 
-<input
-type="number"
-step="0.01"
-name="receive_amount"
-required>
-<label>Payment Mode</label>
+                <div class="form-group">
 
-<select name="payment_mode" required>
+                    <label for="receiveAmount">
+                        Receive Amount
+                    </label>
 
-    <option value="Cash">Cash</option>
+                    <input
+                        type="number"
+                        id="receiveAmount"
+                        name="receive_amount"
+                        step="0.01"
+                        min="0.01"
+                        max="{{ payment.pending_amount }}"
+                        placeholder="Enter amount"
+                        required
+                    >
 
-    <option value="UPI">UPI</option>
+                    <div class="receive-hint">
+                        Maximum payable amount:
+                        ₹{{ "%.2f"|format(payment.pending_amount|float) }}
+                    </div>
 
-</select>
+                </div>
 
-<button type="submit">
 
-Collect Payment
+                <div class="form-group">
 
-</button>
+                    <label for="paymentMode">
+                        Payment Mode
+                    </label>
 
-</form>
+                    <select
+                        id="paymentMode"
+                        name="payment_mode"
+                        required
+                    >
+
+                        <option value="Cash">
+                            Cash
+                        </option>
+
+                        <option value="UPI">
+                            UPI
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <button
+                    type="submit"
+                    class="collect-btn"
+                    id="collectButton"
+                >
+                    ✓ Collect Payment
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- ==========================================
+             UPI PAYMENT
+        =========================================== -->
+
+        <div
+            class="upi-box"
+            id="upiPaymentBox"
+        >
+
+            <div class="upi-header">
+                ▦ UPI Payment
+            </div>
+
+            <div class="upi-content">
+
+                <h2>
+                    Scan & Pay
+                </h2>
+
+                <p>
+                    Ask the patient to scan this QR code
+                    using any UPI application.
+                </p>
+
+
+                <div class="qr-wrapper">
+
+                    <img
+                        id="upiQr"
+                        src=""
+                        alt="UPI QR Code"
+                    >
+
+                </div>
+
+
+                <div class="upi-amount">
+                    ₹<span id="upiAmount">0.00</span>
+                </div>
+
+
+                <div
+                    class="upi-status"
+                    id="upiStatus"
+                >
+                    Enter amount to generate QR
+                </div>
+
+
+                <div
+                    class="qr-error"
+                    id="qrError"
+                >
+                    Unable to generate UPI QR.
+                    Please check the UPI ID configured in Settings.
+                </div>
+
+
+                <div class="upi-note">
+
+                    ℹ️ <b>Important:</b><br>
+
+                    After the patient completes the UPI payment,
+                    verify the transaction in the UPI application/bank
+                    before clicking <b>Collect Payment</b>.
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
 
 </div>
 
-</body>
 
-</html>
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const receiveAmount =
+        document.getElementById("receiveAmount");
+
+    const paymentMode =
+        document.getElementById("paymentMode");
+
+    const upiPaymentBox =
+        document.getElementById("upiPaymentBox");
+
+    const upiQr =
+        document.getElementById("upiQr");
+
+    const upiAmount =
+        document.getElementById("upiAmount");
+
+    const upiStatus =
+        document.getElementById("upiStatus");
+
+    const qrError =
+        document.getElementById("qrError");
+
+    const paymentForm =
+        document.getElementById("paymentForm");
+
+
+    /*
+    --------------------------------------------------
+    GENERATE UPI QR
+    --------------------------------------------------
+    */
+
+    function generateUPIQR() {
+
+        const amount =
+            parseFloat(receiveAmount.value);
+
+
+        // If UPI is not selected
+        if (paymentMode.value !== "UPI") {
+
+            upiPaymentBox.style.display = "none";
+
+            upiQr.src = "";
+
+            return;
+        }
+
+
+        // Show UPI section
+        upiPaymentBox.style.display = "block";
+
+
+        // Invalid / empty amount
+        if (
+            isNaN(amount) ||
+            amount <= 0
+        ) {
+
+            upiQr.src = "";
+
+            upiAmount.textContent = "0.00";
+
+            upiStatus.textContent =
+                "Enter amount to generate QR";
+
+            qrError.style.display = "none";
+
+            return;
+        }
+
+
+        // Maximum pending amount
+        const maxAmount =
+            parseFloat(receiveAmount.max);
+
+
+        if (amount > maxAmount) {
+
+            upiQr.src = "";
+
+            upiAmount.textContent =
+                amount.toFixed(2);
+
+            upiStatus.textContent =
+                "Amount exceeds remaining balance";
+
+            qrError.style.display = "none";
+
+            return;
+        }
+
+
+        /*
+        --------------------------------------------------
+        UPDATE DISPLAY
+        --------------------------------------------------
+        */
+
+        upiAmount.textContent =
+            amount.toFixed(2);
+
+        upiStatus.textContent =
+            "Ready for payment";
+
+        qrError.style.display = "none";
+
+
+        /*
+        --------------------------------------------------
+        GENERATE QR
+
+        IMPORTANT:
+        amount = RECEIVE AMOUNT
+
+        NOT remaining amount
+        --------------------------------------------------
+        */
+
+        const qrUrl =
+            "/generate-upi-qr?amount=" +
+            encodeURIComponent(amount.toFixed(2)) +
+            "&note=" +
+            encodeURIComponent(
+                "Pending Payment - {{ payment.patient_id }}"
+            ) +
+            "&t=" +
+            Date.now();
+
+
+        upiQr.onload = function () {
+
+            qrError.style.display = "none";
+
+        };
+
+
+        upiQr.onerror = function () {
+
+            qrError.style.display = "block";
+
+            upiStatus.textContent =
+                "QR generation failed";
+
+        };
+
+
+        upiQr.src = qrUrl;
+
+    }
+
+
+    /*
+    --------------------------------------------------
+    PAYMENT MODE CHANGE
+    --------------------------------------------------
+    */
+
+    paymentMode.addEventListener(
+        "change",
+        generateUPIQR
+    );
+
+
+    /*
+    --------------------------------------------------
+    RECEIVE AMOUNT CHANGE
+    --------------------------------------------------
+    */
+
+    receiveAmount.addEventListener(
+        "input",
+        generateUPIQR
+    );
+
+
+    receiveAmount.addEventListener(
+        "change",
+        generateUPIQR
+    );
+
+
+    /*
+    --------------------------------------------------
+    FORM VALIDATION
+    --------------------------------------------------
+    */
+
+    paymentForm.addEventListener(
+        "submit",
+        function (event) {
+
+            const amount =
+                parseFloat(receiveAmount.value);
+
+            const maxAmount =
+                parseFloat(receiveAmount.max);
+
+
+            if (
+                isNaN(amount) ||
+                amount <= 0
+            ) {
+
+                event.preventDefault();
+
+                alert(
+                    "Please enter a valid payment amount."
+                );
+
+                receiveAmount.focus();
+
+                return;
+            }
+
+
+            if (amount > maxAmount) {
+
+                event.preventDefault();
+
+                alert(
+                    "Payment amount cannot be greater than the remaining balance."
+                );
+
+                receiveAmount.focus();
+
+                return;
+            }
+
+
+            /*
+            For UPI, don't automatically assume
+            that scanning the QR means payment succeeded.
+            */
+
+            if (paymentMode.value === "UPI") {
+
+                const confirmed =
+                    confirm(
+                        "Have you verified that the UPI payment was successfully received?"
+                    );
+
+
+                if (!confirmed) {
+
+                    event.preventDefault();
+
+                    return;
+                }
+
+            }
+
+        }
+    );
+
+
+    /*
+    --------------------------------------------------
+    INITIAL STATE
+    --------------------------------------------------
+    */
+
+    generateUPIQR();
+
+});
+
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const receiveAmount =
+        document.getElementById("receiveAmount");
+
+    const paymentMode =
+        document.getElementById("paymentMode");
+
+    const upiPaymentBox =
+        document.getElementById("upiPaymentBox");
+
+    const upiQr =
+        document.getElementById("upiQr");
+
+    const upiAmount =
+        document.getElementById("upiAmount");
+
+    const upiStatus =
+        document.getElementById("upiStatus");
+
+    const qrError =
+        document.getElementById("qrError");
+
+    const paymentForm =
+        document.getElementById("paymentForm");
+
+
+    /*
+    --------------------------------------------------
+    GENERATE UPI QR
+    --------------------------------------------------
+    */
+
+    function generateUPIQR() {
+
+        const amount =
+            parseFloat(receiveAmount.value);
+
+
+        // If UPI is not selected
+        if (paymentMode.value !== "UPI") {
+
+            upiPaymentBox.style.display = "none";
+
+            upiQr.src = "";
+
+            return;
+        }
+
+
+        // Show UPI section
+        upiPaymentBox.style.display = "block";
+
+
+        // Invalid / empty amount
+        if (
+            isNaN(amount) ||
+            amount <= 0
+        ) {
+
+            upiQr.src = "";
+
+            upiAmount.textContent = "0.00";
+
+            upiStatus.textContent =
+                "Enter amount to generate QR";
+
+            qrError.style.display = "none";
+
+            return;
+        }
+
+
+        // Maximum pending amount
+        const maxAmount =
+            parseFloat(receiveAmount.max);
+
+
+        if (amount > maxAmount) {
+
+            upiQr.src = "";
+
+            upiAmount.textContent =
+                amount.toFixed(2);
+
+            upiStatus.textContent =
+                "Amount exceeds remaining balance";
+
+            qrError.style.display = "none";
+
+            return;
+        }
+
+
+        /*
+        --------------------------------------------------
+        UPDATE DISPLAY
+        --------------------------------------------------
+        */
+
+        upiAmount.textContent =
+            amount.toFixed(2);
+
+        upiStatus.textContent =
+            "Ready for payment";
+
+        qrError.style.display = "none";
+
+
+        /*
+        --------------------------------------------------
+        GENERATE QR
+
+        IMPORTANT:
+        amount = RECEIVE AMOUNT
+
+        NOT remaining amount
+        --------------------------------------------------
+        */
+
+        const qrUrl =
+            "/generate-upi-qr?amount=" +
+            encodeURIComponent(amount.toFixed(2)) +
+            "&note=" +
+            encodeURIComponent(
+                "Pending Payment - {{ payment.patient_id }}"
+            ) +
+            "&t=" +
+            Date.now();
+
+
+        upiQr.onload = function () {
+
+            qrError.style.display = "none";
+
+        };
+
+
+        upiQr.onerror = function () {
+
+            qrError.style.display = "block";
+
+            upiStatus.textContent =
+                "QR generation failed";
+
+        };
+
+
+        upiQr.src = qrUrl;
+
+    }
+
+
+    /*
+    --------------------------------------------------
+    PAYMENT MODE CHANGE
+    --------------------------------------------------
+    */
+
+    paymentMode.addEventListener(
+        "change",
+        generateUPIQR
+    );
+
+
+    /*
+    --------------------------------------------------
+    RECEIVE AMOUNT CHANGE
+    --------------------------------------------------
+    */
+
+    receiveAmount.addEventListener(
+        "input",
+        generateUPIQR
+    );
+
+
+    receiveAmount.addEventListener(
+        "change",
+        generateUPIQR
+    );
+
+
+    /*
+    --------------------------------------------------
+    FORM VALIDATION
+    --------------------------------------------------
+    */
+
+    paymentForm.addEventListener(
+        "submit",
+        function (event) {
+
+            const amount =
+                parseFloat(receiveAmount.value);
+
+            const maxAmount =
+                parseFloat(receiveAmount.max);
+
+
+            if (
+                isNaN(amount) ||
+                amount <= 0
+            ) {
+
+                event.preventDefault();
+
+                alert(
+                    "Please enter a valid payment amount."
+                );
+
+                receiveAmount.focus();
+
+                return;
+            }
+
+
+            if (amount > maxAmount) {
+
+                event.preventDefault();
+
+                alert(
+                    "Payment amount cannot be greater than the remaining balance."
+                );
+
+                receiveAmount.focus();
+
+                return;
+            }
+
+
+            /*
+            For UPI, don't automatically assume
+            that scanning the QR means payment succeeded.
+            */
+
+            if (paymentMode.value === "UPI") {
+
+                const confirmed =
+                    confirm(
+                        "Have you verified that the UPI payment was successfully received?"
+                    );
+
+
+                if (!confirmed) {
+
+                    event.preventDefault();
+
+                    return;
+                }
+
+            }
+
+        }
+    );
+
+
+    /*
+    --------------------------------------------------
+    INITIAL STATE
+    --------------------------------------------------
+    */
+
+    generateUPIQR();
+
+});
+</script>
+{% endblock %}

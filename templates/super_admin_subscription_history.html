@@ -1,0 +1,593 @@
+{% extends "base.html" %}
+
+{% block title %}Subscription History | Smart Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .history-page {
+        padding: 24px;
+        max-width: 1600px;
+        margin: auto;
+    }
+
+    .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .history-header h2 {
+        margin: 0;
+        color: #172b4d;
+        font-weight: 700;
+    }
+
+    .history-header p {
+        margin: 7px 0 0;
+        color: #718096;
+        font-size: 14px;
+    }
+
+    .header-badge {
+        background: #e8f1ff;
+        color: #2457a7;
+        padding: 9px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .history-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 25px;
+    }
+
+    .history-stat {
+        background: #fff;
+        border: 1px solid #edf0f5;
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.05);
+    }
+
+    .history-stat .stat-icon {
+        font-size: 25px;
+        margin-bottom: 13px;
+    }
+
+    .stat-blue {
+        color: #3273dc;
+    }
+
+    .stat-green {
+        color: #239b70;
+    }
+
+    .stat-red {
+        color: #d64545;
+    }
+
+    .stat-orange {
+        color: #e58b20;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .stat-value {
+        color: #172b4d;
+        font-size: 29px;
+        font-weight: 750;
+    }
+
+    .history-panel {
+        background: #fff;
+        border: 1px solid #edf0f5;
+        border-radius: 14px;
+        padding: 23px;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+    }
+
+    .panel-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .panel-heading h4 {
+        margin: 0;
+        color: #172b4d;
+        font-size: 19px;
+        font-weight: 700;
+    }
+
+    .filter-form {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 220px auto auto;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 22px;
+    }
+
+    .filter-form label {
+        display: block;
+        margin-bottom: 7px;
+        color: #344054;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .filter-form .form-control,
+    .filter-form .form-select {
+        min-height: 43px;
+        border-radius: 8px;
+        border-color: #d8dee9;
+    }
+
+    .filter-form .btn {
+        min-height: 43px;
+        padding: 9px 17px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    .table-wrapper {
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .history-table {
+        width: 100%;
+        min-width: 1050px;
+        border-collapse: collapse;
+    }
+
+    .history-table thead th {
+        padding: 14px 12px;
+        text-align: left;
+        white-space: nowrap;
+        background: #f5f7fb;
+        color: #53627a;
+        font-size: 12px;
+        font-weight: 700;
+        border-bottom: 1px solid #e5eaf1;
+    }
+
+    .history-table tbody td {
+        padding: 15px 12px;
+        border-bottom: 1px solid #edf0f5;
+        color: #344054;
+        font-size: 13px;
+        vertical-align: middle;
+    }
+
+    .history-table tbody tr:hover {
+        background: #fafbfd;
+    }
+
+    .lab-name {
+        font-weight: 700;
+        color: #172b4d;
+        margin-bottom: 4px;
+    }
+
+    .secondary-text {
+        color: #718096;
+        font-size: 12px;
+    }
+
+    .plan-name {
+        font-weight: 700;
+        color: #2457a7;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-active {
+        background: #e3f8ed;
+        color: #18794e;
+    }
+
+    .status-expired {
+        background: #feecec;
+        color: #b42318;
+    }
+
+    .status-cancelled {
+        background: #f0e9ff;
+        color: #6941a5;
+    }
+
+    .status-trial {
+        background: #fff2d6;
+        color: #925f00;
+    }
+
+    .status-other {
+        background: #edf0f5;
+        color: #53627a;
+    }
+
+    .empty-state {
+        padding: 45px 20px !important;
+        text-align: center;
+        color: #718096 !important;
+    }
+
+    .empty-state i {
+        display: block;
+        font-size: 38px;
+        margin-bottom: 12px;
+        color: #a0aec0;
+    }
+
+    .empty-state strong {
+        display: block;
+        color: #344054;
+        margin-bottom: 5px;
+        font-size: 15px;
+    }
+
+    .results-info {
+        margin-top: 17px;
+        color: #718096;
+        font-size: 13px;
+    }
+
+    .back-button {
+        display: inline-block;
+        text-decoration: none;
+        color: #2457d6;
+        font-weight: 600;
+        font-size: 14px;
+    }
+
+    .back-button:hover {
+        color: #1744b2;
+    }
+
+    @media (max-width: 1100px) {
+        .history-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .filter-form {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 600px) {
+        .history-page {
+            padding: 12px;
+        }
+
+        .history-panel {
+            padding: 15px;
+        }
+
+        .history-stats {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .filter-form {
+            grid-template-columns: 1fr;
+        }
+
+        .filter-form .btn {
+            width: 100%;
+        }
+
+        .stat-value {
+            font-size: 25px;
+        }
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="history-page">
+
+    <!-- PAGE HEADER -->
+    <div class="history-header">
+
+        <div>
+            <h2>
+                <i class="bi bi-clock-history"></i>
+                Subscription History
+            </h2>
+
+            <p>
+                View subscription assignments, plans and validity periods
+                across all registered laboratories.
+            </p>
+        </div>
+
+        <span class="header-badge">
+            <i class="bi bi-shield-check"></i>
+            Super Admin
+        </span>
+
+    </div>
+
+
+    <!-- SUMMARY STATISTICS -->
+    <div class="history-stats">
+
+        <div class="history-stat">
+            <div class="stat-icon stat-blue">
+                <i class="bi bi-receipt"></i>
+            </div>
+
+            <div class="stat-label">Total Subscriptions</div>
+
+            <div class="stat-value">
+                {{ statistics.total_subscriptions or 0 }}
+            </div>
+        </div>
+
+
+        <div class="history-stat">
+            <div class="stat-icon stat-green">
+                <i class="bi bi-check-circle"></i>
+            </div>
+
+            <div class="stat-label">Active Subscriptions</div>
+
+            <div class="stat-value">
+                {{ statistics.active_subscriptions or 0 }}
+            </div>
+        </div>
+
+
+        <div class="history-stat">
+            <div class="stat-icon stat-red">
+                <i class="bi bi-calendar-x"></i>
+            </div>
+
+            <div class="stat-label">Expired Subscriptions</div>
+
+            <div class="stat-value">
+                {{ statistics.expired_subscriptions or 0 }}
+            </div>
+        </div>
+
+
+        <div class="history-stat">
+            <div class="stat-icon stat-orange">
+                <i class="bi bi-x-circle"></i>
+            </div>
+
+            <div class="stat-label">Cancelled Subscriptions</div>
+
+            <div class="stat-value">
+                {{ statistics.cancelled_subscriptions or 0 }}
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- HISTORY TABLE -->
+    <div class="history-panel">
+
+        <div class="panel-heading">
+
+            <h4>
+                <i class="bi bi-list-ul"></i>
+                All Subscription Records
+            </h4>
+
+            <a href="{{ url_for('super_admin_dashboard') }}"
+               class="back-button">
+                <i class="bi bi-arrow-left"></i>
+                Back to Dashboard
+            </a>
+
+        </div>
+
+
+        <!-- SEARCH AND FILTER -->
+        <form method="GET"
+              action="{{ url_for('super_admin_subscription_history') }}"
+              class="filter-form">
+
+            <div>
+                <label for="search">Search</label>
+
+                <input
+                    type="search"
+                    id="search"
+                    name="search"
+                    class="form-control"
+                    placeholder="Lab ID, name, owner or plan"
+                    value="{{ search }}">
+            </div>
+
+
+            <div>
+                <label for="status">Subscription Status</label>
+
+                <select id="status"
+                        name="status"
+                        class="form-select">
+
+                    <option value="">All Statuses</option>
+
+                    {% for status in statuses %}
+                        <option value="{{ status }}"
+                            {% if status_filter == status %}selected{% endif %}>
+                            {{ status }}
+                        </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+                Search
+            </button>
+
+
+            <a href="{{ url_for('super_admin_subscription_history') }}"
+               class="btn btn-outline-secondary d-flex align-items-center justify-content-center">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+            </a>
+
+        </form>
+
+
+        <!-- TABLE -->
+        <div class="table-wrapper">
+
+            <table class="history-table">
+
+                <thead>
+                    <tr>
+                        <th>Record ID</th>
+                        <th>Laboratory</th>
+                        <th>Subscription Plan</th>
+                        <th>Monthly Price</th>
+                        <th>Annual Price</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+
+                <tbody>
+
+                    {% for sub in subscriptions %}
+
+                    <tr>
+
+                        <td>
+                            <strong>#{{ sub.subscription_id }}</strong>
+                        </td>
+
+
+                        <td>
+                            <div class="lab-name">
+                                {{ sub.lab_name or 'Unknown Laboratory' }}
+                            </div>
+
+                            <div class="secondary-text">
+                                {{ sub.lab_id }}
+                            </div>
+
+                            {% if sub.owner_name %}
+                                <div class="secondary-text">
+                                    Owner: {{ sub.owner_name }}
+                                </div>
+                            {% endif %}
+                        </td>
+
+
+                        <td>
+                            <span class="plan-name">
+                                {{ sub.plan_name or 'Plan unavailable' }}
+                            </span>
+                        </td>
+
+
+                        <td>
+                            ₹{{ "%.2f"|format(sub.monthly_price|float) if sub.monthly_price is not none else "—" }}
+                        </td>
+
+
+                        <td>
+                            ₹{{ "%.2f"|format(sub.annual_price|float) if sub.annual_price is not none else "—" }}
+                        </td>
+
+
+                        <td>
+                            {{ sub.start_date or '—' }}
+                        </td>
+
+
+                        <td>
+                            {{ sub.end_date or '—' }}
+                        </td>
+
+
+                        <td>
+                            {% set current_status = sub.subscription_status or '' %}
+
+                            <span class="status-badge
+                                {% if current_status == 'Active' %}
+                                    status-active
+                                {% elif current_status == 'Expired' %}
+                                    status-expired
+                                {% elif current_status == 'Cancelled' %}
+                                    status-cancelled
+                                {% elif current_status == 'Trial' %}
+                                    status-trial
+                                {% else %}
+                                    status-other
+                                {% endif %}">
+
+                                {{ current_status if current_status else 'Unknown' }}
+
+                            </span>
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="8" class="empty-state">
+
+                            <i class="bi bi-inbox"></i>
+
+                            <strong>No Subscription Records Found</strong>
+
+                            No subscription assignments match your search
+                            or filter.
+
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <div class="results-info">
+            Showing {{ subscriptions|length }} subscription record(s).
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

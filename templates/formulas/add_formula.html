@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}
+Add Formula
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button class="back-btn" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+
+    <h2>Add Formula</h2>
+
+    <hr>
+
+    <form method="POST">
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Formula Name
+
+            </label>
+
+            <input
+                type="text"
+                name="formula_name"
+                class="form-control"
+                required>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Formula Expression
+
+            </label>
+
+            <textarea
+                name="formula_expression"
+                rows="4"
+                class="form-control"
+                required></textarea>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Description
+
+            </label>
+
+            <textarea
+                name="description"
+                rows="3"
+                class="form-control"></textarea>
+
+        </div>
+
+        <button class="btn btn-success">
+
+            Save Formula
+
+        </button>
+
+        <a href="{{ url_for('test_builder.report_formulas') }}"
+           class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+{% endblock %}

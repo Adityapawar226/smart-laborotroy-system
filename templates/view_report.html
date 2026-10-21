@@ -1,254 +1,291 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ patient.name|replace(" ", "_") }}_Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/view_report.css') }}">
 
-    <title>Laboratory Report</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static',
-          filename='css/view_report.css') }}">
+    <style>
+        .report-description-block {
+            margin: 6mm 0;
+            padding: 3mm;
+            border: 1px solid #d7dde5;
+            border-radius: 2mm;
+            break-inside: auto;
+            page-break-inside: auto;
+        }
+        .report-description-title {
+            margin: 0 0 2mm;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .report-description-text {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            line-height: 1.4;
+            font-size: 11px;
+        }
+    </style>
 
 </head>
 
-<body>
+<body class="show-hf">
 
-<a href="/reports-management" class="back-btn">
-
-    <button>
-
-        ← Back
-
-    </button>
-
-</a>
-
-
-{% for test_name, test in results.items() %}
-
-<div class="report-page">
-
-    <div class="report-content">
-
-    <!-- ================= HEADER SPACE ================= -->
-
-    <div class="header-space">
-
-        <!-- Blank Space
-             Reserved for Preprinted Letter Head -->
-
-    </div>
-
-    <!-- ================= PATIENT DETAILS ================= -->
-
-    <div class="patient-card">
-
-        <div class="info-item">
-
-            <strong>Patient Name :</strong>
-
-            {{ patient_name }}
-
-        </div>
-
-        <div class="info-item">
-
-            <strong>Patient ID :</strong>
-
-            {{ patient_id }}
-
-        </div>
-
-        <div class="info-item">
-
-            <strong>Age / Gender :</strong>
-
-            {{ age_gender }}
-
-        </div>
-
-        <div class="info-item">
-
-            <strong>Doctor :</strong>
-
-            {{ doctor_name }}
-
-        </div>
-
-        <div class="info-item">
-
-            <strong>Report Date :</strong>
-
-            {{ report_date }}
-
-        </div>
-
-        <div class="info-item">
-
-          <strong> Sample :
-</strong>
-{{ test.sample_type }}
-        </div>
-
-        <div class="info-item">
-
-            <strong>Collected On :</strong>
-
-            {{ collection_date }}
-
-        </div>
-
-        <div class="info-item">
-
-            <strong>Report No :</strong>
-
-            REP-{{ patient_id }}
-
-        </div>
-
-    </div>
-
-    <!-- ================= DEPARTMENT ================= -->
-
-    {% if test.department %}
-
-    <div class="department-title">
-
-        {{ test.department|upper }}
-
-    </div>
-
-
+<div class="report-controls">
+    {% if not public_view %}
+    <a href="{{ url_for('reports_management') }}" class="back-btn">← Back</a>
     {% endif %}
-    <hr class="patient-divider">
 
-    <!-- ================= TEST NAME ================= -->
- 
-    <div class="test-title">
+    <label class="hf-toggle-label">
+        <input type="checkbox" id="hfToggle" checked onchange="toggleHeaderFooter(this)">
+        Show Header & Footer
+    </label>
 
-        {{ test_name }}
-
-    </div>
-
-    <!-- ================= TABLE START ================= -->
-
-    <table class="report-table">
-
+    <button type="button" class="print-btn" onclick="window.print()">🖨 Print Report</button>
+</div>
+<div class="print-layout-wrap">
+    {% for test in report_structure %}
+    <table class="print-layout report-test-page">
         <thead>
-
             <tr>
-
-                <th style="width:45%">Parameter</th>
-
-                <th style="width:18%">Result</th>
-
-                <th style="width:15%">Unit</th>
-
-                <th style="width:22%">Reference Range</th>
-
+                <td>
+                    <div class="report-header toggleable-header">
+                        {% if lab_settings and lab_settings.report_header %}
+                        <img
+                            src="{{ url_for('static', filename='uploads/report_header/' ~ lab_settings.report_header) }}"
+                            class="report-header-image"
+                            alt="Report Header"
+                        >
+                        {% endif %}
+                    </div>
+                </td>
             </tr>
-
         </thead>
 
         <tbody>
-
-        {% set ns = namespace(last_section='') %}
-
-        {% set ns = namespace(last_section='') %}
-
-        {% for row in test.rows %}
-
-            {% if row.section and row.section != ns.last_section %}
-
-          
-
-            {% set ns.last_section = row.section %}
-
-            {% endif %}
-
             <tr>
+                <td>
+                    <main class="report-flow">
+                        <section class="test-block test-page">
+                            <div class="test-start">
+                                <div class="patient-card">
+                                    <div class="info-item"><strong>Patient Name :</strong> {{ patient.name }}</div>
+<div class="info-item"><strong>Patient ID :</strong> {{ patient.patient_id }}</div>
 
-                <td>{{ row.parameter }}</td>
+<div class="info-item"><strong>Age / Gender :</strong> {{ patient.age }} Years / {{ patient.gender }}</div>
+<div class="info-item"><strong>Sample ID :</strong> {{ patient.sample_id or '-' }}</div>
+<div class="info-item"><strong>Doctor :</strong> {{ patient.doctor_name }}</div>
 
-                <td class="{{ row.status }}">
-                    {{ row.result }}
+<div class="info-item"><strong>Collected On :</strong> {{ patient.collection_date }}</div>
+<div class="info-item">
+    <strong>Report Date :</strong> {{ patient.report_date or '-' }}
+</div>
+<div class="info-item"><strong>Report No :</strong> REP-{{ patient.patient_id }}</div>
+                                    {% if qr_code %}
+                                    <div class="qr-report-box">
+                                        <img
+                                            src="data:image/png;base64,{{ qr_code }}"
+                                            class="report-qr"
+                                            alt="Report QR Code"
+                                        >
+                                        
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <hr class="patient-divider">
+                                <div class="test-title">{{ test.test_name }}</div>
+                            </div>
+
+                            <div class="test-content">
+                                {% for section in test.sections %}
+                                <div class="section-block">
+                                    {% if section.section_name %}
+                                    <div class="section-title">{{ section.section_name }}</div>
+                                    {% endif %}
+
+                                    {% if section.description %}
+                                    <div class="section-description">{{ section.description }}</div>
+                                    {% endif %}
+
+                                    {% for component in section.components %}
+                                        {% if component.component_type == "heading" and component.component_content %}
+                                        <div class="report-heading">{{ component.component_content }}</div>
+                                        {% endif %}
+
+                                        {% if component.component_type == "paragraph" and component.component_content %}
+                                        <div class="report-paragraph">{{ component.component_content }}</div>
+                                        {% endif %}
+
+                                        {% if component.component_type in ["parameter", "parameter_table", "formula", "dictionary"] %}
+                                            {% if component.parameters %}
+                                            <table class="report-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="parameter-column">Parameter</th>
+                                                        <th class="result-column">Result</th>
+                                                        <th class="unit-column">Unit</th>
+                                                        <th class="reference-column">Reference Range</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for parameter in component.parameters %}
+                                                        {% if parameter.result is not none and parameter.result|string|trim != '' %}
+                                                        <tr class="parameter-group">
+                                                            <td>{{ parameter.display_name }}</td>
+                                                            <td class="{% if parameter.status == 'high' %}high{% elif parameter.status == 'low' %}low{% else %}normal{% endif %}">
+                                                                {% if parameter.status == "high" %}↑{% elif parameter.status == "low" %}↓{% endif %}
+                                                                {{ parameter.result }}
+                                                            </td>
+                                                            <td>{{ parameter.unit or '-' }}</td>
+                                                            <td>{{ parameter.reference_range or '-' }}</td>
+                                                        </tr>
+
+                                                        {% if parameter.reference_text %}
+                                                        <tr class="reference-text-row">
+                                                            <td colspan="4">
+                                                                <div class="reference-text-inline">
+                                                                    <strong>Reference Range</strong>
+                                                                    <div>{{ parameter.reference_text | replace('\r\n', '<br>') | replace('\n', '<br>') | safe }}</div>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                        {% endif %}
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                            {% endif %}
+                                        {% endif %}
+
+                                        {% if component.component_type == "dictionary_result" and component.selected_value %}
+                                        <div class="dictionary-result">
+                                            <span class="dictionary-result-label">{{ component.component_name }}</span>
+                                            <span class="dictionary-result-value">{{ component.selected_value }}</span>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if component.component_type == "dropdown" %}
+                                            {% set ns = namespace(has_value=false) %}
+                                            {% for parameter in component.parameters %}
+                                                {% if parameter.result is not none and parameter.result|string|trim != '' and parameter.result|string|trim != '-' %}
+                                                    {% set ns.has_value = true %}
+                                                {% endif %}
+                                            {% endfor %}
+
+                                            {% if ns.has_value %}
+                                            <div class="dropdown-section">
+                                                <div class="report-heading">{{ component.component_content or '' }}</div>
+                                                <table class="report-table dropdown-table">
+                                                    <tbody>
+                                                        {% for parameter in component.parameters %}
+                                                            {% if parameter.result is not none and parameter.result|string|trim != '' and parameter.result|string|trim != '-' %}
+                                                            <tr>
+                                                                <td class="dropdown-label">{{ parameter.display_name }}</td>
+                                                                <td class="dropdown-result">{{ parameter.result }}</td>
+                                                            </tr>
+                                                            {% endif %}
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    </main>
+
+                    {% if loop.last and report_description is defined and report_description|string|trim %}
+                    <section class="report-description-block">
+                        <h3 class="report-description-title">Description / Additional Notes</h3>
+                        <div class="report-description-text">{{ report_description }}</div>
+                    </section>
+                    {% endif %}
                 </td>
-
-                <td>{{ row.unit }}</td>
-
-                <td>{{ row.reference }}</td>
-
             </tr>
-
-        {% endfor %}
-
         </tbody>
 
-   </table>
+        <tfoot>
+            <tr>
+                <td>
+                    <div class="signature-footer-block">
+                        {% if signatories.primary or signatories.secondary %}
+                        <div class="report-signatories">
+                            {% if signatories.primary %}
+                            <div class="sign-box">
+                                {% if signatories.primary.signature %}
+                                <img
+                                    src="{{ url_for('static', filename='uploads/signatories/' ~ signatories.primary.signature) }}"
+                                    class="signature-image"
+                                    alt="Primary Signature"
+                                >
+                                {% endif %}
+                                <div class="sign-name">{{ signatories.primary.name }}</div>
+                                <div class="sign-designation">{{ signatories.primary.designation }}</div>
+                            </div>
+                            {% endif %}
+
+                            {% if signatories.secondary %}
+                            <div class="sign-box">
+
+    {% if signatories.secondary.signature
+          and signatories.secondary.signature|string|lower != 'none' %}
+        <img
+            src="{{ url_for('static', filename='uploads/signatories/' ~ signatories.secondary.signature) }}"
+            class="signature-image"
+            alt="Secondary Signature"
+        >
+    {% endif %}
+
+    {% if signatories.secondary.name
+          and signatories.secondary.name|string|lower != 'none' %}
+        <div class="sign-name">{{ signatories.secondary.name }}</div>
+    {% endif %}
+
+    {% if signatories.secondary.designation
+          and signatories.secondary.designation|string|lower != 'none' %}
+        <div class="sign-designation">{{ signatories.secondary.designation }}</div>
+    {% endif %}
 
 </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
 
-<div class="report-footer-area">
-
-<div class="signature-section">
-
-    <div class="sign-box">
-
-        ______________________
-
-        <br>
-
-        Lab Technician
-
-    </div>
-
-    <div class="sign-box">
-
-        ______________________
-
-        <br>
-
-        Pathologist
-
-    </div>
-
+                        <div class="report-footer toggleable-footer">
+                            {% if lab_settings and lab_settings.report_footer %}
+                            <img
+                                src="{{ url_for('static', filename='uploads/report_footer/' ~ lab_settings.report_footer) }}"
+                                class="report-footer-image"
+                                alt="Report Footer"
+                            >
+                            {% else %}
+                            ***** End Of Report *****
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+    {% endfor %}
 </div>
 
-<div class="report-note">
-
-    This is a computer generated report.
-
-    <br>
-
-    Kindly correlate clinically.
-
-</div>
-
-<div class="page-number">
-
-    Page {{ loop.index }} of {{ results|length }}
-
-</div>
-
-<div class="footer-space"></div>
-
-</div>
-
-</div>
-
-   
-
-{% if not loop.last %}
-<div class="page-break"></div>
-{% endif %}
-
-{% endfor %}
-
-
-
-<button class="print-btn" onclick="window.print()">
-    Print Report
-</button>
+<script>
+function toggleHeaderFooter(checkbox) {
+    if (checkbox.checked) {
+        document.body.classList.add('show-hf');
+        document.body.classList.remove('hide-hf');
+    } else {
+        document.body.classList.remove('show-hf');
+        document.body.classList.add('hide-hf');
+    }
+}
+</script>
 
 </body>
 </html>

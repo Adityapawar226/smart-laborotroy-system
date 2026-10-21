@@ -1,0 +1,558 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<style>
+    .labs-page {
+        padding: 8px 4px 25px;
+        color: #17345f;
+    }
+
+    .labs-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .labs-header h2 {
+        margin: 0 0 7px;
+        font-size: 28px;
+        font-weight: 700;
+        color: #17345f;
+    }
+
+    .labs-header p {
+        margin: 0;
+        color: #718096;
+        font-size: 14px;
+    }
+
+    .admin-badge {
+        background: #e8f0ff;
+        color: #2864d7;
+        padding: 10px 16px;
+        border-radius: 25px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .labs-card {
+        background: #ffffff;
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 4px 18px rgba(30, 50, 80, 0.07);
+        border: 1px solid #edf1f7;
+        margin-bottom: 22px;
+    }
+
+    .labs-card-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .labs-card-heading h3 {
+        margin: 0;
+        font-size: 19px;
+        color: #17345f;
+        font-weight: 700;
+    }
+
+    .total-badge {
+        background: #edf4ff;
+        color: #2864d7;
+        border-radius: 20px;
+        padding: 7px 13px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .filter-form {
+        display: grid;
+        grid-template-columns: minmax(200px, 2fr) minmax(150px, 1fr) auto auto;
+        gap: 12px;
+        align-items: end;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #405574;
+    }
+
+    .filter-group input,
+    .filter-group select {
+        width: 100%;
+        min-height: 43px;
+        padding: 10px 12px;
+        border: 1px solid #dce4ef;
+        border-radius: 8px;
+        background: #fff;
+        color: #17345f;
+        font-size: 13px;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+    .filter-group input:focus,
+    .filter-group select:focus {
+        border-color: #3478f6;
+        box-shadow: 0 0 0 3px rgba(52, 120, 246, 0.10);
+    }
+
+    .btn {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        gap: 7px;
+        min-height: 42px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        white-space: nowrap;
+        box-sizing: border-box;
+    }
+
+    .btn-primary {
+        background: #2f6df6;
+        color: #fff;
+    }
+
+    .btn-primary:hover {
+        background: #2058d4;
+        color: #fff;
+    }
+
+    .btn-light {
+        background: #edf2f8;
+        color: #405574;
+    }
+
+    .btn-light:hover {
+        background: #e0e8f3;
+        color: #17345f;
+    }
+
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .labs-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+    }
+
+    .labs-table thead {
+        background: #f4f7fc;
+    }
+
+    .labs-table th {
+        text-align: left;
+        padding: 14px 13px;
+        color: #60728e;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        border-bottom: 1px solid #e6ecf4;
+        white-space: nowrap;
+    }
+
+    .labs-table td {
+        padding: 16px 13px;
+        border-bottom: 1px solid #edf1f7;
+        font-size: 13px;
+        color: #405574;
+        vertical-align: middle;
+    }
+
+    .labs-table tbody tr:hover {
+        background: #f9fbff;
+    }
+
+    .lab-id {
+        color: #2864d7;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .lab-name {
+        color: #17345f;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .sub-text {
+        font-size: 11px;
+        color: #8a98ad;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .status-active {
+        background: #e4f8ed;
+        color: #13834b;
+    }
+
+    .status-inactive {
+        background: #edf0f5;
+        color: #64748b;
+    }
+
+    .status-suspended {
+        background: #fff0e5;
+        color: #c05b16;
+    }
+
+    .status-expired {
+        background: #ffe8e8;
+        color: #d52e2e;
+    }
+
+    .status-pending {
+        background: #fff5d8;
+        color: #a16b00;
+    }
+
+    .status-unknown {
+        background: #edf2f8;
+        color: #60728e;
+    }
+
+    .plan-name {
+        color: #17345f;
+        font-weight: 600;
+    }
+
+    .no-data {
+        text-align: center;
+        padding: 45px 15px !important;
+    }
+
+    .no-data i {
+        display: block;
+        font-size: 35px;
+        color: #a8b7cb;
+        margin-bottom: 12px;
+    }
+
+    .no-data strong {
+        display: block;
+        color: #405574;
+        font-size: 15px;
+        margin-bottom: 7px;
+    }
+
+    .no-data span {
+        color: #8a98ad;
+        font-size: 13px;
+    }
+
+    .results-footer {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 17px;
+        color: #718096;
+        font-size: 12px;
+    }
+
+    @media (max-width: 900px) {
+        .filter-form {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @media (max-width: 550px) {
+        .filter-form {
+            grid-template-columns: 1fr;
+        }
+
+        .labs-card {
+            padding: 15px;
+        }
+
+        .labs-header h2 {
+            font-size: 23px;
+        }
+    }
+</style>
+
+<div class="labs-page">
+
+    <!-- Page Header -->
+    <div class="labs-header">
+        <div>
+            <h2>
+                <i class="bi bi-buildings"></i>
+                Laboratory Management
+            </h2>
+
+            <p>
+                View and manage all laboratories registered on the Smart Lab platform.
+            </p>
+        </div>
+
+        <div class="admin-badge">
+            <i class="bi bi-shield-check"></i>
+            Super Administrator
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="labs-card">
+
+        <div class="labs-card-heading">
+            <h3>
+                <i class="bi bi-search"></i>
+                Search Laboratories
+            </h3>
+        </div>
+
+        <form method="GET"
+              action="{{ url_for('super_admin_labs') }}"
+              class="filter-form">
+
+            <div class="filter-group">
+                <label for="search">Search Laboratory</label>
+
+                <input
+                    type="text"
+                    id="search"
+                    name="search"
+                    value="{{ search }}"
+                    placeholder="Enter Lab ID, lab name or owner"
+                >
+            </div>
+
+            <div class="filter-group">
+                <label for="status">Laboratory Status</label>
+
+                <select id="status" name="status">
+                    <option value="">All Statuses</option>
+
+                    {% for status in statuses %}
+                    <option
+                        value="{{ status }}"
+                        {% if status_filter == status %}selected{% endif %}
+                    >
+                        {{ status }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+                Search
+            </button>
+
+            <a href="{{ url_for('super_admin_labs') }}"
+               class="btn btn-light">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Reset
+            </a>
+
+        </form>
+    </div>
+
+    <!-- Laboratory Table -->
+    <div class="labs-card">
+
+        <div class="labs-card-heading">
+            <h3>
+                <i class="bi bi-list-ul"></i>
+                Registered Laboratories
+            </h3>
+
+            <span class="total-badge">
+                {{ laboratories|length }} Results
+            </span>
+        </div>
+
+        <div class="table-wrapper">
+
+            <table class="labs-table">
+
+                <thead>
+                    <tr>
+                        <th>Lab ID</th>
+                        <th>Laboratory Details</th>
+                        <th>Owner</th>
+                        <th>Lab Status</th>
+                        <th>Subscription Plan</th>
+                        <th>Subscription Period</th>
+                        <th>Subscription Status</th>
+                        <th>Registered On</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for lab in laboratories %}
+
+                    {% set lab_status = (lab.status or '')|lower %}
+                    {% set sub_status = (lab.subscription_status or '')|lower %}
+
+                    <tr>
+
+                        <td>
+                            <span class="lab-id">
+                                {{ lab.lab_id }}
+                            </span>
+                        </td>
+
+                        <td>
+                            <div class="lab-name">
+                                {{ lab.lab_name or 'Unnamed Laboratory' }}
+                            </div>
+
+                            <div class="sub-text">
+                                Laboratory ID: {{ lab.lab_id }}
+                            </div>
+                        </td>
+
+                        <td>
+                            {{ lab.owner_name or 'Not provided' }}
+                        </td>
+
+                        <td>
+                            <span class="status-badge
+                                {% if lab_status == 'active' %}
+                                    status-active
+                                {% elif lab_status == 'inactive' %}
+                                    status-inactive
+                                {% elif lab_status == 'suspended' %}
+                                    status-suspended
+                                {% else %}
+                                    status-unknown
+                                {% endif %}">
+                                {{ lab.status or 'Unknown' }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {% if lab.plan_name %}
+                                <span class="plan-name">
+                                    {{ lab.plan_name }}
+                                </span>
+                            {% else %}
+                                <span class="sub-text">
+                                    No plan assigned
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if lab.subscription_start and lab.subscription_end %}
+
+                                <div>
+                                    {{ lab.subscription_start.strftime('%d %b %Y') }}
+                                </div>
+
+                                <div class="sub-text">
+                                    to {{ lab.subscription_end.strftime('%d %b %Y') }}
+                                </div>
+
+                            {% else %}
+                                <span class="sub-text">
+                                    Not assigned
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if lab.subscription_status %}
+
+                                <span class="status-badge
+                                    {% if sub_status == 'active' %}
+                                        status-active
+                                    {% elif sub_status == 'expired' %}
+                                        status-expired
+                                    {% elif sub_status == 'pending' %}
+                                        status-pending
+                                    {% elif sub_status == 'inactive' %}
+                                        status-inactive
+                                    {% else %}
+                                        status-unknown
+                                    {% endif %}">
+                                    {{ lab.subscription_status }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="status-badge status-pending">
+                                    Not Assigned
+                                </span>
+
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if lab.created_at %}
+                                {{ lab.created_at.strftime('%d %b %Y') }}
+                            {% else %}
+                                <span class="sub-text">N/A</span>
+                            {% endif %}
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="8" class="no-data">
+                            <i class="bi bi-building-x"></i>
+
+                            <strong>No Laboratories Found</strong>
+
+                            <span>
+                                Try changing your search term or status filter.
+                            </span>
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+            </table>
+
+        </div>
+
+        <div class="results-footer">
+            <span>
+                Showing {{ laboratories|length }} laboratory record(s)
+            </span>
+
+            <span>
+                Subscription enforcement is currently unchanged.
+            </span>
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

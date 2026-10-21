@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}
+Edit Parameter
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button
+        type="button"
+        class="btn btn-secondary mb-3"
+        onclick="history.back()">
+
+        ← Back
+
+    </button>
+
+    <div class="card">
+
+        <div class="card-header">
+            <h3 class="mb-0">
+                Edit Parameter
+            </h3>
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+
+                <!-- Display Name -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Parameter Name
+                    </label>
+
+                    <input
+                        type="text"
+                        name="display_name"
+                        class="form-control"
+                        value="{{ parameter.display_name or '' }}"
+                        required>
+
+                </div>
+
+
+                <!-- Short Name -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Short Name
+                    </label>
+
+                    <input
+                        type="text"
+                        name="short_name"
+                        class="form-control"
+                        value="{{ parameter.short_name or '' }}">
+
+                </div>
+
+
+                <!-- Unit -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Unit
+                    </label>
+
+                    <input
+                        type="text"
+                        name="unit"
+                        class="form-control"
+                        value="{{ parameter.unit or '' }}">
+
+                </div>
+
+
+                <!-- Method -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Method
+                    </label>
+
+                    <input
+                        type="text"
+                        name="method"
+                        class="form-control"
+                        value="{{ parameter.method or '' }}">
+
+                </div>
+
+
+                <!-- Reference Type -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Reference Type
+                    </label>
+
+                    <select
+                        name="reference_type"
+                        class="form-select">
+
+                        <option
+                            value="normal"
+                            {% if parameter.reference_type == 'normal' %}
+                            selected
+                            {% endif %}>
+                            Normal
+                        </option>
+
+                        <option
+                            value="descriptive"
+                            {% if parameter.reference_type == 'descriptive' %}
+                            selected
+                            {% endif %}>
+                            Descriptive
+                        </option>
+
+                        <option
+                            value="list"
+                            {% if parameter.reference_type == 'list' %}
+                            selected
+                            {% endif %}>
+                            List
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- Data Type -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Data Type
+                    </label>
+
+                    <select
+                        name="data_type"
+                        class="form-select">
+
+                        <option
+                            value="numeric"
+                            {% if parameter.data_type == 'numeric' %}
+                            selected
+                            {% endif %}>
+                            Numeric
+                        </option>
+
+                        <option
+                            value="text"
+                            {% if parameter.data_type == 'text' %}
+                            selected
+                            {% endif %}>
+                            Text
+                        </option>
+
+                        <option
+                            value="list"
+                            {% if parameter.data_type == 'list' %}
+                            selected
+                            {% endif %}>
+                            List
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <!-- Display Order -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        Display Order
+                    </label>
+
+                    <input
+                        type="number"
+                        name="display_order"
+                        class="form-control"
+                        value="{{ parameter.display_order or 1 }}"
+                        min="1">
+
+                </div>
+
+
+                <hr>
+
+                <h5 class="mb-3">
+                    Parameter Settings
+                </h5>
+
+
+                <!-- Editable -->
+                <div class="form-check mb-2">
+
+                    <input
+                        type="checkbox"
+                        name="editable"
+                        class="form-check-input"
+                        id="editable"
+                        {% if parameter.editable %}
+                        checked
+                        {% endif %}>
+
+                    <label
+                        class="form-check-label"
+                        for="editable">
+
+                        Editable
+
+                    </label>
+
+                </div>
+
+
+                <!-- Optional -->
+                <div class="form-check mb-2">
+
+                    <input
+                        type="checkbox"
+                        name="optional_field"
+                        class="form-check-input"
+                        id="optional_field"
+                        {% if parameter.optional_field %}
+                        checked
+                        {% endif %}>
+
+                    <label
+                        class="form-check-label"
+                        for="optional_field">
+
+                        Optional Field
+
+                    </label>
+
+                </div>
+
+
+                <!-- Highlight Abnormal -->
+                <div class="form-check mb-2">
+
+                    <input
+                        type="checkbox"
+                        name="highlight_abnormal"
+                        class="form-check-input"
+                        id="highlight_abnormal"
+                        {% if parameter.highlight_abnormal %}
+                        checked
+                        {% endif %}>
+
+                    <label
+                        class="form-check-label"
+                        for="highlight_abnormal">
+
+                        Highlight Abnormal Result
+
+                    </label>
+
+                </div>
+
+
+                <!-- Machine Readable -->
+                <div class="form-check mb-4">
+
+                    <input
+                        type="checkbox"
+                        name="machine_readable"
+                        class="form-check-input"
+                        id="machine_readable"
+                        {% if parameter.machine_readable %}
+                        checked
+                        {% endif %}>
+
+                    <label
+                        class="form-check-label"
+                        for="machine_readable">
+
+                        Machine Readable
+
+                    </label>
+
+                </div>
+
+
+                <!-- Buttons -->
+                <div class="d-flex gap-2">
+
+                    <button
+                        type="submit"
+                        class="btn btn-success">
+
+                        Save Changes
+
+                    </button>
+
+                    <a
+                        href="{{ url_for(
+                            'test_builder.parameter_list',
+                            component_id=parameter.component_id
+                        ) }}"
+                        class="btn btn-secondary">
+
+                        Cancel
+
+                    </a>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

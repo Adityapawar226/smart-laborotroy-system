@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}
+Department Tests
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <!-- Page Header -->
+    <div class="page-header">
+         <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+
+        <i class="fas fa-arrow-left"></i>
+        Back
+
+    </button>
+    <div>
+        <h2>{{ department.department_name }}</h2>
+        <p class="text-muted">{{ tests|length }} Tests</p>
+    </div>
+</div>
+
+<div class="toolbar no-print">
+
+    <input
+        type="text"
+        id="searchTest"
+        class="form-control search-input"
+        placeholder="Search Test..."
+    >
+
+    {% if role == "Developer" %}
+
+    <form
+        method="GET"
+        action="{{ url_for(
+            'test_builder.department_tests',
+            department_id=department.id
+        ) }}"
+        class="d-flex flex-wrap gap-2 align-items-center"
+    >
+
+        <!-- Creator Filter -->
+        <select name="creator" class="form-select">
+
+            <option value="all"
+                {% if creator_filter == 'all' %}selected{% endif %}>
+                All Creators
+            </option>
+
+            <option value="developer"
+                {% if creator_filter == 'developer' %}selected{% endif %}>
+                Developer Created
+            </option>
+
+            <option value="laboratory"
+                {% if creator_filter == 'laboratory' %}selected{% endif %}>
+                Laboratory Created
+            </option>
+
+        </select>
+
+        <!-- Laboratory Filter -->
+        <select name="lab_id" class="form-select">
+
+            <option value="all"
+                {% if lab_filter == 'all' %}selected{% endif %}>
+                All Laboratories
+            </option>
+
+            {% for lab in laboratories %}
+
+            <option
+                value="{{ lab.lab_id }}"
+                {% if lab_filter|string == lab.lab_id|string %}
+                    selected
+                {% endif %}
+            >
+                {{ lab.lab_name }} ({{ lab.lab_id }})
+            </option>
+
+            {% endfor %}
+
+        </select>
+
+        <!-- Status Filter -->
+        <select name="status" class="form-select">
+
+            <option value="all"
+                {% if status_filter == 'all' %}selected{% endif %}>
+                All Statuses
+            </option>
+
+            <option value="Active"
+                {% if status_filter == 'Active' %}selected{% endif %}>
+                Active
+            </option>
+
+            <option value="Inactive"
+                {% if status_filter == 'Inactive' %}selected{% endif %}>
+                Inactive
+            </option>
+
+        </select>
+
+        <button type="submit" class="btn btn-primary">
+            Apply Filters
+        </button>
+
+        <a
+            href="{{ url_for(
+                'test_builder.department_tests',
+                department_id=department.id
+            ) }}"
+            class="btn btn-secondary"
+        >
+            Reset
+        </a>
+
+    </form>
+
+    {% endif %}
+
+    <div class="toolbar-buttons">
+
+        <a
+            href="{{ url_for('add_test', department_id=department.id) }}"
+            class="btn btn-success"
+        >
+            + Add Test
+        </a>
+
+        <button
+            class="btn btn-secondary"
+            onclick="window.print()"
+        >
+            🖨 Print
+        </button>
+
+    </div>
+
+</div>
+
+
+
+    <!-- Table Starts Here -->
+
+    <table class="table table-bordered table-hover">
+
+        <thead class="table-primary">
+    <tr>
+        <th>Database ID</th>
+        <th>Test Code</th>
+        <th>Test Name</th>
+        <th>Created By</th>
+        <th>Laboratory ID</th>
+        <th>Sample</th>
+        <th>Report Time</th>
+        <th>Price</th>
+        <th>Status</th>
+        <th class="no-print">Action</th>
+    </tr>
+</thead>
+        <tbody>
+
+        {% for test in tests %}
+
+            <tr>
+
+    <td>{{ test.id }}</td>
+
+    <td>
+        <strong>{{ test.test_code or 'Not Assigned' }}</strong>
+    </td>
+
+    <td>
+        <strong>{{ test.test_name }}</strong>
+    </td>
+
+    <td>
+        {% if test.lab_id is none %}
+
+            <span class="badge bg-primary">
+                Developer
+            </span>
+
+        {% else %}
+
+            <span class="badge bg-info text-dark">
+                Laboratory
+            </span>
+
+            <br>
+
+            <small>
+                {{ test.laboratory_name or 'Unknown Laboratory' }}
+            </small>
+
+        {% endif %}
+    </td>
+
+    <td>
+        {% if test.lab_id is none %}
+            Global
+        {% else %}
+            {{ test.lab_id }}
+        {% endif %}
+    </td>
+
+    <td>{{ test.sample_type }}</td>
+
+    <td>{{ test.report_time }}</td>
+
+    <td>₹{{ "%.2f"|format(test.display_price or 0) }}</td>
+
+    <td>
+        <a
+            class="badge {% if test.status == 'Active' %}
+                bg-success
+            {% else %}
+                bg-danger
+            {% endif %}"
+            href="{{ url_for(
+                'test_builder.toggle_test_status',
+                test_id=test.id
+            ) }}"
+        >
+            {{ test.status }}
+        </a>
+    </td>
+
+    <td class="no-print">
+
+        <a
+            href="{{ url_for(
+                'test_builder.configure_test',
+                test_id=test.id
+            ) }}"
+            class="btn btn-primary btn-sm"
+        >
+            Components
+        </a>
+
+        <a
+            href="{{ url_for(
+                'test_builder.edit_test',
+                test_id=test.id
+            ) }}"
+            class="btn btn-warning btn-sm"
+        >
+            Edit
+        </a>
+
+    </td>
+
+</tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+
+<script>
+
+document.getElementById("searchTest").addEventListener("keyup", function(){
+
+    let value=this.value.toLowerCase();
+
+    let rows=document.querySelectorAll("tbody tr");
+
+    rows.forEach(function(row){
+
+        row.style.display=row.innerText.toLowerCase().includes(value)
+            ? ""
+            : "none";
+
+    });
+
+});
+
+</script>
+
+</div>
+{% endblock %}

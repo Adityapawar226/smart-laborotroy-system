@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} | Smart Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analyzer-form-wrapper {
+        max-width: 1050px;
+        margin: 0 auto;
+    }
+
+    .analyzer-form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 24px;
+    }
+
+    .analyzer-form-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+    }
+
+    .analyzer-form-card-header {
+        padding: 20px 24px;
+        background: #f8fafc;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .analyzer-form-card-header h5 {
+        margin: 0;
+        font-weight: 700;
+        color: #1e293b;
+    }
+
+    .analyzer-form-card-body {
+        padding: 26px;
+    }
+
+    .analyzer-section-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: #334155;
+        margin: 10px 0 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .analyzer-form-card .form-label {
+        font-weight: 600;
+        font-size: 13px;
+        color: #475569;
+        margin-bottom: 7px;
+    }
+
+    .analyzer-form-card .form-control,
+    .analyzer-form-card .form-select {
+        min-height: 44px;
+        border-radius: 8px;
+        border-color: #cbd5e1;
+    }
+
+    .analyzer-form-card .form-control:focus,
+    .analyzer-form-card .form-select:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .analyzer-help-text {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 6px;
+    }
+
+    .analyzer-notice {
+        padding: 14px 16px;
+        border-radius: 9px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        color: #1e40af;
+        font-size: 13px;
+        margin-bottom: 24px;
+    }
+
+    .analyzer-form-actions {
+        display: flex;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 24px;
+        margin-top: 20px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    @media (max-width: 576px) {
+        .analyzer-form-card-body {
+            padding: 18px;
+        }
+
+        .analyzer-form-card-header {
+            padding: 18px;
+        }
+
+        .analyzer-form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="container-fluid py-4 analyzer-form-wrapper">
+
+    <!-- Page Header -->
+    <div class="analyzer-form-header">
+
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-cpu me-2 text-primary"></i>
+                {{ page_title }}
+            </h2>
+
+            <p class="text-muted mb-0">
+                Configure analyzer details and communication settings.
+            </p>
+        </div>
+
+        <a href="{{ url_for('analyzer_management.dashboard') }}"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>
+            Back to Dashboard
+        </a>
+
+    </div>
+
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show"
+                     role="alert">
+
+                    {{ message }}
+
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="alert"
+                            aria-label="Close"></button>
+
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+
+    <div class="analyzer-form-card">
+
+        <div class="analyzer-form-card-header">
+            <h5>
+                <i class="bi bi-sliders me-2"></i>
+                Analyzer Configuration
+            </h5>
+        </div>
+
+
+        <div class="analyzer-form-card-body">
+
+            <div class="analyzer-notice">
+                <i class="bi bi-info-circle-fill me-2"></i>
+
+                Saving this configuration does not confirm that the physical
+                analyzer is connected. Communication must be verified separately.
+            </div>
+
+
+            <form method="POST"
+                  action=""
+                  id="analyzerConfigurationForm">
+
+                <!-- Analyzer Information -->
+                <h6 class="analyzer-section-title">
+                    <i class="bi bi-info-square me-2"></i>
+                    Analyzer Information
+                </h6>
+
+
+                <div class="row g-4">
+
+                    <div class="col-md-6">
+                        <label for="analyzer_name" class="form-label">
+                            Analyzer Name <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               id="analyzer_name"
+                               name="analyzer_name"
+                               value="{{ device.get('analyzer_name', '') }}"
+                               maxlength="120"
+                               placeholder="e.g. Biochemistry Analyzer"
+                               required>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="manufacturer" class="form-label">
+                            Manufacturer <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               id="manufacturer"
+                               name="manufacturer"
+                               value="{{ device.get('manufacturer', '') }}"
+                               maxlength="120"
+                               placeholder="Enter manufacturer name"
+                               required>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="model_number" class="form-label">
+                            Model Number <span class="text-danger">*</span>
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               id="model_number"
+                               name="model_number"
+                               value="{{ device.get('model_number', '') }}"
+                               maxlength="120"
+                               placeholder="e.g. RX50V"
+                               required>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="test_category" class="form-label">
+                            Test Category
+                        </label>
+
+                        <select class="form-select"
+                                id="test_category"
+                                name="test_category">
+
+                            {% set selected_category =
+                                device.get('test_category', 'Other') %}
+
+                            {% for category in [
+                                'Biochemistry',
+                                'Hematology',
+                                'Immunology',
+                                'Clinical Pathology',
+                                'Electrolyte',
+                                'Other'
+                            ] %}
+
+                                <option value="{{ category }}"
+                                    {% if selected_category == category %}
+                                        selected
+                                    {% endif %}>
+                                    {{ category }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+                    </div>
+
+                </div>
+
+
+                <!-- Communication Configuration -->
+                <h6 class="analyzer-section-title mt-5">
+                    <i class="bi bi-hdd-network me-2"></i>
+                    Communication Configuration
+                </h6>
+
+
+                <div class="row g-4">
+
+                    <div class="col-md-6">
+                        <label for="connection_type" class="form-label">
+                            Connection Type <span class="text-danger">*</span>
+                        </label>
+
+                        <select class="form-select"
+                                id="connection_type"
+                                name="connection_type"
+                                required>
+
+                            {% for connection in connection_types %}
+
+                                <option value="{{ connection }}"
+                                    {% if device.get('connection_type', 'USB') == connection %}
+                                        selected
+                                    {% endif %}>
+                                    {{ connection }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                        <div class="analyzer-help-text">
+                            Select the actual supported connection type.
+                        </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="protocol" class="form-label">
+                            Communication Protocol
+                        </label>
+
+                        <select class="form-select"
+                                id="protocol"
+                                name="protocol">
+
+                            {% for protocol_option in protocols %}
+
+                                <option value="{{ protocol_option }}"
+                                    {% if device.get('protocol', 'Unknown') == protocol_option %}
+                                        selected
+                                    {% endif %}>
+                                    {{ protocol_option }}
+                                </option>
+
+                            {% endfor %}
+
+                        </select>
+
+                        <div class="analyzer-help-text">
+                            Choose Unknown until the protocol is confirmed.
+                        </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="host_address" class="form-label">
+                            Host Address / IP Address
+                        </label>
+
+                        <input type="text"
+                               class="form-control"
+                               id="host_address"
+                               name="host_address"
+                               value="{{ device.get('host_address') or '' }}"
+                               maxlength="255"
+                               placeholder="Optional">
+
+                        <div class="analyzer-help-text">
+                            Required only if the confirmed protocol needs it.
+                        </div>
+                    </div>
+
+
+                    <div class="col-md-6">
+                        <label for="host_port" class="form-label">
+                            Host Port
+                        </label>
+
+                        <input type="number"
+                               class="form-control"
+                               id="host_port"
+                               name="host_port"
+                               value="{{ device.get('host_port') or '' }}"
+                               min="1"
+                               max="65535"
+                               step="1"
+                               placeholder="Optional">
+
+                        <div class="analyzer-help-text">
+                            Enter a valid port only when applicable.
+                        </div>
+                    </div>
+
+                </div>
+
+
+                <!-- Form Actions -->
+                <div class="analyzer-form-actions">
+
+                    <a href="{{ url_for('analyzer_management.dashboard') }}"
+                       class="btn btn-light border px-4">
+                        Cancel
+                    </a>
+
+                    <button type="submit"
+                            class="btn btn-primary px-4">
+
+                        <i class="bi bi-check-circle me-1"></i>
+
+                        {{ 'Update Analyzer' if device.get('id') else 'Save Analyzer' }}
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}
+Edit Dictionary Result
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button type="button"
+            class="back-btn"
+            onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+
+    <h2>Edit Dictionary Result</h2>
+
+    <hr>
+
+    <form method="POST">
+
+        <!-- Component Name -->
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+                Component Name
+            </label>
+
+            <input
+                type="text"
+                name="component_name"
+                class="form-control"
+                value="{{ component.component_name }}"
+                required>
+
+        </div>
+
+
+        <!-- Dictionary Values -->
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+                Dictionary Values
+            </label>
+
+            <div id="dictionaryContainer">
+
+                {% if dictionary_values %}
+
+                    {% for value in dictionary_values %}
+
+                    <div class="input-group mb-2 dictionary-row">
+
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="dictionary_values[]"
+                            value="{{ value.value_text }}"
+                            required>
+
+                        <button
+                            type="button"
+                            class="btn btn-danger removeDictionary">
+
+                            Delete
+
+                        </button>
+
+                    </div>
+
+                    {% endfor %}
+
+                {% else %}
+
+                    <div class="input-group mb-2 dictionary-row">
+
+                        <input
+                            type="text"
+                            class="form-control"
+                            name="dictionary_values[]"
+                            placeholder="Enter value">
+
+                        <button
+                            type="button"
+                            class="btn btn-danger removeDictionary">
+
+                            Delete
+
+                        </button>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+            <button
+                type="button"
+                class="btn btn-primary btn-sm mt-2"
+                id="addDictionaryValue">
+
+                + Add Value
+
+            </button>
+
+        </div>
+
+
+        <!-- Display Order -->
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+
+                Display Order
+
+            </label>
+
+            <input
+                type="number"
+                class="form-control"
+                name="display_order"
+                value="{{ component.display_order }}"
+                required>
+
+        </div>
+
+
+        <button
+            type="submit"
+            class="btn btn-success">
+
+            Update Component
+
+        </button>
+
+        <a
+            href="{{ url_for('test_builder.component_list', section_id=component.section_id) }}"
+            class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const dictionaryContainer =
+        document.getElementById("dictionaryContainer");
+
+    document
+    .getElementById("addDictionaryValue")
+    .addEventListener("click", function(){
+
+        const row = document.createElement("div");
+
+        row.className =
+            "input-group mb-2 dictionary-row";
+
+        row.innerHTML = `
+            <input
+                type="text"
+                class="form-control"
+                name="dictionary_values[]"
+                placeholder="Enter value"
+                required>
+
+            <button
+                type="button"
+                class="btn btn-danger removeDictionary">
+
+                Delete
+
+            </button>
+        `;
+
+        dictionaryContainer.appendChild(row);
+
+    });
+
+
+    document.addEventListener("click", function(e){
+
+        if(e.target.classList.contains("removeDictionary")){
+
+            const rows =
+                document.querySelectorAll(".dictionary-row");
+
+            if(rows.length > 1){
+
+                e.target.parentElement.remove();
+
+            }
+
+        }
+
+    });
+
+});
+
+</script>
+
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}
+test Management
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet"
+      href="{{ url_for('static', filename='css/test_builder.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+   <h2 class="page-title">Test Management</h2>
+
+<p class="page-subtitle">
+    Department
+</p>
+<div class="row mb-4">
+
+    <div class="col-lg-4 col-md-6">
+
+        <a href="{{ url_for('test_builder.report_formulas') }}"
+           class="department-card">
+
+            <div class="department-icon">
+                🧮
+            </div>
+
+            <div class="department-info">
+
+                <h3>Formula Master</h3>
+
+                <span>Manage Global Formulas</span>
+
+            </div>
+
+        </a>
+
+    </div>
+
+</div>
+<div class="row">
+
+{% for department in departments %}
+
+<div class="col-lg-4 col-md-6 mb-4">
+
+    <a href="{{ url_for('test_builder.department_tests',
+                        department_id=department.id) }}"
+       class="department-card">
+
+        <div class="department-icon">
+            🧪
+        </div>
+
+        <div class="department-info">
+
+            <h3>{{ department.department_name }}</h3>
+
+            <span>{{ department.total_tests }} Tests</span>
+
+        </div>
+
+    </a>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+{% endblock %}

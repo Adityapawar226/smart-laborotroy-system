@@ -1,0 +1,630 @@
+{% extends "base.html" %}
+
+{% block title %}Super Admin Dashboard | Smart Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-page {
+        padding: 24px;
+    }
+
+    .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 25px;
+    }
+
+    .admin-header h2 {
+        margin: 0;
+        font-weight: 700;
+        color: #172b4d;
+    }
+
+    .admin-header p {
+        color: #718096;
+        margin: 6px 0 0;
+    }
+
+    .admin-badge {
+        background: #e8f1ff;
+        color: #2457a7;
+        padding: 9px 15px;
+        border-radius: 20px;
+        font-weight: 600;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 28px;
+    }
+
+    .admin-stat {
+        background: white;
+        border-radius: 14px;
+        padding: 22px;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
+        border: 1px solid #edf0f5;
+    }
+
+    .admin-stat .stat-label {
+        color: #718096;
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+
+    .admin-stat h3 {
+        margin: 0;
+        font-size: 30px;
+        font-weight: 750;
+        color: #172b4d;
+    }
+
+    .admin-stat .stat-icon {
+        font-size: 25px;
+        margin-bottom: 15px;
+    }
+
+    .blue-icon {
+        color: #3273dc;
+    }
+
+    .green-icon {
+        color: #239b70;
+    }
+
+    .orange-icon {
+        color: #e58b20;
+    }
+
+    .red-icon {
+        color: #d64545;
+    }
+
+    .purple-icon {
+        color: #7952b3;
+    }
+
+    .admin-panel {
+        background: white;
+        border-radius: 14px;
+        padding: 22px;
+        margin-bottom: 24px;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
+        border: 1px solid #edf0f5;
+    }
+
+    .panel-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .panel-heading h4 {
+        margin: 0;
+        font-weight: 700;
+        color: #172b4d;
+    }
+
+    .admin-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .admin-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 650px;
+    }
+
+    .admin-table th {
+        background: #f5f7fb;
+        color: #53627a;
+        font-size: 13px;
+        text-align: left;
+        padding: 13px;
+        white-space: nowrap;
+    }
+
+    .admin-table td {
+        padding: 14px 13px;
+        border-bottom: 1px solid #edf0f5;
+        color: #344054;
+        font-size: 14px;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .status-active {
+        background: #e3f8ed;
+        color: #18794e;
+    }
+
+    .status-inactive {
+        background: #feecec;
+        color: #b42318;
+    }
+
+    .status-trial {
+        background: #fff2d6;
+        color: #925f00;
+    }
+
+    .admin-btn {
+        display: inline-block;
+        text-decoration: none;
+        background: #2457d6;
+        color: white;
+        padding: 9px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .admin-btn:hover {
+        background: #1744b2;
+        color: white;
+    }
+
+    .quick-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .quick-action {
+        border: 1px solid #e7ebf2;
+        border-radius: 12px;
+        padding: 20px;
+        text-decoration: none;
+        color: #172b4d;
+        transition: 0.2s;
+    }
+
+    .quick-action:hover {
+        border-color: #2457d6;
+        transform: translateY(-2px);
+        color: #2457d6;
+    }
+
+    .quick-action i {
+        font-size: 26px;
+        display: block;
+        margin-bottom: 12px;
+    }
+
+    .quick-action strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .quick-action span {
+        font-size: 13px;
+        color: #718096;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 25px;
+        color: #718096;
+    }
+
+    @media (max-width: 1000px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .quick-actions {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .admin-page {
+            padding: 12px;
+        }
+
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .admin-stat h3 {
+            font-size: 25px;
+        }
+        /* Broadcast Announcements Card */
+.broadcast-card {
+    display: block;
+    box-sizing: border-box;
+    padding: 24px 20px;
+    min-height: 170px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    text-decoration: none !important;
+    color: #172554 !important;
+    transition: all 0.2s ease;
+}
+
+.broadcast-card:hover {
+    border-color: #2563eb;
+    box-shadow: 0 5px 18px rgba(37, 99, 235, 0.10);
+    transform: translateY(-2px);
+}
+
+.broadcast-card .management-icon {
+    color: #2563eb;
+    font-size: 24px;
+    margin-bottom: 16px;
+}
+
+.broadcast-card h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    color: #111827;
+}
+
+.broadcast-card p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #64748b;
+    margin: 0;
+}
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+
+<div class="admin-page">
+
+    <div class="admin-header">
+        <div>
+            <h2>
+                <i class="bi bi-shield-lock"></i>
+                Super Admin Dashboard
+            </h2>
+
+            <p>
+                Manage laboratories, subscriptions and platform activity.
+            </p>
+        </div>
+
+        <span class="admin-badge">
+            <i class="bi bi-person-check"></i>
+            System Administrator
+        </span>
+    </div>
+
+
+    <!-- STATISTICS -->
+
+    <div class="stats-grid">
+
+        <div class="admin-stat">
+            <div class="stat-icon blue-icon">
+                <i class="bi bi-buildings"></i>
+            </div>
+
+            <div class="stat-label">
+                Total Laboratories
+            </div>
+
+            <h3>{{ total_labs }}</h3>
+        </div>
+
+
+        <div class="admin-stat">
+            <div class="stat-icon green-icon">
+                <i class="bi bi-check-circle"></i>
+            </div>
+
+            <div class="stat-label">
+                Active Laboratories
+            </div>
+
+            <h3>{{ active_labs }}</h3>
+        </div>
+
+
+        <div class="admin-stat">
+            <div class="stat-icon green-icon">
+                <i class="bi bi-credit-card"></i>
+            </div>
+
+            <div class="stat-label">
+                Active Subscriptions
+            </div>
+
+            <h3>{{ active_subscriptions }}</h3>
+        </div>
+
+
+        <div class="admin-stat">
+            <div class="stat-icon red-icon">
+                <i class="bi bi-calendar-x"></i>
+            </div>
+
+            <div class="stat-label">
+                Expired Subscriptions
+            </div>
+
+            <h3>{{ expired_subscriptions }}</h3>
+        </div>
+
+
+        <div class="admin-stat">
+            <div class="stat-icon orange-icon">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+
+            <div class="stat-label">
+                Expiring Within 7 Days
+            </div>
+
+            <h3>{{ expiring_soon }}</h3>
+        </div>
+
+
+        <div class="admin-stat">
+            <div class="stat-icon purple-icon">
+                <i class="bi bi-clock-history"></i>
+            </div>
+
+            <div class="stat-label">
+                Current Date and Time
+            </div>
+
+            <h3 style="font-size: 18px;">
+                {{ current_time }}
+            </h3>
+        </div>
+
+    </div>
+
+
+    <!-- QUICK ACTIONS -->
+
+    <!-- MANAGEMENT CENTER -->
+
+<div class="admin-panel">
+
+    <div class="panel-heading">
+        <h4>Management Center</h4>
+    </div>
+
+    <div class="quick-actions">
+
+        <a href="{{ url_for('super_admin_labs') }}"
+   class="quick-action"
+   style="text-decoration: none; color: inherit; cursor: pointer;">
+
+    <i class="bi bi-buildings blue-icon"></i>
+
+    <strong>Laboratory Management</strong>
+
+    <span>View and manage all registered laboratories.</span>
+
+</a>
+        <a href="{{ url_for('super_admin_assign_subscription') }}"
+class="quick-action"
+style="text-decoration: none; color: inherit; cursor: pointer;">
+
+```
+<i class="bi bi-credit-card green-icon"></i>
+
+<strong>Subscription Management</strong>
+
+<span>Assign plans and manage subscription duration.</span>
+```
+
+</a>
+<a href="{{ url_for('super_admin_plans') }}"
+   class="quick-action"
+   style="text-decoration: none; color: inherit; cursor: pointer;">
+
+    <i class="bi bi-card-list purple-icon"></i>
+
+    <strong>Subscription Plan Management</strong>
+
+    <span>Create, edit and manage subscription plans.</span>
+
+</a>
+
+
+        <a href="{{ url_for('super_admin_subscription_history') }}"
+   class="quick-action"
+   style="text-decoration: none; color: inherit; cursor: pointer;">
+
+    <i class="bi bi-clock-history purple-icon"></i>
+
+    <strong>Subscription History</strong>
+
+    <span>
+        Review subscription assignments, plans and validity periods.
+    </span>
+
+</a>
+<a href="{{ url_for('super_admin_broadcasts') }}"
+   class="quick-action">
+
+    <i class="bi bi-megaphone-fill blue-icon"></i>
+
+    <strong>Broadcast Announcements</strong>
+
+    <span>
+        Send important announcements and updates to registered laboratories.
+    </span>
+
+</a>
+
+    </div>
+
+</div>
+
+
+    <!-- RECENT LABORATORIES -->
+
+    <div class="admin-panel">
+
+        <div class="panel-heading">
+            <h4>
+                <i class="bi bi-buildings"></i>
+                Recent Laboratories
+            </h4>
+
+            <span class="admin-btn">
+    View All Laboratories
+</span>
+        </div>
+
+        <div class="admin-table-wrapper">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>Lab ID</th>
+                        <th>Laboratory Name</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                        <th>Registered On</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for lab in recent_labs %}
+
+                    <tr>
+                        <td>{{ lab.lab_id }}</td>
+
+                        <td>{{ lab.lab_name }}</td>
+
+                        <td>{{ lab.owner_name }}</td>
+
+                        <td>
+                            {% if lab.status == 'Active' %}
+                                <span class="status-badge status-active">
+                                    Active
+                                </span>
+                            {% else %}
+                                <span class="status-badge status-inactive">
+                                    Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ lab.created_at or '—' }}
+                        </td>
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="5" class="empty-state">
+                            No laboratories registered yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- RECENT SUBSCRIPTIONS -->
+
+    <div class="admin-panel">
+
+        <div class="panel-heading">
+            <h4>
+                <i class="bi bi-receipt"></i>
+                Recent Subscription Assignments
+            </h4>
+        </div>
+
+        <div class="admin-table-wrapper">
+
+            <table class="admin-table">
+
+                <thead>
+                    <tr>
+                        <th>Lab ID</th>
+                        <th>Laboratory</th>
+                        <th>Plan</th>
+                        <th>Start Date</th>
+                        <th>Expiry Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for sub in recent_subscriptions %}
+
+                    <tr>
+                        <td>{{ sub.lab_id }}</td>
+
+                        <td>{{ sub.lab_name }}</td>
+
+                        <td>{{ sub.plan_name }}</td>
+
+                        <td>{{ sub.start_date }}</td>
+
+                        <td>{{ sub.end_date }}</td>
+
+                        <td>
+                            <span class="status-badge
+                                {% if sub.status == 'Active' %}
+                                    status-active
+                                {% elif sub.status == 'Trial' %}
+                                    status-trial
+                                {% else %}
+                                    status-inactive
+                                {% endif %}">
+                                {{ sub.status }}
+                            </span>
+                        </td>
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="6" class="empty-state">
+                            No subscriptions assigned yet.
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if edit_mode %}
+Edit Reference Range
+{% else %}
+Add Reference Range
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+        <i class="fas fa-arrow-left"></i>
+        Back
+    </button>
+
+    <h2>
+        {% if edit_mode %}
+            Edit Reference Range
+        {% else %}
+            Add Reference Range
+        {% endif %}
+    </h2>
+
+    <hr>
+
+    <h4>{{ parameter.display_name }}</h4>
+
+    <p>
+        Test :
+        <b>{{ parameter.test_name }}</b>
+    </p>
+
+    <p>
+        Section :
+        <b>{{ parameter.section_name }}</b>
+    </p>
+
+    <p>
+        Component :
+        <b>{{ parameter.component_name }}</b>
+    </p>
+
+    <form method="POST">
+
+        <div class="row">
+
+            <div class="col-md-4 mb-3">
+
+                <label>Gender</label>
+
+                <select name="gender" class="form-select">
+
+                    <option value="Male"
+                    {% if reference and reference.gender=="Male" %}selected{% endif %}>
+                        Male
+                    </option>
+
+                    <option value="Female"
+                    {% if reference and reference.gender=="Female" %}selected{% endif %}>
+                        Female
+                    </option>
+
+                    <option value="Both"
+                    {% if reference and reference.gender=="Both" %}selected{% endif %}>
+                        Both
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-4 mb-3">
+
+                <label>Age From</label>
+
+                <input
+                    type="number"
+                    step="0.01"
+                    name="age_from"
+                    class="form-control"
+                    value="{{ reference.age_from if reference else '' }}">
+
+            </div>
+
+            <div class="col-md-4 mb-3">
+
+                <label>Age To</label>
+
+                <input
+                    type="number"
+                    step="0.01"
+                    name="age_to"
+                    class="form-control"
+                    value="{{ reference.age_to if reference else '' }}">
+
+            </div>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label>Age Unit</label>
+
+            <select
+                name="age_unit"
+                class="form-select">
+
+                <option value="Day"
+                {% if reference and reference.age_unit=="Day" %}selected{% endif %}>
+                    Day
+                </option>
+
+                <option value="Month"
+                {% if reference and reference.age_unit=="Month" %}selected{% endif %}>
+                    Month
+                </option>
+
+                <option value="Year"
+                {% if reference and reference.age_unit=="Year" %}selected{% endif %}>
+                    Year
+                </option>
+
+            </select>
+
+        </div>
+
+        <hr>
+
+        <div class="row">
+
+            <div class="col-md-6 mb-3">
+
+                <label>Lower Value</label>
+
+                <input
+                    type="number"
+                    step="any"
+                    name="lower_value"
+                    class="form-control"
+                    value="{{ reference.lower_value if reference else '' }}">
+
+            </div>
+
+            <div class="col-md-6 mb-3">
+
+                <label>Upper Value</label>
+
+                <input
+                    type="number"
+                    step="any"
+                    name="upper_value"
+                    class="form-control"
+                    value="{{ reference.upper_value if reference else '' }}">
+
+            </div>
+
+        </div>
+
+        <div class="row">
+
+            <div class="col-md-6 mb-3">
+
+                <label>Critical Low</label>
+
+                <input
+                    type="number"
+                    step="any"
+                    name="critical_low"
+                    class="form-control"
+                    value="{{ reference.critical_low if reference else '' }}">
+
+            </div>
+
+            <div class="col-md-6 mb-3">
+
+                <label>Critical High</label>
+
+                <input
+                    type="number"
+                    step="any"
+                    name="critical_high"
+                    class="form-control"
+                    value="{{ reference.critical_high if reference else '' }}">
+
+            </div>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label>Reference Text</label>
+
+            <textarea
+                name="reference_text"
+                rows="3"
+                class="form-control">{{ reference.reference_text if reference else '' }}</textarea>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label>Interpretation</label>
+
+            <textarea
+                name="interpretation"
+                rows="4"
+                class="form-control">{{ reference.interpretation if reference else '' }}</textarea>
+
+        </div>
+
+        <button
+            type="submit"
+            class="btn btn-success">
+
+            {% if edit_mode %}
+                Update Reference Range
+            {% else %}
+                Save Reference Range
+            {% endif %}
+
+        </button>
+
+        <a
+            href="{{ url_for('test_builder.reference_range_list',
+            parameter_id=parameter.id) }}"
+            class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+{% endblock %}

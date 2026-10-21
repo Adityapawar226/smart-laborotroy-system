@@ -7,57 +7,74 @@
 <style>
 
 body{
-font-family:Arial;
-background:#f5f7fb;
+    font-family:Arial;
+    background:#f5f7fb;
 }
 
 .container{
-width:600px;
-margin:40px auto;
-background:white;
-padding:30px;
-border-radius:10px;
-box-shadow:0 5px 20px rgba(0,0,0,.15);
+    width:700px;
+    margin:40px auto;
+    background:#fff;
+    padding:30px;
+    border-radius:10px;
+    box-shadow:0 5px 20px rgba(0,0,0,.15);
 }
 
 h2{
-margin-bottom:25px;
+    margin-bottom:25px;
 }
 
 label{
-display:block;
-margin-top:15px;
-font-weight:bold;
+    display:block;
+    margin-top:15px;
+    font-weight:bold;
 }
 
 input,
 select,
 textarea{
 
-width:100%;
-padding:10px;
-margin-top:5px;
-border:1px solid #ccc;
-border-radius:5px;
+    width:100%;
+    padding:10px;
+    margin-top:5px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    box-sizing:border-box;
 
 }
 
-button{
+textarea{
+    resize:vertical;
+}
 
-margin-top:25px;
-padding:12px 30px;
-background:#1677ff;
-color:white;
-border:none;
-border-radius:5px;
-cursor:pointer;
+.readonly{
+    background:#f3f4f6;
+}
+
+.buttons{
+    margin-top:25px;
+}
+
+button,
+a{
+
+    padding:12px 30px;
+    border:none;
+    border-radius:5px;
+    text-decoration:none;
+    cursor:pointer;
 
 }
 
-button:hover{
+.save{
+    background:#1677ff;
+    color:white;
+}
 
-background:#0056d2;
-
+.cancel{
+    background:#6c757d;
+    color:white;
+    margin-left:10px;
 }
 
 </style>
@@ -72,40 +89,50 @@ background:#0056d2;
 
 <form method="POST">
 
+<label>Department</label>
+<input
+type="text"
+value="{{ department.department_name }}"
+readonly
+class="readonly">
+
+<label>Test Code</label>
+<input
+type="text"
+name="test_code"
+value="{{ test_code }}"
+readonly
+class="readonly">
+
 <label>Test Name</label>
-<input type="text" name="test_name" required>
+<input
+type="text"
+name="test_name"
+required>
 
-<label>Category</label>
+<label>Short Name</label>
+<input
+type="text"
+name="short_name">
 
-<select name="category">
-
-<option>Blood Test</option>
-
-<option>Urine Test</option>
-
-<option>Hormone Test</option>
-
-<option>Serology</option>
-
-<option>Biochemistry</option>
-
-</select>
-
-<label>Price</label>
-
-<input type="number" name="price" required>
+<label>Price (₹)</label>
+<input
+type="number"
+step="0.01"
+name="price"
+required>
 
 <label>Sample Type</label>
 
 <select name="sample_type">
 
-<option>Blood</option>
-
-<option>Urine</option>
-
-<option>Serum</option>
-
-<option>Plasma</option>
+<option value="Blood">Blood</option>
+<option value="Serum">Serum</option>
+<option value="Plasma">Plasma</option>
+<option value="Urine">Urine</option>
+<option value="Stool">Stool</option>
+<option value="CSF">CSF</option>
+<option value="Whole Blood">Whole Blood</option>
 
 </select>
 
@@ -114,35 +141,42 @@ background:#0056d2;
 <select name="report_time">
 
 <option>Same Day</option>
-
-<option>1 Day</option>
-
-<option>2 Days</option>
-
-<option>3 Days</option>
+<option>24 Hours</option>
+<option>48 Hours</option>
+<option>72 Hours</option>
 
 </select>
 
 <label>Description</label>
 
-<textarea name="description"></textarea>
+<textarea
+rows="4"
+name="description"></textarea>
 
-<label>Status</label>
+<div class="buttons">
 
-<select name="status">
+<button
+type="submit"
+class="save">
 
-<option>Active</option>
+💾 Save Test
 
-<option>Inactive</option>
+</button>
 
-</select>
+<a
+href="{{ url_for('test_builder.department_tests',
+department_id=department.id) }}"
+class="cancel">
 
-<button>Add Test</button>
+Cancel
+
+</a>
+
+</div>
 
 </form>
 
 </div>
 
 </body>
-
 </html>

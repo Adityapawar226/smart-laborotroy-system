@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}
+Components
+{% endblock %}
+
+{% block content %}
+
+<!-- ============================= -->
+<!-- BACK BUTTON -->
+<!-- ============================= -->
+
+<div style="margin-bottom: 5px;">
+    <a href="#"
+       onclick="history.back(); return false;"
+       class="btn btn-light"
+       style="
+           border: 1px solid #555;
+           font-weight: 500;
+           padding: 4px 25px;
+       ">
+        ← Back
+    </a>
+</div>
+
+
+<!-- ============================= -->
+<!-- TEST / SECTION DETAILS -->
+<!-- ============================= -->
+
+<h1 style="
+    margin: 0;
+    font-size: 32px;
+    font-weight: 600;
+">
+    {{ section.test_name }}
+</h1>
+
+<h2 style="
+    margin-top: 8px;
+    margin-bottom: 25px;
+    font-size: 24px;
+    font-weight: 500;
+">
+    Section : {{ section.section_name }}
+</h2>
+
+<hr>
+
+
+<!-- ============================= -->
+<!-- COMPONENT TABLE -->
+<!-- ============================= -->
+
+<table class="table table-bordered">
+
+    <thead>
+        <tr>
+            <th>Order</th>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        {% for component in components %}
+<tr>
+    <td>{{ component.display_order }}</td>
+    <td>{{ component.component_name }}</td>
+    <td>{{ component.component_type }}</td>
+
+    <td>
+        {% set c_type = component.component_type | lower %}
+
+        {% if c_type == "parameter" or c_type == "parameter_table" %}
+
+            <a href="{{ url_for('test_builder.parameter_list', component_id=component.id) }}"
+               class="btn btn-primary btn-sm">
+                Configure Parameters
+            </a>
+
+        {% elif c_type == "dictionary_result" %}
+
+            <a href="{{ url_for('test_builder.edit_dictionary_result', component_id=component.id) }}"
+               class="btn btn-info btn-sm">
+                Edit
+            </a>
+
+        {% else %}
+
+            <a href="#" class="btn btn-info btn-sm">
+                Edit {{ component.component_type }}
+            </a>
+
+        {% endif %}
+
+        <form action="{{ url_for('test_builder.delete_component', component_id=component.id) }}"
+              method="POST"
+              style="display: inline;"
+              onsubmit="return confirm('Are you sure you want to delete this component?');">
+
+            <button type="submit" class="btn btn-danger btn-sm">
+                Delete
+            </button>
+        </form>
+    </td>
+</tr>
+{% endfor %}
+
+    </tbody>
+
+</table>
+
+<hr>
+
+
+<!-- ============================= -->
+<!-- ADD COMPONENT -->
+<!-- ============================= -->
+
+<a
+    href="{{ url_for(
+        'test_builder.add_component',
+        section_id=section.id
+    ) }}"
+    class="btn btn-success"
+>
+    + Add Component
+</a>
+
+{% endblock %}

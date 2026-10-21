@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Add Report Dictionary{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>Add Report Dictionary</h2>
+
+    <hr>
+
+    <form method="POST">
+
+        <div class="mb-3">
+
+            <label class="form-label">
+
+                Dictionary Name
+
+            </label>
+
+            <input
+                type="text"
+                name="dictionary_name"
+                class="form-control"
+                required>
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label">
+
+                Description
+
+            </label>
+
+            <textarea
+                name="description"
+                class="form-control"
+                rows="4"></textarea>
+
+        </div>
+
+        <button class="btn btn-success">
+
+            Save Dictionary
+
+        </button>
+
+        <a href="{{ url_for('test_builder.report_dictionaries') }}"
+           class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+{% endblock %}

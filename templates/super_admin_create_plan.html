@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+
+{% block title %}Create Subscription Plan | Smart Lab{% endblock %}
+
+{% block extra_css %}
+<style>
+    .plan-page {
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 20px;
+    }
+
+    .plan-card {
+        background: #fff;
+        border: 1px solid #e5eaf1;
+        border-radius: 16px;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+    }
+
+    .plan-header {
+        padding: 24px 28px;
+        background: #f5f8ff;
+        border-bottom: 1px solid #e5eaf1;
+    }
+
+    .plan-header h2 {
+        margin: 0 0 7px;
+        font-size: 24px;
+        font-weight: 700;
+        color: #172b4d;
+    }
+
+    .plan-header p {
+        margin: 0;
+        color: #718096;
+        font-size: 14px;
+    }
+
+    .plan-form {
+        padding: 28px;
+    }
+
+    .form-section {
+        margin-bottom: 28px;
+    }
+
+    .form-section h5 {
+        font-size: 16px;
+        font-weight: 700;
+        color: #243b64;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+        border-bottom: 1px solid #edf0f5;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #344054;
+        font-size: 14px;
+    }
+
+    .form-control,
+    .form-select {
+        min-height: 44px;
+        border-radius: 8px;
+        border-color: #d8dee9;
+    }
+
+    textarea.form-control {
+        min-height: 95px;
+        resize: vertical;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #3273dc;
+        box-shadow: 0 0 0 3px rgba(50, 115, 220, 0.12);
+    }
+
+    .field-help {
+        display: block;
+        margin-top: 6px;
+        color: #718096;
+        font-size: 12px;
+    }
+
+    .feature-box {
+        padding: 16px;
+        border: 1px solid #e5eaf1;
+        border-radius: 10px;
+        background: #fafbfd;
+    }
+
+    .feature-box .form-check-label {
+        font-weight: 600;
+        color: #344054;
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        padding-top: 20px;
+        border-top: 1px solid #edf0f5;
+    }
+
+    .form-actions .btn {
+        min-width: 130px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    @media (max-width: 600px) {
+        .plan-page {
+            margin: 10px auto;
+            padding: 10px;
+        }
+
+        .plan-form {
+            padding: 18px;
+        }
+
+        .plan-header {
+            padding: 20px;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="plan-page">
+
+    <div class="plan-card">
+
+        <div class="plan-header">
+            <h2>
+                <i class="bi bi-plus-circle"></i>
+                Create Subscription Plan
+            </h2>
+
+            <p>
+                Configure pricing, usage limits and features for a new plan.
+            </p>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('super_admin_create_plan') }}"
+              class="plan-form">
+
+            {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    {{ error }}
+                </div>
+            {% endif %}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}" role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- BASIC DETAILS -->
+            <div class="form-section">
+
+                <h5>
+                    <i class="bi bi-info-circle"></i>
+                    Basic Details
+                </h5>
+
+                <div class="mb-3">
+                    <label for="plan_name" class="form-label">
+                        Plan Name <span class="text-danger">*</span>
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        id="plan_name"
+                        name="plan_name"
+                        maxlength="100"
+                        placeholder="e.g. Basic, Professional, Enterprise"
+                        required
+                        value="{{ request.form.get('plan_name', '') }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">
+                        Description
+                    </label>
+
+                    <textarea
+                        class="form-control"
+                        id="description"
+                        name="description"
+                        maxlength="1000"
+                        placeholder="Describe the plan and its intended use">{{ request.form.get('description', '') }}</textarea>
+                </div>
+
+            </div>
+
+            <!-- PRICING -->
+            <div class="form-section">
+
+                <h5>
+                    <i class="bi bi-currency-rupee"></i>
+                    Pricing
+                </h5>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="monthly_price" class="form-label">
+                            Monthly Price (₹) <span class="text-danger">*</span>
+                        </label>
+
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="monthly_price"
+                            name="monthly_price"
+                            min="0"
+                            step="0.01"
+                            required
+                            value="{{ request.form.get('monthly_price', '0') }}">
+
+                        <small class="field-help">
+                            Amount charged for one month.
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="annual_price" class="form-label">
+                            Annual Price (₹) <span class="text-danger">*</span>
+                        </label>
+
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="annual_price"
+                            name="annual_price"
+                            min="0"
+                            step="0.01"
+                            required
+                            value="{{ request.form.get('annual_price', '0') }}">
+
+                        <small class="field-help">
+                            Amount charged for one year.
+                        </small>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <!-- LIMITS -->
+            <div class="form-section">
+
+                <h5>
+                    <i class="bi bi-sliders"></i>
+                    Usage Limits
+                </h5>
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+                        <label for="max_users" class="form-label">
+                            Maximum Users
+                        </label>
+
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="max_users"
+                            name="max_users"
+                            min="1"
+                            step="1"
+                            placeholder="Leave blank for unlimited"
+                            value="{{ request.form.get('max_users', '') }}">
+
+                        <small class="field-help">
+                            Maximum user accounts permitted under this plan.
+                        </small>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="max_patients_per_month" class="form-label">
+                            Maximum Patients Per Month
+                        </label>
+
+                        <input
+                            type="number"
+                            class="form-control"
+                            id="max_patients_per_month"
+                            name="max_patients_per_month"
+                            min="1"
+                            step="1"
+                            placeholder="Leave blank for unlimited"
+                            value="{{ request.form.get('max_patients_per_month', '') }}">
+
+                        <small class="field-help">
+                            Maximum patients registered per month.
+                        </small>
+                    </div>
+
+                </div>
+
+                <div class="mt-3">
+                    <small class="text-muted">
+                        Blank limits mean unlimited. These limits will not
+                        restrict laboratory operations until enforcement is
+                        implemented separately.
+                    </small>
+                </div>
+
+            </div>
+
+            <!-- FEATURES -->
+            <div class="form-section">
+
+                <h5>
+                    <i class="bi bi-toggles"></i>
+                    Plan Features
+                </h5>
+
+                <div class="feature-box">
+                    <div class="form-check form-switch">
+
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            role="switch"
+                            id="analyzer_integration"
+                            name="analyzer_integration"
+                            {% if request.form.get('analyzer_integration') == 'on' %}checked{% endif %}>
+
+                        <label
+                            class="form-check-label"
+                            for="analyzer_integration">
+                            Analyzer Integration
+                        </label>
+
+                    </div>
+
+                    <small class="field-help">
+                        Enable or disable analyzer integration as a feature
+                        of this plan. This setting does not itself connect
+                        or disconnect any analyzer.
+                    </small>
+                </div>
+
+            </div>
+
+            <!-- STATUS -->
+            <div class="form-section">
+
+                <h5>
+                    <i class="bi bi-check-circle"></i>
+                    Plan Status
+                </h5>
+
+                <div class="mb-3">
+                    <label for="status" class="form-label">
+                        Status <span class="text-danger">*</span>
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="status"
+                        name="status"
+                        required>
+
+                        <option
+                            value="Active"
+                            {% if request.form.get('status', 'Active') == 'Active' %}selected{% endif %}>
+                            Active
+                        </option>
+
+                        <option
+                            value="Inactive"
+                            {% if request.form.get('status') == 'Inactive' %}selected{% endif %}>
+                            Inactive
+                        </option>
+
+                    </select>
+
+                    <small class="field-help">
+                        Only Active plans will appear in the subscription
+                        assignment dropdown used by the current route.
+                    </small>
+                </div>
+
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="form-actions">
+
+                <a href="{{ url_for('super_admin_plans') }}"
+                   class="btn btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i>
+                    Cancel
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-circle"></i>
+                    Create Plan
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

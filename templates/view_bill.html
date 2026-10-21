@@ -12,228 +12,357 @@
 
 </head>
 
+
 <body>
 
 <div class="bill-container">
 
+
+    <!-- =========================
+         TOP BUTTONS
+    ========================== -->
+
     <div class="top-buttons">
 
-        <button onclick="window.print()">
+        <button type="button" onclick="window.print()">
             🖨 Print
         </button>
 
         <a href="{{ url_for('billing') }}">
-            <button>
+            <button type="button">
                 ← Back
             </button>
         </a>
 
-        <!-- PDF button (we'll connect later) -->
-        
-
     </div>
+
+
+
+    <!-- =========================
+         BILL
+    ========================== -->
 
     <div class="bill">
 
+
+        <!-- =========================
+             DYNAMIC LAB HEADER
+        ========================== -->
+
+        {% if lab_settings and lab_settings.report_header %}
+
+        <div class="bill-header">
+
+            <img
+                src="{{ url_for(
+                    'static',
+                    filename='uploads/report_header/' ~ lab_settings.report_header
+                ) }}"
+                class="bill-header-image"
+                alt="Lab Header">
+
+        </div>
+
+        {% endif %}
+
+
+
+        <!-- =========================
+             BILL TITLE
+        ========================== -->
+
         <h2>Bill Receipt</h2>
+
+
+
+        <!-- =========================
+             PATIENT DETAILS
+        ========================== -->
 
         <div class="patient-details">
 
+
+            <!-- LEFT -->
+
             <div class="left">
 
-                <p><strong>Patient Name :</strong> {{ bill[2] }}</p>
+                <p>
+                    <strong>Patient Name :</strong>
+                    {{ bill[2] }}
+                </p>
 
-                <p><strong>Age / Gender :</strong>
+                <p>
+                    <strong>Age / Gender :</strong>
                     {{ bill[3] }} Years /
                     {{ bill[4] }}
                 </p>
 
-                <p><strong>Referral Name :</strong>
+                <p>
+                    <strong>Referral Name :</strong>
                     {{ bill[5] }}
                 </p>
 
             </div>
 
+
+
+            <!-- RIGHT -->
+
             <div class="right">
 
-                <p><strong>Lab Name :</strong><br>
-                    NIDAN PATHOLOGY LAB &
-                    DIAGNOSTICS
+                <p>
+
+                    <strong>Lab Name :</strong><br>
+
+                    {% if lab_settings and lab_settings.lab_name %}
+
+                        {{ lab_settings.lab_name }}
+
+                    {% else %}
+
+                        NIDAN PATHOLOGY LAB & DIAGNOSTICS
+
+                    {% endif %}
+
                 </p>
 
-                <p><strong>Pt. ID / Sp. ID :</strong>
 
+                <p>
+
+                    <strong>Pt. ID / Sp. ID :</strong>
                     {{ bill[1] }}
 
                 </p>
 
-                <p><strong>Bill Date :</strong>
 
-                    {{ bill[11].strftime('%d/%m/%Y') if bill[11] else '' }}
+                <p>
+
+                    <strong>Receipt No :</strong>
+                    {{ bill[0] }}
+
+                </p>
+
+
+                <p>
+
+                    <strong>Bill Date :</strong>
+
+                    {{ bill[11].strftime('%d/%m/%Y')
+                       if bill[11] else '' }}
+
                 </p>
 
             </div>
 
         </div>
 
+
+
         <hr>
+
+
+
+        <!-- =========================
+             TEST TABLE
+        ========================== -->
 
         <table class="bill-table">
 
             <thead>
 
-            <tr>
+                <tr>
 
-                <th width="10%">Sr. No</th>
+                    <th width="10%">
+                        Sr. No
+                    </th>
 
-                <th width="70%">Test Name</th>
+                    <th width="70%">
+                        Test Name
+                    </th>
 
-                <th width="20%">Price</th>
+                    <th width="20%">
+                        Price
+                    </th>
 
-            </tr>
+                </tr>
 
             </thead>
 
+
             <tbody>
 
-            {% for test in tests %}
+                {% for test in tests %}
 
-            <tr>
+                <tr>
 
-                <td>{{ loop.index }}</td>
+                    <td>
+                        {{ loop.index }}
+                    </td>
 
-                <td>{{ test[0] }}</td>
+                    <td>
+                        {{ test[0] }}
+                    </td>
 
-                <td>{{ "%.2f"|format(test[1]) }}</td>
+                    <td>
+                        {{ "%.2f"|format(test[1]) }}
+                    </td>
 
-            </tr>
+                </tr>
 
-            {% endfor %}
+                {% endfor %}
 
             </tbody>
 
         </table>
 
+
+
         <hr>
+
+
+
+        <!-- =========================
+             TOTAL
+        ========================== -->
 
         <table class="total-table">
 
-            <tr>
-
-                <td class="label">Total</td>
-
-                <td>{{ "%.2f"|format(bill[6]) }}</td>
-
-            </tr>
 
             <tr>
 
                 <td class="label">
-
-                    Total Payable Amount :
-
+                    Total
                 </td>
 
                 <td>
-
-                    {{ "%.2f"|format(bill[7]) }}
-
-                </td>
-
-            </tr>
-
-            {% if bill[10]=="Paid" %}
-
-            <tr>
-
-                <td class="label">
-
-                    Total Paid :
-
-                </td>
-
-                <td>
-
                     {{ "%.2f"|format(bill[6]) }}
-
                 </td>
 
             </tr>
+
+
 
             <tr>
 
                 <td class="label">
-
-                    Due Amount :
-
+                    Total Payable Amount :
                 </td>
 
                 <td>
-
-                   {{ "%.2f"|format(bill[8]) }}
-
+                    {{ "%.2f"|format(bill[7]) }}
                 </td>
 
             </tr>
+
+
+
+            {% if bill[10] == "Paid" %}
+
+
+            <tr>
+
+                <td class="label">
+                    Total Paid :
+                </td>
+
+                <td>
+                    {{ "%.2f"|format(bill[6]) }}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <td class="label">
+                    Due Amount :
+                </td>
+
+                <td>
+                    {{ "%.2f"|format(bill[8]) }}
+                </td>
+
+            </tr>
+
 
             {% else %}
 
+
             <tr>
 
                 <td class="label">
-
                     Total Paid :
-
                 </td>
 
                 <td>
-
-                   {{ "%.2f"|format(bill[7]) }}
-
+                    {{ "%.2f"|format(bill[7]) }}
                 </td>
 
             </tr>
+
 
             <tr>
 
                 <td class="label">
-
                     Due Amount :
-
                 </td>
 
                 <td>
-
-                   {{ "%.2f"|format(bill[8]) }}
+                    {{ "%.2f"|format(bill[8]) }}
                 </td>
 
             </tr>
+
 
             {% endif %}
 
         </table>
 
+
+
         <hr>
 
-        <div class="footer">
 
-            <div class="thank">
 
-                <strong>**Thank You**</strong>
+        <!-- =========================
+             THANK YOU
+        ========================== -->
 
-            </div>
+        <div class="thank">
 
-            <div class="well">
-
-                <strong>** Get Well Soon **</strong>
-
-            </div>
+            <strong>
+                Thank You
+            </strong>
 
         </div>
+
+
+
+        <!-- =========================
+             DYNAMIC LAB FOOTER
+        ========================== -->
+
+        {% if lab_settings and lab_settings.report_footer %}
+
+        <div class="bill-footer">
+
+            <img
+                src="{{ url_for(
+                    'static',
+                    filename='uploads/report_footer/' ~ lab_settings.report_footer
+                ) }}"
+                class="bill-footer-image"
+                alt="Lab Footer">
+
+        </div>
+
+        {% endif %}
+
 
     </div>
 
 </div>
+
 
 </body>
 

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}
+Formula Master
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <button class="back-btn" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+
+    <h2>Formula Master</h2>
+
+    <hr>
+
+    <a href="{{ url_for('test_builder.add_formula') }}"
+       class="btn btn-success mb-3">
+
+        + Add Formula
+
+    </a>
+
+    <table class="table table-bordered table-hover">
+
+        <thead>
+
+            <tr>
+
+                <th>ID</th>
+                <th>Formula Name</th>
+                <th>Formula</th>
+                <th>Description</th>
+                <th>Action</th>
+
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+{% for formula in formulas %}
+
+<tr>
+
+    <td>{{ formula.formula_name }}</td>
+
+    <td>{{ formula.formula_expression }}</td>
+
+    <td>{{ formula.description }}</td>
+
+    <td>
+
+        <a href="{{ url_for('test_builder.edit_formula',
+                            formula_id=formula.id) }}"
+           class="btn btn-primary btn-sm">
+            Edit
+        </a>
+
+        <a href="{{ url_for('test_builder.delete_formula',
+                            formula_id=formula.id) }}"
+           class="btn btn-danger btn-sm"
+           onclick="return confirm('Delete Formula?')">
+            Delete
+        </a>
+
+    </td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

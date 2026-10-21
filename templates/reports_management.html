@@ -1,243 +1,367 @@
+{% extends "base.html" %}
 
-<!DOCTYPE html>
-<html>
-<head>
-   
+{% block title %}Reports Management | Smart Lab{% endblock %}
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/reports.css') }}">
-</head>
-<body>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
+{% endblock %}
 
-<div class="page-header">
+{% block content %}
+<section class="reports-page">
+    <div class="reports-print-header">
+        <h1>{{ lab_settings.lab_name if lab_settings and lab_settings.lab_name else session.get('lab_name', 'Smart Lab') }}</h1>
+        <h2>Laboratory Reports</h2>
+        <p>Printed on: <span id="reportsPrintDate"></span></p>
+    </div>
 
-    <div>
+    <!-- PAGE HEADER -->
 
-        <h1 class="page-title">
-            📋 Reports Management
-        </h1>
+    <header class="page-header">
 
-     
+
         
+            <div>
+                <h2 class="panel-title">Laboratory Reports</h2>
+                 
+                
+            </div>
 
-    </div>
-
-</div>
-
-<div class="content-card">
-    <div class="stats-container">
-
-    <div class="stat-card blue">
-    
-    <div class="card-icon">
-        📄
-    </div>
-
-    <div class="card-content">
-        <div class="card-title">Total Reports</div>
-        <div class="card-number">{{ total_reports }}</div>
-        <div class="card-subtitle">All reports</div>
-    </div>
-
-</div>
-
-    <div class="stat-card green">
-
-    <div class="card-icon">
-        ✅
-    </div>
-
-    <div class="card-content">
-        <div class="card-title">Completed</div>
-        <div class="card-number">{{ completed_reports }}</div>
-        <div class="card-subtitle">Completed reports</div>
-    </div>
-
-</div>
-    <div class="stat-card orange">
-
-    <div class="card-icon">
-        ⏰
-    </div>
-
-    <div class="card-content">
-        <div class="card-title">Pending</div>
-        <div class="card-number">{{ pending_reports }}</div>
-        <div class="card-subtitle">Pending reports</div>
-    </div>
-
-</div>
-
-    <div class="stat-card purple">
-
-    <div class="card-icon">
-        🧪
-    </div>
-
-    <div class="card-content">
-        <div class="card-title">Today's Reports</div>
-        <div class="card-number">{{ today_reports }}</div>
-        <div class="card-subtitle">Reports generated today</div>
-    </div>
-
-</div>
-
-</div>
-
-   <div class="search-filter">
-
-    <input
-    type="text"
-    id="searchInput"
-    placeholder="Search by Patient ID, Name or Test..."
-    class="search-box">
-
-    <select id="statusFilter" class="status-filter">
-        <option value="">All Reports</option>
-        <option value="Completed">Completed</option>
-        <option value="Pending">Pending</option>
-    </select>
-
-</div>
+        <button
+            type="button"
+            onclick="window.print()"
+            class="print-btn"
+        >
+            🖨 Print Reports
+        </button>
+    </header>
 
 
-    <div class="table-container">
+    <!-- DASHBOARD STATISTICS -->
 
-      <table class="report-table">
+    <section class="stats-container">
 
-    <tr>
-        <th>Patient ID</th>
-        <th>Patient Name</th>
-        <th>Tests</th>
-        <th>Report Status</th>
-        <th class="text-center">Actions</th>
-    </tr>
+        <div class="stat-card blue">
+            <div class="card-icon">📄</div>
 
-    {% for report in reports %}
+            <div class="card-content">
+                <div class="card-title">Total Reports</div>
+                <div class="card-number">{{ total_reports }}</div>
+                <div class="card-subtitle">All registered reports</div>
+            </div>
+        </div>
 
-    <tr>
 
-        <td>{{ report[0] }}</td>
-        <td>{{ report[1] }}</td>
-        <td>{{ report[2] }}</td>
+        <div class="stat-card green">
+            <div class="card-icon">✅</div>
 
-        <td>
+            <div class="card-content">
+                <div class="card-title">Completed</div>
+                <div class="card-number">{{ completed_reports }}</div>
+                <div class="card-subtitle">Reports with saved results</div>
+            </div>
+        </div>
 
-            {% if report[3] == 'Completed' %}
 
-                <span class="status completed">
-                    ✓ Completed
-                </span>
+        <div class="stat-card orange">
+            <div class="card-icon">⏰</div>
 
-            {% else %}
+            <div class="card-content">
+                <div class="card-title">Pending</div>
+                <div class="card-number">{{ pending_reports }}</div>
+                <div class="card-subtitle">Reports awaiting completion</div>
+            </div>
+        </div>
 
-                <span class="status pending">
-                    ⏰ Pending
-                </span>
 
-            {% endif %}
+        <div class="stat-card purple">
+            <div class="card-icon">🧪</div>
 
-        </td>
+            <div class="card-content">
+                <div class="card-title">Today's Reports</div>
+                <div class="card-number">{{ today_reports }}</div>
+                <div class="card-subtitle">Reports generated today</div>
+            </div>
+        </div>
 
-        <td class="action-buttons">
+    </section>
 
-{% if report[3] == 'Completed' %}
 
-<a href="/view-report/{{ report[0] }}">
-    <button class="view-btn">
-        👁 View
-    </button>
-</a>
+    <!-- REPORTS TABLE -->
 
-<a href="/edit-report/{{ report[0] }}">
-    <button class="edit-btn">
-        ✏ Edit
-    </button>
-</a>
+    <main class="content-card">
 
-<form action="/delete-report/{{ report[0] }}"
-      method="POST"
-      style="display:inline;"
-      onsubmit="return confirm('Delete this report?');">
+        <div class="panel-header">
 
-    <button type="submit"
-            class="action-btn delete-btn"
-            title="Delete Report">
-        🗑
-    </button>
 
-</form>
+            
 
-{% else %}
+        </div>
 
-<a href="/enter-results/{{ report[0] }}">
-    <button class="enter-btn">
-        ✏ Enter Results
-    </button>
-</a>
 
-{% endif %}
+        <!-- SEARCH AND FILTER -->
 
-</td>
+        <div class="search-filter">
 
-    </tr>
+            <div class="search-wrapper">
+                <span class="search-icon">🔎</span>
 
-    {% endfor %}
+                <input
+                    type="search"
+                    id="searchInput"
+                    class="search-box"
+                    placeholder="Search patient ID, name or test..."
+                    aria-label="Search laboratory reports"
+                >
+            </div>
 
-</table>
 
-    </div>
+            <div class="filter-wrapper">
 
-</div>
-<button onclick="window.print()" class="print-btn">
-    🖨 Print Report
-</button>
+                <select
+                    id="statusFilter"
+                    class="status-filter"
+                    aria-label="Filter reports by status"
+                >
+                    <option value="">All Reports</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Pending">Pending</option>
+                </select>
+
+            </div>
+
+
+            <button type="button" class="clear-btn" id="clearFilters">
+                ✕ Clear Filters
+            </button>
+
+        </div>
+
+
+        <!-- TABLE -->
+
+        <div class="table-container">
+
+            <table class="report-table" id="reportTable">
+
+                <thead>
+                    <tr>
+                        <th>Patient ID</th>
+                        <th>Patient Name</th>
+                        <th>Tests</th>
+                        <th>Report Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+
+
+                <tbody id="reportTableBody">
+
+                    {% for report in reports %}
+
+                    <tr class="report-row">
+
+                        <td>
+                            <span class="patient-id">
+                                {{ report[0] or '—' }}
+                            </span>
+                        </td>
+
+
+                        <td>
+                            <span class="patient-name">
+                                {{ report[1] or 'Unknown Patient' }}
+                            </span>
+                        </td>
+
+
+                        <td>
+                            <div class="test-name">
+                                {{ report[2] or 'No test assigned' }}
+                            </div>
+                        </td>
+
+
+                        <td>
+
+                            {% if report[3] == 'Completed' %}
+
+                                <span class="status completed">
+                                    ✓ Completed
+                                </span>
+
+                            {% else %}
+
+                                <span class="status pending">
+                                    ◷ Pending
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td>
+
+                            <div class="action-buttons">
+
+                                {% if report[3] == 'Completed' %}
+
+                                    <a href="{{ url_for('view_report', patient_id=report[0]) }}">
+                                        <button type="button" class="view-btn">
+                                            👁 View
+                                        </button>
+                                    </a>
+
+                                    <a href="{{ url_for('edit_report', patient_id=report[0]) }}">
+                                        <button type="button" class="edit-btn">
+                                            ✏ Edit
+                                        </button>
+                                    </a>
+
+                                    <form
+                                        class="delete-form"
+                                        action="{{ url_for('delete_report', patient_id=report[0]) }}"
+                                        method="POST"
+                                        onsubmit="return confirm('Are you sure you want to delete this report?');"
+                                    >
+                                        <button
+                                            type="submit"
+                                            class="delete-btn"
+                                            title="Delete report"
+                                            aria-label="Delete report"
+                                        >
+                                            🗑 Delete
+                                        </button>
+                                    </form>
+
+                                {% else %}
+
+                                    <a href="{{ url_for('enter_results', patient_id=report[0]) }}">
+                                        <button type="button" class="enter-btn">
+                                            ✏ Enter Results
+                                        </button>
+                                    </a>
+
+                                {% endif %}
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+                        <td colspan="5" class="empty-state">
+
+                            <span class="empty-icon">📂</span>
+
+                            <div class="empty-title">
+                                No reports available
+                            </div>
+
+                            <div class="empty-description">
+                                Registered patient reports will appear here.
+                            </div>
+
+                        </td>
+                    </tr>
+
+                    {% endfor %}
+
+
+                    <!-- SHOWN WHEN SEARCH RETURNS NO MATCHES -->
+
+                    <tr id="noResultsRow" class="no-results">
+                        <td colspan="5" class="empty-state">
+
+                            <span class="empty-icon">🔍</span>
+
+                            <div class="empty-title">
+                                No matching reports found
+                            </div>
+
+                            <div class="empty-description">
+                                Try another patient ID, name, test or status.
+                            </div>
+
+                        </td>
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- TABLE FOOTER -->
+
+        <div class="table-footer">
+
+            <span id="visibleCount">
+                Showing {{ reports|length }} reports
+            </span>
+
+            <span>
+                Smart Lab Management System
+            </span>
+
+        </div>
+
+
+    </main>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
 <script>
+document.addEventListener("DOMContentLoaded", function () {
+    const printDate = document.getElementById("reportsPrintDate");
+    if (printDate) {
+        printDate.textContent = new Date().toLocaleString("en-IN");
+    }
 
-const searchInput = document.getElementById("searchInput");
-const statusFilter = document.getElementById("statusFilter");
+    const searchInput = document.getElementById("searchInput");
+    const statusFilter = document.getElementById("statusFilter");
+    const clearFilters = document.getElementById("clearFilters");
+    const rows = Array.from(document.querySelectorAll("#reportTableBody .report-row"));
+    const noResultsRow = document.getElementById("noResultsRow");
+    const visibleCount = document.getElementById("visibleCount");
 
-function filterTable() {
+    if (!searchInput || !statusFilter || !clearFilters || !noResultsRow || !visibleCount) {
+        return;
+    }
 
-    const searchText = searchInput.value.toLowerCase();
-    const statusText = statusFilter.value.toLowerCase();
+    function filterReports() {
+        const searchText = searchInput.value.trim().toLowerCase();
+        const selectedStatus = statusFilter.value.trim().toLowerCase();
+        let visibleRows = 0;
 
-    const rows = document.querySelectorAll(".report-table tr");
+        rows.forEach(function (row) {
+            const rowText = row.innerText.toLowerCase();
+            const statusElement = row.querySelector(".status");
+            const rowStatus = statusElement ? statusElement.innerText.toLowerCase().trim() : "";
+            const shouldShow = rowText.includes(searchText) &&
+                (selectedStatus === "" || rowStatus.includes(selectedStatus));
 
-    rows.forEach(row => {
+            row.style.display = shouldShow ? "" : "none";
+            if (shouldShow) visibleRows++;
+        });
 
-        if(row.querySelector("th")){
-            return;
-        }
+        noResultsRow.style.display = rows.length > 0 && visibleRows === 0 ? "table-row" : "none";
+        visibleCount.textContent = "Showing " + visibleRows + " of " + rows.length + " reports";
+    }
 
-        const rowText = row.innerText.toLowerCase();
-
-        const statusCell = row.querySelector(".status");
-
-        const status = statusCell
-            ? statusCell.innerText.toLowerCase()
-            : "";
-
-        const searchMatch =
-            rowText.includes(searchText);
-
-        const statusMatch =
-            statusText === "" ||
-            status.includes(statusText);
-
-        row.style.display =
-            searchMatch && statusMatch
-            ? ""
-            : "none";
-
+    searchInput.addEventListener("input", filterReports);
+    statusFilter.addEventListener("change", filterReports);
+    clearFilters.addEventListener("click", function () {
+        searchInput.value = "";
+        statusFilter.value = "";
+        filterReports();
     });
-
-}
-
-searchInput.addEventListener("keyup", filterTable);
-statusFilter.addEventListener("change", filterTable);
-
+});
 </script>
-
-</body>
-</html>
+{% endblock %}

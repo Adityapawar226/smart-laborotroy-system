@@ -1,0 +1,16 @@
+.page-actions{
+    display:flex;
+    justify-content:flex-start;
+    margin-bottom:20px;
+}
+
+.back-btn{
+    min-width:110px;
+    font-weight:600;
+    border-radius:8px;
+    transition:.3s;
+}
+
+.back-btn:hover{
+    transform:translateY(-2px);
+}

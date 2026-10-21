@@ -1,4 +1,41 @@
+# Environment secrets
 .env
+.env.*
+!.env.example
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
 venv/
+.venv/
+env/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.backup
+
+# Local development
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporary development files
+modules/tempCodeRunnerFile.py
+modules/testtt.py
+modules.zip
+*.backup
+
+# Generated reports
+report generation/*.pdf
+
+# Local uploads - configure persistent storage in production
+static/uploads/

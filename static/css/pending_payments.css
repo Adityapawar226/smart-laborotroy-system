@@ -1,81 +1,204 @@
-{
-    font-family: 'Segoe UI', sans-serif;
-    background:#f4f6fb;
-    margin:0;
-    padding:30px;
+/* Pending Payments page — scoped to avoid changing base.html dashboard */
+.pending-payments-page {
+    width: 100%;
+    max-width: 1800px;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 10px 8px 28px;
+    color: #17233c;
 }
+.pending-payments-page,
+.pending-payments-page * { box-sizing: border-box; }
 
-.page-title{
-    font-size:32px;
-    font-weight:700;
-    color:#1f2937;
-    margin-bottom:25px;
+.pending-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin: 4px 0 24px;
 }
-
-.container{
-    background:white;
-    padding:25px;
-    border-radius:15px;
-    box-shadow:0 4px 15px rgba(0,0,0,0.08);
+.pending-eyebrow {
+    display: inline-block;
+    margin-bottom: 7px;
+    color: #3677f5;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
 }
-
-.pending-table{
-    width:100%;
-    border-collapse:collapse;
+.pending-page-header h1 {
+    margin: 0;
+    color: #172a49;
+    font-size: clamp(27px, 2.5vw, 36px);
+    font-weight: 780;
+    letter-spacing: -.8px;
 }
-
-.pending-table thead{
-    background:#356AE6;
-    color:white;
+.pending-page-header p {
+    margin: 8px 0 0;
+    color: #718096;
+    font-size: 14px;
 }
-
-.pending-table th{
-    padding:15px;
-    text-align:left;
+.pending-print-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    flex-shrink: 0;
+    padding: 11px 17px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #3677f5, #2455d9);
+    box-shadow: 0 5px 14px rgba(48, 104, 245, .2);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease;
 }
+.pending-print-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(48,104,245,.28); }
 
-.pending-table td{
-    padding:15px;
-    border-bottom:1px solid #e5e7eb;
+.pending-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 24px;
 }
-
-.pending-table tr:hover{
-    background:#f8f9ff;
+.pending-summary-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding: 21px 23px;
+    border: 1px solid #e7ecf4;
+    border-radius: 17px;
+    background: #fff;
+    box-shadow: 0 7px 23px rgba(20,40,80,.06);
 }
-
-.status{
-    background:#fff3cd;
-    color:#b7791f;
-    padding:6px 12px;
-    border-radius:20px;
-    font-weight:600;
+.pending-summary-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+    border-radius: 15px;
+    font-size: 23px;
 }
+.pending-icon-blue { color: #2563eb; background: #eaf2ff; }
+.pending-icon-amber { color: #b77908; background: #fff4d9; }
+.pending-summary-card p { margin: 0 0 7px; color: #718096; font-size: 13px; font-weight: 650; }
+.pending-summary-card h2 { margin: 0; color: #172a49; font-size: clamp(22px, 2vw, 29px); font-weight: 780; overflow-wrap: anywhere; }
 
-.pay-btn{
-    background:#22c55e;
-    color:white;
-    border:none;
-    padding:10px 16px;
-    border-radius:8px;
-    cursor:pointer;
-    font-weight:600;
+.pending-table-card {
+    overflow: hidden;
+    border: 1px solid #e6ebf3;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 7px 25px rgba(20,40,80,.06);
 }
-
-.pay-btn:hover{
-    background:#16a34a;
+.pending-table-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+    padding: 22px 23px;
+    border-bottom: 1px solid #edf1f6;
 }
-
-.amount{
-    font-weight:700;
-    color:#111827;
+.pending-table-heading h2 { margin: 0; color: #203452; font-size: 19px; font-weight: 750; }
+.pending-table-heading p { margin: 6px 0 0; color: #7a879b; font-size: 13px; }
+.pending-search-wrap { position: relative; width: min(100%, 330px); flex: 0 1 330px; }
+.pending-search-wrap > i { position: absolute; top: 50%; left: 13px; transform: translateY(-50%); color: #8290a5; }
+.pending-search-wrap input {
+    width: 100%;
+    min-height: 43px;
+    padding: 10px 13px 10px 38px;
+    border: 1px solid #dbe3ef;
+    border-radius: 10px;
+    background: #fbfcff;
+    color: #27364f;
+    outline: none;
 }
+.pending-search-wrap input:focus { border-color: #6c9bff; box-shadow: 0 0 0 3px rgba(54,119,245,.12); background: #fff; }
+.pending-table-wrap { width: 100%; overflow-x: auto; }
+.pending-table { width: 100%; min-width: 1120px; margin: 0; border-collapse: separate; border-spacing: 0; white-space: nowrap; }
+.pending-table thead th {
+    padding: 14px 13px;
+    border-bottom: 1px solid #e1e8f2;
+    background: #f5f8fd;
+    color: #53627b;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .45px;
+    text-align: left;
+    text-transform: uppercase;
+}
+.pending-table tbody td { padding: 14px 13px; border-bottom: 1px solid #edf1f6; color: #34435c; font-size: 13px; vertical-align: middle; }
+.pending-table tbody tr:last-child td { border-bottom: 0; }
+.pending-table tbody tr:hover td { background: #f8fbff; }
+.pending-table .pending-receipt { color: #2563eb; font-weight: 750; }
+.pending-table .pending-patient-id { color: #5b6880; font-weight: 650; }
+.pending-table .pending-patient-name { color: #1e2d46; font-weight: 700; }
+.pending-table .money-cell { font-variant-numeric: tabular-nums; }
+.pending-table .pending-amount-cell { color: #c2410c; font-weight: 800; }
+.pending-status { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 20px; background: #fff1df; color: #a95308; font-size: 11px; font-weight: 800; }
+.pending-mark-paid-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 11px;
+    border: 0;
+    border-radius: 8px;
+    background: #e7f8ef;
+    color: #087f5b;
+    font-size: 12px;
+    font-weight: 750;
+    text-decoration: none;
+    transition: background .2s ease, transform .2s ease;
+}
+.pending-mark-paid-btn:hover { transform: translateY(-1px); background: #c9f0dc; color: #066747; }
+.pending-table-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 14px 22px;
+    border-top: 1px solid #edf1f6;
+    background: #fbfcff;
+    color: #7a879b;
+    font-size: 12px;
+}
+.pending-table-footer i { color: #0f9f6e; margin-right: 4px; }
+.pending-empty-state { padding: 42px 18px !important; text-align: center !important; color: #718096 !important; white-space: normal; }
+.pending-empty-state strong, .pending-empty-state span { display: block; }
+.pending-empty-state strong { margin: 8px 0 5px; color: #27364f; font-size: 15px; }
+.pending-empty-icon { color: #0f9f6e; font-size: 28px; }
+.pending-no-search-results[hidden] { display: none; }
+.pending-print-header { display: none; }
 
-.back-btn{
-    display:inline-block;
-    margin-bottom:20px;
-    text-decoration:none;
-    background:#356AE6;
-    color:white;
-    padding:10px 18px;
-    border-radius:8px;
+@media (max-width: 900px) {
+    .pending-table-heading { align-items: stretch; flex-direction: column; }
+    .pending-search-wrap { width: 100%; flex-basis: auto; }
+}
+@media (max-width: 600px) {
+    .pending-payments-page { padding: 8px 0 20px; }
+    .pending-page-header { align-items: flex-start; flex-direction: column; }
+    .pending-summary-grid { grid-template-columns: 1fr; }
+    .pending-summary-card { padding: 17px; }
+    .pending-table-heading { padding: 17px; }
+    .pending-table-footer { flex-direction: column; padding: 13px 17px; }
+}
+@media print {
+    @page { size: landscape; margin: 12mm; }
+    body * { visibility: hidden !important; }
+    .pending-payments-page, .pending-payments-page * { visibility: visible !important; }
+    .pending-payments-page { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; color: #000 !important; background: #fff !important; }
+    .pending-print-header { display: block !important; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #222; text-align: center; color: #000; }
+    .pending-print-header h1 { margin: 0 0 4px; font-size: 22px; }
+    .pending-print-header h2 { margin: 0 0 4px; font-size: 16px; }
+    .pending-print-header p { margin: 0; font-size: 11px; }
+    .pending-page-header, .pending-summary-grid, .pending-search-wrap, .pending-action-column, .pending-table-footer { display: none !important; }
+    .pending-table-card { overflow: visible; border: 0; box-shadow: none; }
+    .pending-table-wrap { overflow: visible; }
+    .pending-table { width: 100% !important; min-width: 0 !important; white-space: normal; font-size: 9px; }
+    .pending-table th, .pending-table td { padding: 5px !important; color: #000 !important; font-size: 9px !important; }
+    .pending-table thead th { background: #eee !important; }
+    .pending-table tbody tr { break-inside: avoid; page-break-inside: avoid; }
 }

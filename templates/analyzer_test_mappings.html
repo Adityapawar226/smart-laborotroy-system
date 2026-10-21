@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Analyzer Test Mapping{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Analyzer Test Mapping</h2>
+            <p class="text-muted">
+                Map analyzer test codes to existing Smart Lab tests.
+            </p>
+        </div>
+
+        <a href="{{ url_for('analyzer_management.dashboard') }}"
+           class="btn btn-outline-secondary">
+            Back to Dashboard
+        </a>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Create New Mapping</h5>
+        </div>
+
+        <div class="card-body">
+            <form method="POST"
+                  action="{{ url_for('analyzer_management.test_mappings') }}">
+
+                <div class="row g-3">
+
+                    <div class="col-md-4">
+                        <label class="form-label">Analyzer</label>
+                        <select name="analyzer_id"
+                                class="form-select"
+                                required>
+                            <option value="">Select Analyzer</option>
+
+                            {% for device in devices %}
+                            <option value="{{ device.id }}">
+                                {{ device.analyzer_name }}
+                                — {{ device.model_number }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Analyzer Test Code</label>
+                        <input type="text"
+                               name="analyzer_test_code"
+                               class="form-control"
+                               maxlength="120"
+                               placeholder="Example: GLU"
+                               required>
+                        <small class="text-muted">
+                            Enter the exact code supplied by the analyzer.
+                        </small>
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Smart Lab Test</label>
+                        <select name="smart_lab_test_id"
+                                class="form-select"
+                                required>
+                            <option value="">Select Smart Lab Test</option>
+
+                            {% for test in tests %}
+                            <option value="{{ test.id }}">
+                                {{ test.test_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                </div>
+
+                <button type="submit" class="btn btn-primary mt-4">
+                    Save Mapping
+                </button>
+
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">
+            <h5 class="mb-0">Existing Mappings</h5>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Analyzer</th>
+                        <th>Analyzer Test Code</th>
+                        <th>Smart Lab Test</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for mapping in mappings %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ mapping.analyzer_name }}</td>
+                        <td>
+                            <code>{{ mapping.analyzer_test_code }}</code>
+                        </td>
+                        <td>{{ mapping.test_name }}</td>
+                        <td>{{ mapping.created_at }}</td>
+                    </tr>
+
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            No mappings created yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

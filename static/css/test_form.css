@@ -1,0 +1,65 @@
+.page-title{
+
+    font-size:38px;
+    font-weight:700;
+    color:#1f2937;
+
+}
+
+.page-subtitle{
+
+    font-size:18px;
+    color:#6b7280;
+
+}
+
+.form-card{
+
+    background:#fff;
+
+    border-radius:15px;
+
+    padding:35px;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.08);
+
+}
+
+.form-card label{
+
+    font-weight:600;
+
+    margin-bottom:6px;
+
+}
+
+.form-control,
+.form-select{
+
+    height:48px;
+
+    border-radius:8px;
+
+}
+
+textarea.form-control{
+
+    height:120px;
+
+    resize:vertical;
+
+}
+
+.form-buttons{
+
+    display:flex;
+
+    gap:12px;
+
+}
+
+.form-buttons .btn{
+
+    min-width:140px;
+
+}

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}
+Add Parameter
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+ <button
+        type="button"
+        class="back-btn"
+        onclick="history.back()">
+
+        <i class="fas fa-arrow-left"></i>
+        Back
+
+    </button>
+    <h2>Add Parameter</h2>
+
+    <hr>
+
+    <h4>{{ component.component_name }}</h4>
+
+    <p>
+        Test :
+        <strong>{{ component.test_name }}</strong>
+    </p>
+
+    <p>
+        Section :
+        <strong>{{ component.section_name }}</strong>
+    </p>
+    <h5>Total Formulas : {{ formulas|length }}</h5>
+    <form method="POST">
+
+        <div class="mb-3">
+            <label class="form-label">Parameter Name</label>
+            <input
+                type="text"
+                name="display_name"
+                class="form-control"
+                required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Short Name</label>
+            <input
+                type="text"
+                name="short_name"
+                class="form-control">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Unit</label>
+            <input
+                type="text"
+                name="unit"
+                class="form-control">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Method</label>
+            <input
+                type="text"
+                name="method"
+                class="form-control">
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Data Type</label>
+
+            <select
+                name="data_type"
+                class="form-select">
+
+                <option value="numeric">Numeric</option>
+                <option value="text">Text</option>
+                <option value="list">List</option>
+                <option value="formula">Formula</option>
+
+            </select>
+
+        </div>
+        <div class="mb-3" id="formulaSelectWrapper" style="display:none;">
+
+    <label class="form-label fw-bold">
+        Select Formula
+    </label>
+
+    <select
+        name="formula_id"
+        class="form-select">
+
+        <option value="">
+            Select Formula
+        </option>
+
+        {% for formula in formulas %}
+
+        <option value="{{ formula.id }}">
+            {{ formula.formula_name }}
+        </option>
+
+        {% endfor %}
+
+    </select>
+
+</div>
+
+        <div class="mb-3">
+            <label class="form-label">Reference Type</label>
+
+            <select
+                name="reference_type"
+                class="form-select">
+
+                <option value="normal">Normal Range</option>
+                <option value="descriptive">Descriptive</option>
+                <option value="list">List</option>
+                <option value="formula">Formula</option>
+                <option value="age">Age Wise</option>
+                <option value="none">None</option>
+
+            </select>
+
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Display Order</label>
+
+            <input
+                type="number"
+                name="display_order"
+                value="1"
+                class="form-control">
+        </div>
+
+        <div class="form-check">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                name="editable"
+                checked>
+
+            <label class="form-check-label">
+                Editable
+            </label>
+        </div>
+
+        <div class="form-check">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                name="optional_field">
+
+            <label class="form-check-label">
+                Optional
+            </label>
+        </div>
+
+        <div class="form-check">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                name="highlight_abnormal"
+                checked>
+
+            <label class="form-check-label">
+                Highlight Abnormal
+            </label>
+        </div>
+
+        <div class="form-check mb-4">
+            <input
+                class="form-check-input"
+                type="checkbox"
+                name="machine_readable"
+                checked>
+
+            <label class="form-check-label">
+                Machine Readable
+            </label>
+        </div>
+        <div class="mb-3" id="dictionaryOptionsWrapper" style="display: none;">
+    <label class="form-label fw-bold">Dictionary Options (Dropdown List)</label>
+    <div id="optionsListContainer">
+        <div class="input-group mb-2">
+            <input type="text" name="option_values[]" class="form-control" placeholder="Enter option value (e.g., Normocytic Normochromic)">
+            <button type="button" class="btn btn-danger remove-option-btn">Delete</button>
+        </div>
+    </div>
+    <button type="button" id="addOptionFieldBtn" class="btn btn-primary btn-sm mt-1">+ Add Value</button>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const refTypeSelect = document.querySelector("select[name='reference_type']");
+    const dataTypeSelect = document.querySelector("select[name='data_type']");
+    const wrapper = document.getElementById("dictionaryOptionsWrapper");
+    const container = document.getElementById("optionsListContainer");
+    const addBtn = document.getElementById("addOptionFieldBtn");
+    const formulaWrapper = document.getElementById("formulaSelectWrapper");
+    function checkFormulaType() {
+
+    if (dataTypeSelect.value === "formula") {
+
+        formulaWrapper.style.display = "block";
+
+    } else {
+
+        formulaWrapper.style.display = "none";
+
+    }
+
+}
+checkFormulaType();
+
+dataTypeSelect.addEventListener("change", checkFormulaType);
+    function checkListType() {
+        if (refTypeSelect.value === "list" || dataTypeSelect.value === "list") {
+            wrapper.style.display = "block";
+        } else {
+            wrapper.style.display = "none";
+        }
+    }
+
+    refTypeSelect.addEventListener("change", checkListType);
+    dataTypeSelect.addEventListener("change", checkListType);
+    checkListType();
+
+    addBtn.addEventListener("click", function () {
+        const div = document.createElement("div");
+        div.className = "input-group mb-2";
+        div.innerHTML = `
+            <input type="text" name="option_values[]" class="form-control" placeholder="Enter option value">
+            <button type="button" class="btn btn-danger remove-option-btn">Delete</button>
+        `;
+        container.appendChild(div);
+    });
+
+    container.addEventListener("click", function (e) {
+        if (e.target.classList.contains("remove-option-btn")) {
+            e.target.parentElement.remove();
+        }
+    });
+});
+</script>
+
+        <button class="btn btn-success">
+            Save Parameter
+        </button>
+
+        <a href="{{ url_for('test_builder.parameter_list',
+                            component_id=component.id) }}"
+           class="btn btn-secondary">
+
+            Cancel
+
+        </a>
+
+    </form>
+
+</div>
+
+{% endblock %}

@@ -1,181 +1,145 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Edit Report</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Lab Results - Smart Lab System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-
-body{
-    background:#eef2f7;
-    font-family:'Segoe UI',sans-serif;
-}
-
-.report-card{
-    max-width:1000px;
-    margin:40px auto;
-    border:none;
-    border-radius:15px;
-    overflow:hidden;
-    box-shadow:0 10px 25px rgba(0,0,0,.15);
-}
-
-.card-header{
-    background:#0d6efd;
-    color:white;
-    padding:18px 25px;
-}
-
-.patient-box{
-    background:#f8f9fa;
-    border-left:5px solid #0d6efd;
-    padding:15px 20px;
-    border-radius:8px;
-    margin-bottom:25px;
-}
-
-.table th{
-    background:#212529;
-    color:white;
-    text-align:center;
-    vertical-align:middle;
-}
-
-.table td{
-    vertical-align:middle;
-}
-
-.result-input{
-    width:120px;
-    text-align:center;
-}
-
-.btn-update{
-    background:#198754;
-    color:white;
-    padding:10px 35px;
-    font-size:17px;
-    font-weight:600;
-    border:none;
-    border-radius:8px;
-}
-
-.btn-update:hover{
-    background:#157347;
-}
-
-.test-title{
-    color:#0d6efd;
-    font-weight:700;
-    margin-top:35px;
-    margin-bottom:15px;
-}
-
-</style>
+        body { background: #f4f6f9; }
+        .patient-card, .test-card { border-radius: 12px; overflow: hidden; }
+        .component-card { border-radius: 9px; }
+        .save-bar { position: sticky; bottom: 0; z-index: 100; background: rgba(244,246,249,.97); padding: 14px 0; }
+    </style>
 </head>
-<body>
+<body class="bg-light">
+<div class="container my-4">
 
-<div class="container">
+    <!-- Patient header: uses the same tuple positions as enter_results.html -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0 bg-primary text-white patient-card">
+                <div class="card-body d-flex justify-content-between align-items-center py-3">
+                    <div>
+                        <h4 class="mb-1 fw-bold">
+                            <i class="fas fa-user-injured me-2"></i>
+                            {{ patient[2] if patient and patient|length > 2 and patient[2] else 'Patient name unavailable' }}
+                        </h4>
+                        <p class="mb-0 text-white-50 small">
+                            Patient ID:
+                            <span class="text-white fw-semibold">
+                                {{ patient[1] if patient and patient|length > 1 and patient[1] else patient_id }}
+                            </span>
+                            |
+                            Age:
+                            <span class="text-white fw-semibold">
+                                {{ patient[3] if patient and patient|length > 3 and patient[3] is not none else 'N/A' }}
+                            </span>
+                            |
+                            Gender:
+                            <span class="text-white fw-semibold">
+                                {{ patient[4] if patient and patient|length > 4 and patient[4] else 'N/A' }}
+                            </span>
+                        </p>
+                        <span class="badge bg-warning text-dark mt-2">Edit existing report</span>
+                    </div>
+                    <a href="{{ url_for('reports_management') }}" class="btn btn-light btn-sm fw-semibold shadow-sm">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-<div class="card report-card">
+    <form method="POST" id="editReportForm">
+        {% for test in report_structure %}
+        <div class="card shadow-sm border-0 mb-4 test-card">
+            <div class="card-header bg-white border-bottom py-3">
+                <h3 class="h5 text-primary mb-0 fw-bold">
+                    <i class="fas fa-flask me-2"></i>{{ test.test_name }}
+                </h3>
+            </div>
+            <div class="card-body bg-white">
+                {% for section in test.sections %}
+                <div class="mb-4">
+                    <h5 class="text-dark fw-bold border-bottom pb-2 mb-3">{{ section.section_name }}</h5>
+                    {% if section.description %}
+                    <p class="text-muted small mb-3">{{ section.description }}</p>
+                    {% endif %}
 
-<div class="card-header">
+                    {% for component in section.components %}
+                    <div class="card border mb-3 bg-light bg-opacity-25 component-card">
+                        <div class="card-body">
+                            {% include "includes/enter_results/component_renderer.html" %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-warning">
+            No report structure was found for this patient. Check the patient's assigned tests and build_report_structure().
+        </div>
+        {% endfor %}
 
-<h2 class="mb-0">
-Edit Laboratory Report
-</h2>
+        <!-- Authorization uses the same field names as Enter Results -->
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-signature me-2"></i>Report Authorization</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">
+                            Primary Signatory <span class="text-danger">*</span>
+                        </label>
+                        <select name="primary_signatory_id" class="form-select" required>
+                            <option value="">Select Signatory</option>
+                            {% for user in signatories|default([], true) %}
+                            <option value="{{ user[0] }}"
+                                {% if selected_primary_signatory_id is defined and selected_primary_signatory_id|string == user[0]|string %}selected{% endif %}>
+                                {{ user[1] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Name only. Designation will appear on the report.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label fw-bold">
+                            Additional Signatory <small class="text-muted">(Optional)</small>
+                        </label>
+                        <select name="secondary_signatory_id" class="form-select">
+                            <option value="">None</option>
+                            {% for user in signatories|default([], true) %}
+                            <option value="{{ user[0] }}"
+                                {% if selected_secondary_signatory_id is defined and selected_secondary_signatory_id|string == user[0]|string %}selected{% endif %}>
+                                {{ user[1] }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Leave blank if not required.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <div class="save-bar">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('reports_management') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i> Cancel
+                </a>
+                <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm">
+                    <i class="fas fa-save me-2"></i> Update &amp; Process Results
+                </button>
+            </div>
+        </div>
+    </form>
 </div>
 
-<div class="card-body">
-
-<div class="patient-box">
-
-<div class="row">
-
-<div class="col-md-4">
-<b>Patient ID</b><br>
-{{ patient_id }}
-</div>
-
-<div class="col-md-4">
-<b>Patient Name</b><br>
-{{ patient[0] }}
-</div>
-
-<div class="col-md-4">
-<b>Doctor</b><br>
-{{ patient[3] }}
-</div>
-
-</div>
-
-</div>
-
-<form method="POST">
-
-<table class="table table-bordered table-hover">
-
-<thead>
-
-<tr>
-
-<th width="35%">Parameter</th>
-<th width="20%">Result</th>
-<th width="20%">Unit</th>
-<th width="25%">Reference Range</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{% for r in results %}
-
-<tr>
-
-<td>{{ r[3] }}</td>
-
-<td>
-
-<input
-type="text"
-name="result_{{ loop.index }}"
-value="{{ r[4] }}"
-class="form-control result-input">
-
-</td>
-
-<td>{{ r[5] }}</td>
-
-<td>{{ r[6] }}</td>
-
-</tr>
-
-{% endfor %}
-
-</tbody>
-
-</table>
-
-<div class="text-center mt-4">
-
-<button
-type="submit"
-class="btn-update">
-
-💾 Update Report
-
-</button>
-
-</div>
-
-</form>
-
-</div>
-
-</div>
-
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/formula_live.js') }}"></script>
 </body>
 </html>

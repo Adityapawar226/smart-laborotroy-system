@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-   
+
 <div class="container-fluid mt-4">
 
     <div class="card shadow">
@@ -13,10 +13,11 @@
             </h3>
         </div>
 
+
         <div class="card-body">
 
             <form method="POST" enctype="multipart/form-data">
-                
+
 
                 <!-- ====================== -->
                 <!-- Laboratory Information -->
@@ -33,47 +34,86 @@
                         <div class="row">
 
                             <div class="col-md-6 mb-3">
-                                <label><b>Laboratory Name</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="lab_name"
-                                       value="{{ settings.lab_name if settings else '' }}">
+
+                                <label>
+                                    <b>Laboratory Name</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="lab_name"
+                                    value="{{ settings.lab_name if settings else '' }}"
+                                >
+
                             </div>
 
+
                             <div class="col-md-6 mb-3">
-                                <label><b>Owner Name</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="owner_name"
-                                       value="{{ settings.owner_name if settings else '' }}">
+
+                                <label>
+                                    <b>Owner Name</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="owner_name"
+                                    value="{{ settings.owner_name if settings else '' }}"
+                                >
+
                             </div>
 
                         </div>
 
+
                         <div class="row">
 
                             <div class="col-md-4 mb-3">
-                                <label><b>Registration No.</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="registration_no"
-                                       value="{{ settings.registration_no if settings else '' }}">
+
+                                <label>
+                                    <b>Registration No.</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="registration_no"
+                                    value="{{ settings.registration_no if settings else '' }}"
+                                >
+
                             </div>
 
-                            <div class="col-md-4 mb-3">
-                                <label><b>GST No.</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="gst_no"
-                                       value="{{ settings.gst_no if settings else '' }}">
-                            </div>
 
                             <div class="col-md-4 mb-3">
-                                <label><b>NABL No.</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="nabl_no"
-                                       value="{{ settings.nabl_no if settings else '' }}">
+
+                                <label>
+                                    <b>GST No.</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="gst_no"
+                                    value="{{ settings.gst_no if settings else '' }}"
+                                >
+
+                            </div>
+
+
+                            <div class="col-md-4 mb-3">
+
+                                <label>
+                                    <b>NABL No.</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="nabl_no"
+                                    value="{{ settings.nabl_no if settings else '' }}"
+                                >
+
                             </div>
 
                         </div>
@@ -81,6 +121,8 @@
                     </div>
 
                 </div>
+
+
 
                 <!-- ====================== -->
                 <!-- Contact Information -->
@@ -94,86 +136,189 @@
 
                     <div class="card-body">
 
-                        <div class="row">
 
-                            <div class="col-md-6 mb-3">
-                                <label><b>Mobile</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="mobile"
-                                       value="{{ settings.mobile if settings else '' }}">
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label><b>Alternative Mobile</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="alt_mobile"
-                                       value="{{ settings.alt_mobile if settings else '' }}">
-                            </div>
-
-                        </div>
+                        <!-- Mobile / Alternative Mobile -->
 
                         <div class="row">
 
                             <div class="col-md-6 mb-3">
-                                <label><b>Email</b></label>
-                                <input type="email"
-                                       class="form-control"
-                                       name="email"
-                                       value="{{ settings.email if settings else '' }}">
+
+                                <label>
+                                    <b>Mobile</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="mobile"
+                                    value="{{ settings.mobile if settings else '' }}"
+                                >
+
                             </div>
 
+
                             <div class="col-md-6 mb-3">
-                                <label><b>Website</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="website"
-                                       value="{{ settings.website if settings else '' }}">
+
+                                <label>
+                                    <b>Alternative Mobile</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="alt_mobile"
+                                    value="{{ settings.alt_mobile if settings else '' }}"
+                                >
+
                             </div>
 
                         </div>
+
+
+
+                        <!-- UPI / Email -->
+
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    <b>UPI ID</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="upi_id"
+                                    placeholder="example@upi"
+                                    value="{{ settings.upi_id if settings else '' }}"
+                                >
+
+                                <small class="text-muted">
+                                    This UPI ID will be used for dynamic payment QR.
+                                </small>
+
+                            </div>
+
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    <b>Email</b>
+                                </label>
+
+                                <input
+                                    type="email"
+                                    class="form-control"
+                                    name="email"
+                                    value="{{ settings.email if settings else '' }}"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- Website -->
+
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    <b>Website</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="website"
+                                    value="{{ settings.website if settings else '' }}"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- City / State / Pincode -->
 
                         <div class="row">
 
                             <div class="col-md-4 mb-3">
-                                <label><b>City</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="city"
-                                       value="{{ settings.city if settings else '' }}">
+
+                                <label>
+                                    <b>City</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="city"
+                                    value="{{ settings.city if settings else '' }}"
+                                >
+
                             </div>
 
-                            <div class="col-md-4 mb-3">
-                                <label><b>State</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="state"
-                                       value="{{ settings.state if settings else '' }}">
-                            </div>
 
                             <div class="col-md-4 mb-3">
-                                <label><b>Pincode</b></label>
-                                <input type="text"
-                                       class="form-control"
-                                       name="pincode"
-                                       value="{{ settings.pincode if settings else '' }}">
+
+                                <label>
+                                    <b>State</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="state"
+                                    value="{{ settings.state if settings else '' }}"
+                                >
+
+                            </div>
+
+
+                            <div class="col-md-4 mb-3">
+
+                                <label>
+                                    <b>Pincode</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="pincode"
+                                    value="{{ settings.pincode if settings else '' }}"
+                                >
+
                             </div>
 
                         </div>
+
+
+
+                        <!-- Address -->
 
                         <div class="mb-3">
-                            <label><b>Address</b></label>
 
-                            <textarea class="form-control"
-                                      rows="3"
-                                      name="address">{{ settings.address if settings else '' }}</textarea>
+                            <label>
+                                <b>Address</b>
+                            </label>
+
+                            <textarea
+                                class="form-control"
+                                rows="3"
+                                name="address"
+                            >{{ settings.address if settings else '' }}</textarea>
 
                         </div>
 
                     </div>
 
                 </div>
+
+
 
                 <!-- ====================== -->
                 <!-- Receipt Settings -->
@@ -191,23 +336,32 @@
 
                             <div class="col-md-6 mb-3">
 
-                                <label><b>Receipt Prefix</b></label>
+                                <label>
+                                    <b>Receipt Prefix</b>
+                                </label>
 
-                                <input type="text"
-                                       class="form-control"
-                                       name="receipt_prefix"
-                                       value="{{ settings.receipt_prefix if settings else 'RCPT' }}">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="receipt_prefix"
+                                    value="{{ settings.receipt_prefix if settings else 'RCPT' }}"
+                                >
 
                             </div>
 
+
                             <div class="col-md-6 mb-3">
 
-                                <label><b>Patient Prefix</b></label>
+                                <label>
+                                    <b>Patient Prefix</b>
+                                </label>
 
-                                <input type="text"
-                                       class="form-control"
-                                       name="patient_prefix"
-                                       value="{{ settings.patient_prefix if settings else 'PAT' }}">
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="patient_prefix"
+                                    value="{{ settings.patient_prefix if settings else 'PAT' }}"
+                                >
 
                             </div>
 
@@ -216,6 +370,8 @@
                     </div>
 
                 </div>
+
+
 
                 <!-- ====================== -->
                 <!-- Branding -->
@@ -224,57 +380,234 @@
                 <div class="card mb-4">
 
                     <div class="card-header bg-secondary text-white">
-                        Branding
+
+                        <h5 class="mb-0">
+
+                            <i class="fas fa-image"></i>
+
+                            Branding
+
+                        </h5>
+
                     </div>
+
 
                     <div class="card-body">
 
+
+                        <!-- ROW 1 -->
+
                         <div class="row">
 
-                            <div class="col-md-4 mb-3">
 
-                                <label><b>Laboratory Logo</b></label>
+                            <!-- Laboratory Logo -->
 
-                                <input type="file"
-                                       class="form-control"
-                                       name="logo">
+                            <div class="col-md-6 mb-4">
+
+                                <label>
+                                    <b>Laboratory Logo</b>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="logo"
+                                    accept="image/*"
+                                >
+
 
                                 {% if settings and settings.logo %}
-                               <img src="{{ url_for('static', filename='uploads/logo/' + settings.logo) }}"
-                                     class="img-thumbnail mt-2"
-                                     width="120">
+
+                                <div class="mt-2">
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/logo/' + settings.logo
+                                        ) }}"
+                                        class="img-thumbnail"
+                                        style="max-height:100px; max-width:250px;"
+                                    >
+
+                                </div>
+
                                 {% endif %}
 
                             </div>
 
-                            <div class="col-md-4 mb-3">
 
-                                <label><b>Signature</b></label>
 
-                                <input type="file"
-                                       class="form-control"
-                                       name="signature">
+                            <!-- Laboratory Stamp -->
 
-                                {% if settings and settings.signature %}
-                               <img src="{{ url_for('static', filename='uploads/signature/' + settings.signature) }}"
-                                     class="img-thumbnail mt-2"
-                                     width="120">
-                                {% endif %}
+                            <div class="col-md-6 mb-4">
 
-                            </div>
+                                <label>
+                                    <b>Laboratory Stamp</b>
+                                </label>
 
-                            <div class="col-md-4 mb-3">
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="stamp"
+                                    accept="image/*"
+                                >
 
-                                <label><b>Laboratory Stamp</b></label>
-
-                                <input type="file"
-                                       class="form-control"
-                                       name="stamp">
 
                                 {% if settings and settings.stamp %}
-                               <img src="{{ url_for('static', filename='uploads/stamp/' + settings.stamp) }}"
-                                     class="img-thumbnail mt-2"
-                                     width="120">
+
+                                <div class="mt-2">
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/stamp/' + settings.stamp
+                                        ) }}"
+                                        class="img-thumbnail"
+                                        style="max-height:100px; max-width:250px;"
+                                    >
+
+                                </div>
+
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- ROW 2 -->
+
+                        <div class="row">
+
+
+                            <!-- Report Header -->
+
+                            <div class="col-md-6 mb-4">
+
+                                <label>
+                                    <b>Report Header</b>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="report_header"
+                                    accept="image/*"
+                                >
+
+
+                                {% if settings and settings.report_header %}
+
+                                <div class="mt-2">
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/report_header/' + settings.report_header
+                                        ) }}"
+                                        class="img-thumbnail"
+                                        style="max-height:120px; max-width:100%;"
+                                    >
+
+                                </div>
+
+                                <small class="text-success">
+
+                                    Current header:
+                                    {{ settings.report_header }}
+
+                                </small>
+
+                                {% endif %}
+
+                            </div>
+
+
+
+                            <!-- Report Footer -->
+
+                            <div class="col-md-6 mb-4">
+
+                                <label>
+                                    <b>Report Footer</b>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="report_footer"
+                                    accept="image/*"
+                                >
+
+
+                                {% if settings and settings.report_footer %}
+
+                                <div class="mt-2">
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/report_footer/' + settings.report_footer
+                                        ) }}"
+                                        class="img-thumbnail"
+                                        style="max-height:120px; max-width:100%;"
+                                    >
+
+                                </div>
+
+                                <small class="text-success">
+
+                                    Current footer:
+                                    {{ settings.report_footer }}
+
+                                </small>
+
+                                {% endif %}
+
+                            </div>
+
+                        </div>
+
+
+
+                        <!-- Digital Signature -->
+
+                        <div class="row">
+
+                            <div class="col-md-6 mb-3">
+
+                                <label>
+                                    <b>Laboratory Digital Signature</b>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="signature"
+                                    accept="image/*"
+                                >
+
+
+                                {% if settings and settings.signature %}
+
+                                <div class="mt-2">
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/signature/' + settings.signature
+                                        ) }}"
+                                        class="img-thumbnail"
+                                        style="
+                                            max-height:90px;
+                                            max-width:250px;
+                                            object-fit:contain;
+                                        "
+                                    >
+
+                                </div>
+
                                 {% endif %}
 
                             </div>
@@ -282,113 +615,312 @@
                         </div>
 
                     </div>
-                </div>
-                    <!-- ========================================= -->
-<!-- USER ACCESS MANAGEMENT -->
-<!-- ========================================= -->
-
-<div class="card mt-4">
-
-    <div class="card-header bg-dark text-white">
-        <h4><i class="bi bi-people-fill"></i> User Access Management</h4>
-    </div>
-
-    <div class="card-body">
-        <h4>Total Users : {{ users|length }}</h4>
-
-        {% for user in users %}
-
-        <form action="{{ url_for('update_user_access') }}" method="POST">
-
-            <input type="hidden" name="role" value="{{ user.role }}">
-
-            <div class="row">
-
-                <div class="col-md-3">
-                    <label><strong>{{ user.role }} Username</strong></label>
-                    <input
-                        type="text"
-                        class="form-control"
-                        name="username"
-                        value="{{ user.username }}"
-                        required>
-                </div>
-
-                <div class="col-md-3">
-                    <label>New Password</label>
-                    <input
-                        type="password"
-                        class="form-control"
-                        name="password"
-                        placeholder="Leave blank to keep old password">
-                </div>
-
-                <div class="col-md-2">
-                    <label>Status</label>
-
-                    <select
-                        class="form-control"
-                        name="status">
-
-                        <option
-                            value="Active"
-                            {% if user.status=="Active" %}selected{% endif %}>
-                            Active
-                        </option>
-
-                        <option
-                            value="Inactive"
-                            {% if user.status=="Inactive" %}selected{% endif %}>
-                            Inactive
-                        </option>
-
-                    </select>
-                </div>
-
-                <div class="col-md-2 d-flex align-items-end">
-
-                    <button
-                        class="btn btn-primary w-100"
-                        type="submit">
-
-                        Update
-
-                    </button>
 
                 </div>
 
-            </div>
-
-        </form>
-
-        <hr>
-
-        {% endfor %}
-
-    </div>
 
 
+                <!-- ====================== -->
+                <!-- Report Signatories -->
+                <!-- ====================== -->
+
+                <div class="card mb-4">
+
+                    <div class="card-header bg-dark text-white">
+
+                        <h5 class="mb-0">
+
+                            <i class="fas fa-signature"></i>
+
+                            Report Signatories
+
+                        </h5>
+
+                    </div>
+
+
+                    <div class="card-body">
+
+                        <div class="row">
+
+
+                            <div class="col-md-4 mb-3">
+
+                                <label>
+                                    <b>Name</b>
+                                </label>
+
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    name="signatory_name"
+                                    placeholder="Enter Name"
+                                >
+
+                            </div>
+
+
+                            <div class="col-md-3 mb-3">
+
+                                <label>
+                                    <b>Designation</b>
+                                </label>
+
+                                <select
+                                    class="form-control"
+                                    name="signatory_designation"
+                                >
+
+                                    <option value="">
+                                        Select
+                                    </option>
+
+                                    <option>
+                                        Pathologist
+                                    </option>
+
+                                    <option>
+                                        Lab Technician
+                                    </option>
+
+                                    <option>
+                                        Microbiologist
+                                    </option>
+
+                                    <option>
+                                        Authorized Signatory
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+                            <div class="col-md-3 mb-3">
+
+                                <label>
+                                    <b>Signature</b>
+                                </label>
+
+                                <input
+                                    type="file"
+                                    class="form-control"
+                                    name="signatory_signature"
+                                >
+
+                            </div>
+
+
+                            <div class="col-md-2 d-flex align-items-end">
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-success w-100"
+                                >
+
+                                    <i class="fas fa-plus"></i>
+
+                                    Add
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
 
                 </div>
+
+
+
+                <hr>
+
+
+
+                <!-- ====================== -->
+                <!-- Saved Report Signatories -->
+                <!-- ====================== -->
+
+                <h5 class="mb-3">
+
+                    <i class="fas fa-users"></i>
+
+                    Saved Report Signatories
+
+                </h5>
+
+
+                <div class="table-responsive">
+
+                    <table class="table table-bordered table-hover align-middle">
+
+                        <thead class="table-dark">
+
+                            <tr>
+
+                                <th width="70">
+                                    Signature
+                                </th>
+
+                                <th>
+                                    Name
+                                </th>
+
+                                <th>
+                                    Designation
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                                <th width="170">
+                                    Action
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody>
+
+                            {% for sign in signatories %}
+
+                            <tr>
+
+                                <td class="text-center">
+
+                                    {% if sign.signature %}
+
+                                    <img
+                                        src="{{ url_for(
+                                            'static',
+                                            filename='uploads/signatories/' + sign.signature
+                                        ) }}"
+                                        style="height:55px;"
+                                    >
+
+                                    {% endif %}
+
+                                </td>
+
+
+                                <td>
+                                    {{ sign.name }}
+                                </td>
+
+
+                                <td>
+                                    {{ sign.designation }}
+                                </td>
+
+
+                                <td>
+
+                                    {% if sign.status == "Active" %}
+
+                                    <span class="badge bg-success">
+                                        Active
+                                    </span>
+
+                                    {% else %}
+
+                                    <span class="badge bg-danger">
+                                        Inactive
+                                    </span>
+
+                                    {% endif %}
+
+                                </td>
+
+
+                                <td>
+
+                                    <a
+                                        href="{{ url_for(
+                                            'edit_signatory',
+                                            id=sign.id
+                                        ) }}"
+                                        class="btn btn-warning btn-sm"
+                                    >
+
+                                        <i class="fas fa-edit"></i>
+
+                                    </a>
+
+
+                                    <a
+                                        href="{{ url_for(
+                                            'delete_signatory',
+                                            id=sign.id
+                                        ) }}"
+                                        onclick="return confirm('Delete this signatory?')"
+                                        class="btn btn-danger btn-sm"
+                                    >
+
+                                        <i class="fas fa-trash"></i>
+
+                                    </a>
+
+                                </td>
+
+                            </tr>
+
+                            {% endfor %}
+
+
+                            {% if not signatories %}
+
+                            <tr>
+
+                                <td
+                                    colspan="5"
+                                    class="text-center text-muted"
+                                >
+
+                                    No signatories added.
+
+                                </td>
+
+                            </tr>
+
+                            {% endif %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
 
                 <!-- ====================== -->
                 <!-- Save Button -->
                 <!-- ====================== -->
 
-               <div class="text-center mb-3">
-    <button type="submit" class="btn btn-success btn-lg px-5">
-        <i class="fas fa-save"></i>
-        Save Settings
-    </button>
-</div>
+                <div class="text-center mb-3">
 
-</form>
-            
+                    <button
+                        type="submit"
+                        class="btn btn-success btn-lg px-5"
+                    >
 
-        
+                        <i class="fas fa-save"></i>
+
+                        Save Settings
+
+                    </button>
+
+                </div>
+
+
+            </form>
+
+        </div>
 
     </div>
-
 
 </div>
 

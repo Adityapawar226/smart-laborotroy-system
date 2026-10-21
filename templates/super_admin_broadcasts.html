@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="broadcast-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h2>
+                <i class="bi bi-megaphone-fill"></i>
+                Broadcast Announcements
+            </h2>
+            <p>Send important announcements to laboratories.</p>
+        </div>
+    </div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Create Announcement -->
+    <div class="broadcast-card">
+        <div class="card-heading">
+            <h3><i class="bi bi-send-fill"></i> Create Announcement</h3>
+            <p>Compose a message for your laboratory users.</p>
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('super_admin_broadcasts') }}"
+              id="broadcastForm">
+
+            <div class="form-group">
+                <label for="title">Announcement Title <span>*</span></label>
+                <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    maxlength="200"
+                    placeholder="e.g. Scheduled System Maintenance"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label for="message">Message <span>*</span></label>
+                <textarea
+                    id="message"
+                    name="message"
+                    rows="6"
+                    placeholder="Write your announcement here..."
+                    required></textarea>
+                <small>Keep the message clear and informative.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="target_type">Target Audience</label>
+                <select id="target_type" name="target_type" required>
+                    <option value="All" selected>All Laboratories</option>
+                    <option value="Active">Active Laboratories</option>
+                </select>
+                <small>
+                    Currently, the form records the selected audience.
+                    Actual delivery to laboratories must also be implemented
+                    in the backend.
+                </small>
+            </div>
+
+            <div class="form-actions">
+                <button type="reset" class="btn-reset">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                    Clear
+                </button>
+
+                <button type="submit" class="btn-publish">
+                    <i class="bi bi-send-fill"></i>
+                    Publish Announcement
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Announcement History -->
+    <div class="broadcast-card history-card">
+
+        <div class="card-heading history-heading">
+            <div>
+                <h3><i class="bi bi-clock-history"></i> Announcement History</h3>
+                <p>Review announcements created by the Developer.</p>
+            </div>
+
+            <span class="announcement-count">
+                {{ announcements|length }} Total
+            </span>
+        </div>
+
+        {% if announcements %}
+
+            <div class="announcement-list">
+
+                {% for announcement in announcements %}
+
+                    <div class="announcement-item">
+
+                        <div class="announcement-icon">
+                            <i class="bi bi-megaphone-fill"></i>
+                        </div>
+
+                        <div class="announcement-content">
+
+                            <div class="announcement-title-row">
+                                <h4>{{ announcement.title }}</h4>
+
+                                <span class="status-badge
+                                    {% if announcement.status == 'Published' %}
+                                        status-published
+                                    {% else %}
+                                        status-draft
+                                    {% endif %}">
+                                    {{ announcement.status }}
+                                </span>
+                            </div>
+
+                            <p class="announcement-message">
+                                {{ announcement.message }}
+                            </p>
+
+                            <div class="announcement-meta">
+
+                                <span>
+                                    <i class="bi bi-people-fill"></i>
+                                    {{ announcement.target_type }}
+                                </span>
+
+                                <span>
+                                    <i class="bi bi-calendar3"></i>
+                                    {{ announcement.created_at }}
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                <i class="bi bi-megaphone"></i>
+                <h4>No Announcements Yet</h4>
+                <p>Your published announcements will appear here.</p>
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+<style>
+.broadcast-page {
+    padding: 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #1f2937;
+}
+
+.page-header {
+    margin-bottom: 25px;
+}
+
+.page-header h2 {
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.page-header h2 i {
+    margin-right: 8px;
+}
+
+.page-header p,
+.card-heading p {
+    color: #6b7280;
+    margin: 0;
+    font-size: 14px;
+}
+
+.broadcast-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.04);
+}
+
+.card-heading {
+    margin-bottom: 24px;
+}
+
+.card-heading h3 {
+    font-size: 19px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.card-heading h3 i {
+    margin-right: 8px;
+}
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 9px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.form-group label span {
+    color: #dc2626;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 130px;
+}
+
+.form-group small {
+    display: block;
+    margin-top: 7px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 5px;
+}
+
+.btn-reset,
+.btn-publish {
+    border: none;
+    border-radius: 8px;
+    padding: 11px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-reset {
+    color: #374151;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+}
+
+.btn-publish {
+    background: #2563eb;
+    color: #fff;
+}
+
+.btn-reset:hover,
+.btn-publish:hover {
+    opacity: 0.85;
+}
+
+.alert {
+    padding: 13px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.alert-success {
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #bbf7d0;
+}
+
+.alert-danger {
+    color: #991b1b;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
+.history-card {
+    margin-top: 30px;
+}
+
+.history-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.announcement-count {
+    padding: 7px 12px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.announcement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.announcement-item {
+    display: flex;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.announcement-icon {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-size: 19px;
+}
+
+.announcement-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.announcement-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.announcement-title-row h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 2px 0 10px;
+    overflow-wrap: anywhere;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.status-published {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.status-draft {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.announcement-message {
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 0 0 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.announcement-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.announcement-meta i {
+    margin-right: 5px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 45px 20px;
+    color: #6b7280;
+}
+
+.empty-state > i {
+    font-size: 42px;
+    color: #9ca3af;
+}
+
+.empty-state h4 {
+    margin: 15px 0 8px;
+    color: #374151;
+}
+
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+@media (max-width: 600px) {
+    .broadcast-page {
+        padding: 14px;
+    }
+
+    .broadcast-card {
+        padding: 17px;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .form-actions button {
+        width: 100%;
+    }
+
+    .history-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .announcement-item {
+        gap: 10px;
+        padding: 13px;
+    }
+
+    .announcement-title-row {
+        flex-direction: column;
+        gap: 5px;
+    }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("broadcastForm");
+
+    if (form) {
+        form.addEventListener("submit", function (event) {
+            const title = document.getElementById("title").value.trim();
+            const message = document.getElementById("message").value.trim();
+
+            if (!title || !message) {
+                event.preventDefault();
+                alert("Please enter both the announcement title and message.");
+            }
+        });
+    }
+});
+</script>
+
+{% endblock %}

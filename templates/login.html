@@ -3,16 +3,24 @@
 
 <head>
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
 
-<title>Smart Laboratory Management System</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-<link rel="stylesheet"
-href="{{ url_for('static', filename='css/login.css') }}">
+    <title>Smart Laboratory Management System</title>
 
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/login.css') }}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+    >
 
 </head>
 
@@ -20,11 +28,15 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 
 <div class="login-container">
 
+    <!-- LEFT SIDE -->
+
     <div class="login-left">
 
-        <img src="{{ url_for('static', filename='images/System_logo.png') }}"
-     class="logo"
-     alt="Smart Laboratory Logo">
+        <img
+            src="{{ url_for('static', filename='images/System_logo.png') }}"
+            class="logo"
+            alt="Smart Laboratory Logo"
+        >
 
         <h1>Smart Laboratory</h1>
 
@@ -39,6 +51,8 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
     </div>
 
 
+    <!-- RIGHT SIDE -->
+
     <div class="login-right">
 
         <div class="login-card">
@@ -47,77 +61,120 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 
             <p>Please login to continue.</p>
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
 
-            {% for category,message in messages %}
+            <!-- FLASH MESSAGES -->
 
-            <div class="alert {{category}}">
-                {{message}}
-            </div>
+            {% with messages = get_flashed_messages(
+                with_categories=true
+            ) %}
 
-            {% endfor %}
+                {% if messages %}
 
-            {% endif %}
+                    {% for category, message in messages %}
+
+                        <div class="alert {{ category }}">
+                            {{ message }}
+                        </div>
+
+                    {% endfor %}
+
+                {% endif %}
+
             {% endwith %}
 
-            <form method="POST">
+
+            <!-- LOGIN FORM -->
+
+            <form
+                method="POST"
+                action="{{ url_for('login') }}"
+            >
+
+                <!-- LAB ID -->
+
                 <div class="input-box">
 
-    <i class="fa-solid fa-building"></i>
+                    <i class="fa-solid fa-building"></i>
 
-    <input
-        type="text"
-        name="lab_id"
-        placeholder="Laboratory ID (LAB0001)"
-        required>
+                    <input
+                        type="text"
+                        name="lab_id"
+                        placeholder="Laboratory ID (LAB0001)"
+                        required
+                        autocomplete="organization"
+                    >
 
-</div>
+                </div>
+
+
+                <!-- USERNAME -->
 
                 <div class="input-box">
 
                     <i class="fa-solid fa-user"></i>
 
                     <input
-                    type="text"
-                    name="username"
-                    placeholder="Username"
-                    required>
+                        type="text"
+                        name="username"
+                        placeholder="Username"
+                        required
+                        autocomplete="username"
+                    >
 
                 </div>
+
+
+                <!-- PASSWORD -->
 
                 <div class="input-box">
 
                     <i class="fa-solid fa-lock"></i>
 
                     <input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="Password"
-                    required>
+                        id="password"
+                        type="password"
+                        name="password"
+                        placeholder="Password"
+                        required
+                        autocomplete="current-password"
+                    >
 
                     <span id="togglePassword">
+
                         <i class="fa-solid fa-eye"></i>
+
                     </span>
 
                 </div>
+
+
+                <!-- LOGIN OPTIONS -->
 
                 <div class="login-options">
 
                     <label>
 
-                        <input type="checkbox">
+                        <input
+                            type="checkbox"
+                            name="remember_me"
+                            value="1"
+                        >
 
                         Remember Me
 
                     </label>
 
-                    <a href="#">
+
+                    <a
+                        href="{{ url_for('forgot_password') }}"
+                    >
                         Forgot Password?
                     </a>
 
                 </div>
+
+
+                <!-- LOGIN BUTTON -->
 
                 <button type="submit">
 
@@ -126,16 +183,34 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
                     Login
 
                 </button>
-                <div class="divider">
-    <span>OR</span>
-</div>
 
-<a href="{{ url_for('register_lab') }}" class="register-btn">
-    <i class="fa-solid fa-hospital-user"></i>
-    Register New Laboratory
-</a>
+
+                <!-- DIVIDER -->
+
+                <div class="divider">
+
+                    <span>OR</span>
+
+                </div>
+
+
+                <!-- REGISTER -->
+
+                <a
+                    href="{{ url_for('register_lab') }}"
+                    class="register-btn"
+                >
+
+                    <i class="fa-solid fa-hospital-user"></i>
+
+                    Register New Laboratory
+
+                </a>
 
             </form>
+
+
+            <!-- FOOTER -->
 
             <div class="footer">
 
@@ -149,7 +224,9 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 
 </div>
 
+
 <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 
 </body>
+
 </html>

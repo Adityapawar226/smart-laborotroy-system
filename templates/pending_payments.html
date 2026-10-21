@@ -1,76 +1,156 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Pending Payments</title>
+{% extends "base.html" %}
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/pending_payments.css') }}">
-</head>
-<body>
+{% block title %}Pending Payments | Smart Lab{% endblock %}
 
-<a href="/dashboard" class="back-btn">
-    ← Dashboard
-</a>
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pending_payments.css') }}">
+{% endblock %}
 
-<h2 class="page-title">Pending Payments</h2>
+{% block content %}
+<section class="pending-payments-page">
+    <div class="pending-print-header">
+        <h1>{{ lab_settings.lab_name if lab_settings and lab_settings.lab_name else session.get('lab_name', 'Smart Lab') }}</h1>
+        <h2>Pending Payments Report</h2>
+        <p>Printed on: <span id="pendingPrintDate"></span></p>
+    </div>
 
-<div class="container">
-<table class="pending-table">
-<tr>
-    <th>Receipt No</th>
-    <th>Patient ID</th>
-    <th>Patient Name</th>
-    <th>Mobile</th>
-    <th>Total Bill</th>
-    <th>Paid</th>
-    <th>Pending</th>
-    <th>Report Date</th>
-    <th>Due Date</th>
-    <th>Status</th>
-    <th>Action</th>
-</tr>
+    <header class="pending-page-header">
+        <div>
+            <span class="pending-eyebrow">FINANCE OVERVIEW</span>
+            <h1>Pending Payments</h1>
+            <p>Track outstanding bills and record patient payments.</p>
+        </div>
+        <button type="button" class="pending-print-btn" onclick="window.print()">
+            <i class="bi bi-printer"></i> Print Report
+        </button>
+    </header>
 
-{% for row in data %}
-<tr>
+    <div class="pending-summary-grid">
+        <article class="pending-summary-card">
+            <div class="pending-summary-icon pending-icon-blue"><i class="bi bi-receipt"></i></div>
+            <div><p>Total Pending Records</p><h2 id="pendingRecordCount">{{ data|length }}</h2></div>
+        </article>
+        <article class="pending-summary-card">
+            <div class="pending-summary-icon pending-icon-amber"><i class="bi bi-currency-rupee"></i></div>
+            <div><p>Outstanding Amount</p><h2 id="pendingAmountTotal">—</h2></div>
+        </article>
+    </div>
 
-    <td>{{ row[1] }}</td>   <!-- Receipt No -->
+    <div class="pending-table-card">
+        <div class="pending-table-heading">
+            <div>
+                <h2>Outstanding Bills</h2>
+                <p>Search by receipt, patient, mobile number or payment status.</p>
+            </div>
+            <div class="pending-search-wrap">
+                <i class="bi bi-search"></i>
+                <input id="pendingSearch" type="search" placeholder="Search pending payments…" aria-label="Search pending payments">
+            </div>
+        </div>
 
-    <td>{{ row[2] }}</td>   <!-- Patient ID -->
+        <div class="pending-table-wrap">
+            <table class="pending-table" id="pendingPaymentsTable">
+                <thead>
+                    <tr>
+                        <th>Receipt No</th>
+                        <th>Patient ID</th>
+                        <th>Patient Name</th>
+                        <th>Mobile</th>
+                        <th>Total Bill</th>
+                        <th>Paid</th>
+                        <th>Pending</th>
+                        <th>Report Date</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
+                        <th class="pending-action-column">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="pendingPaymentsBody">
+                    {% for row in data %}
+                    <tr class="pending-payment-row">
+                        <td class="pending-receipt">{{ row[1] }}</td>
+                        <td class="pending-patient-id">{{ row[2] }}</td>
+                        <td class="pending-patient-name">{{ row[3] }}</td>
+                        <td>{{ row[4] }}</td>
+                        <td class="money-cell">₹{{ row[5] }}</td>
+                        <td class="money-cell">₹{{ row[6] }}</td>
+                        <td class="money-cell pending-amount-cell" data-amount="{{ row[7] }}">₹{{ row[7] }}</td>
+                        <td>{{ row[8] }}</td>
+                        <td>{{ row[9] }}</td>
+                        <td><span class="pending-status">{{ row[10] }}</span></td>
+                        <td class="pending-action-column">
+                            <a href="{{ url_for('collect_payment', payment_id=row[0]) }}" class="pending-mark-paid-btn">
+                                <i class="bi bi-check2-circle"></i> Mark Paid
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr class="pending-empty-server-row">
+                        <td colspan="11" class="pending-empty-state">
+                            <span class="pending-empty-icon"><i class="bi bi-check2-circle"></i></span>
+                            <strong>No pending payments</strong>
+                            <span>All outstanding bills are cleared.</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    <tr id="pendingNoSearchResults" class="pending-no-search-results" hidden>
+                        <td colspan="11" class="pending-empty-state">No payments match your search.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
-    <td>{{ row[3] }}</td>   <!-- Patient Name -->
+        <footer class="pending-table-footer">
+            <span id="pendingVisibleCount">Showing {{ data|length }} records</span>
+            <span><i class="bi bi-shield-check"></i> Payment status is based on your current records.</span>
+        </footer>
+    </div>
+</section>
+{% endblock %}
 
-    <td>{{ row[4] }}</td>   <!-- Mobile -->
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const rows = Array.from(document.querySelectorAll(".pending-payment-row"));
+    const search = document.getElementById("pendingSearch");
+    const noResults = document.getElementById("pendingNoSearchResults");
+    const visibleCount = document.getElementById("pendingVisibleCount");
+    const totalCount = document.getElementById("pendingRecordCount");
+    const totalAmount = document.getElementById("pendingAmountTotal");
+    const printDate = document.getElementById("pendingPrintDate");
 
-    <td>₹{{ row[5] }}</td>  <!-- Total Bill -->
+    if (printDate) printDate.textContent = new Date().toLocaleString("en-IN");
 
-    <td>₹{{ row[6] }}</td>  <!-- Paid -->
+    const currency = new Intl.NumberFormat("en-IN", {
+        style: "currency", currency: "INR", maximumFractionDigits: 2
+    });
 
-    <td class="amount">
-        ₹{{ row[7] }}
-    </td>
+    let amountSum = 0;
+    rows.forEach(function (row) {
+        const cell = row.querySelector(".pending-amount-cell");
+        const amount = cell ? Number(String(cell.dataset.amount || "0").replace(/,/g, "")) : 0;
+        if (Number.isFinite(amount)) amountSum += amount;
+    });
 
-    <td>{{ row[8] }}</td>   <!-- Report Date -->
+    if (totalAmount) totalAmount.textContent = currency.format(amountSum);
+    if (totalCount) totalCount.textContent = rows.length;
 
-    <td>{{ row[9] }}</td>   <!-- Due Date -->
+    function filterRows() {
+        const query = (search.value || "").trim().toLowerCase();
+        let visible = 0;
 
-    <td>
-        <span class="status">
-            {{ row[10] }}
-        </span>
-    </td>
+        rows.forEach(function (row) {
+            const matches = row.innerText.toLowerCase().includes(query);
+            row.hidden = !matches;
+            if (matches) visible++;
+        });
 
-    <td>
-    <a href="{{ url_for('collect_payment', payment_id=row[0]) }}"
-       class="btn btn-success">
-        Mark Paid
-    </a>
-</td>
+        if (noResults) noResults.hidden = !(rows.length > 0 && visible === 0);
+        if (visibleCount) visibleCount.textContent = "Showing " + visible + " of " + rows.length + " records";
+    }
 
-</tr>
-{% endfor %}
-
-</table>
-</div>
-
-</body>
-</html>
+    if (search) search.addEventListener("input", filterRows);
+    filterRows();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% set c_type = component.component_type | default('') | lower %}
+
+{% if c_type == "heading" %}
+    {% include "includes/enter_results/heading.html" %}
+
+{% elif c_type == "paragraph" %}
+    {% include "includes/enter_results/paragraph.html" %}
+
+{% elif c_type == "formula" %}
+    {% include "includes/enter_results/formula.html" %}
+
+{% elif c_type in ["parameter", "parameter_table"] %}
+    {% include "includes/enter_results/parameter.html" %}
+
+{% elif c_type == "dictionary_result" %}
+<div class="mb-3 dictionary-result-editor">
+    <label class="form-label fw-bold" for="dictionaryInput{{ component.component_id }}">
+        {{ component.component_name }}
+    </label>
+
+    <div class="row g-2">
+        <div class="col-md-5">
+            <label class="form-label small text-muted" for="dictionarySelect{{ component.component_id }}">
+                Select from dropdown
+            </label>
+            <select
+                class="form-select dictionary-value-select"
+                id="dictionarySelect{{ component.component_id }}"
+                data-target="dictionaryInput{{ component.component_id }}">
+                <option value="">Select Value</option>
+                {% for value in component.dictionary_values %}
+                <option value="{{ value }}"
+                    {% if component.selected_value == value %}selected{% endif %}>
+                    {{ value }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-7">
+            <label class="form-label small text-muted" for="dictionaryInput{{ component.component_id }}">
+                Edit selected value or enter a new word
+            </label>
+            <input
+                type="text"
+                class="form-control dictionary-value-input"
+                id="dictionaryInput{{ component.component_id }}"
+                name="dictionary_component_{{ component.component_id }}"
+                value="{{ component.selected_value | default('', true) }}"
+                placeholder="Choose a value above or type your own"
+                autocomplete="off">
+        </div>
+    </div>
+    <div class="form-text">
+        Choose a suggested value, edit it, or type a new value directly.
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".dictionary-value-select").forEach(function (select) {
+        if (select.dataset.bound === "true") return;
+        select.dataset.bound = "true";
+
+        select.addEventListener("change", function () {
+            const target = document.getElementById(select.dataset.target);
+            if (target && select.value !== "") {
+                target.value = select.value;
+                target.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+    });
+});
+</script>
+
+{% else %}
+<div class="alert alert-warning mb-0">
+    Unknown Component Type: <strong>{{ component.component_type }}</strong>
+</div>
+{% endif %}

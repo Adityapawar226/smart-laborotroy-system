@@ -1,98 +1,448 @@
-<!DOCTYPE html>
-<html>
+{% extends "base.html" %}
 
-<head>
+{% block title %}Billing Management{% endblock %}
 
-<meta charset="UTF-8">
+{% block extra_css %}
+<style>
+    .billing-page {
+        padding: 24px;
+        background: #f5f7fb;
+        min-height: calc(100vh - 80px);
+    }
 
-<title>Billing</title>
+    .billing-card {
+        background: #fff;
+        border: 1px solid #e3eaf4;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 18px rgba(25, 55, 99, 0.05);
+    }
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    .billing-card-header {
+        padding: 22px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid #e8edf5;
+    }
 
-</head>
+    .billing-card-header h1 {
+        margin: 0;
+        font-size: 25px;
+        font-weight: 750;
+        color: #202938;
+    }
 
-<body class="bg-light">
+    .billing-card-header p {
+        margin: 6px 0 0;
+        color: #718096;
+        font-size: 14px;
+    }
 
-<div class="container-fluid px-4 py-4">
+    .billing-toolbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+    }
 
-<h2>Billing Management</h2>
+    .billing-print-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 17px;
+        border: 0;
+        border-radius: 8px;
+        background: #3068f5;
+        color: #fff;
+        font-size: 14px;
+        font-weight: 650;
+        cursor: pointer;
+    }
 
-<table class="table table-bordered table-hover">
+    .billing-print-button:hover {
+        background: #2454d5;
+    }
 
-<thead class="table-dark">
+    .billing-search-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 24px;
+        border-bottom: 1px solid #e8edf5;
+    }
 
-<tr>
+    .billing-search-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        max-width: 560px;
+        min-height: 44px;
+        padding: 0 14px;
+        border: 1px solid #d9e3f2;
+        border-radius: 9px;
+        background: #fff;
+        color: #718096;
+    }
 
-<th>Receipt No</th>
-<th>Patient ID</th>
-<th>Patient Name</th>
-<th>Amount</th>
-<th>Payment Mode</th>
-<th>Payment Status</th>
-<th>Date</th>
-<th>Action</th>
+    .billing-search-box:focus-within {
+        border-color: #3068f5;
+        box-shadow: 0 0 0 3px rgba(48, 104, 245, .10);
+    }
 
-</tr>
+    .billing-search-box input {
+        width: 100%;
+        border: 0;
+        outline: 0;
+        background: transparent;
+        color: #263449;
+        font-size: 14px;
+    }
 
-</thead>
+    .billing-search-box input::placeholder {
+        color: #91a0b8;
+    }
 
-<tbody>
+    .billing-search-count {
+        color: #526581;
+        font-size: 13px;
+        white-space: nowrap;
+    }
 
-{% for bill in bills %}
+    .billing-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+    }
 
-<tr>
+    .billing-table {
+        width: 100%;
+        margin: 0;
+        border-collapse: collapse;
+        background: #fff;
+        white-space: nowrap;
+    }
 
-<td>{{ bill[0] }}</td>
+    .billing-table thead th {
+        padding: 14px 16px;
+        background: #f0f4fa;
+        color: #465672;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: .55px;
+        border-bottom: 1px solid #e1e8f2;
+    }
 
-<td>{{ bill[1] }}</td>
+    .billing-table tbody td {
+        padding: 13px 16px;
+        color: #263449;
+        font-size: 14px;
+        border-bottom: 1px solid #e8edf5;
+        vertical-align: middle;
+    }
 
-<td>{{ bill[2] }}</td>
+    .billing-table tbody tr:hover {
+        background: #f8faff;
+    }
 
-<td>₹{{ bill[3] }}</td>
+    .receipt-number {
+        color: #2864e8;
+        font-weight: 700;
+    }
 
-<td>{{ bill[4] }}</td>
+    .payment-badge {
+        display: inline-block;
+        padding: 5px 9px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+    }
 
-<td>
+    .payment-paid {
+        background: #d9f5e6;
+        color: #137b49;
+    }
 
-{% if bill[5]=='Paid' %}
+    .payment-pending {
+        background: #ffe1e4;
+        color: #c32639;
+    }
 
-<span class="badge bg-success">
-Paid
-</span>
+    .billing-view-button {
+        display: inline-block;
+        padding: 7px 13px;
+        border-radius: 6px;
+        background: #1769f5;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+    }
 
-{% else %}
+    .billing-view-button:hover {
+        background: #0f53c9;
+        color: #fff;
+    }
 
-<span class="badge bg-danger">
-Pending
-</span>
+    .billing-empty {
+        padding: 30px !important;
+        text-align: center;
+        color: #718096 !important;
+    }
 
-{% endif %}
+    /* Only shown in the printed document/PDF */
+    .billing-print-header {
+        display: none;
+    }
 
-</td>
+    @media (max-width: 768px) {
+        .billing-page {
+            padding: 12px;
+        }
 
-<td>{{ bill[6] }}</td>
+        .billing-card-header {
+            padding: 18px;
+        }
 
-<td>
+        .billing-card-header h1 {
+            font-size: 21px;
+        }
+    }
 
-<a href="/view-bill/{{ bill[1] }}"
-class="btn btn-primary btn-sm">
+    @media print {
+        @page {
+            size: landscape;
+            margin: 12mm;
+        }
 
-View
+        body {
+            background: #fff !important;
+        }
 
-</a>
+        body * {
+            visibility: hidden !important;
+        }
 
-</td>
+        .billing-page,
+        .billing-page * {
+            visibility: visible !important;
+        }
 
-</tr>
+        .billing-page {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: #fff !important;
+        }
 
-{% endfor %}
+        .billing-toolbar,
+        .billing-screen-heading,
+        .billing-search-row,
+        .billing-table .billing-action-column {
+            display: none !important;
+        }
 
-</tbody>
+        .billing-card {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+        }
 
-</table>
+        .billing-card-header {
+            display: none !important;
+        }
 
-</div>
+        .billing-print-header {
+            display: block !important;
+            text-align: center;
+            margin: 0 0 18px;
+            padding: 0 0 12px;
+            border-bottom: 2px solid #222;
+            color: #000 !important;
+        }
 
-</body>
+        .billing-print-header h1 {
+            margin: 0 0 5px;
+            font-size: 23px;
+            font-weight: 700;
+        }
 
-</html>
+        .billing-print-header h2 {
+            margin: 0 0 5px;
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .billing-print-header p {
+            margin: 0;
+            font-size: 11px;
+        }
+
+        .billing-table-wrap {
+            overflow: visible !important;
+        }
+
+        .billing-table {
+            width: 100% !important;
+            white-space: normal !important;
+            font-size: 10px !important;
+        }
+
+        .billing-table thead {
+            display: table-header-group;
+        }
+
+        .billing-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .billing-table th,
+        .billing-table td {
+            padding: 7px 8px !important;
+            border: 1px solid #888 !important;
+            color: #000 !important;
+            background: #fff !important;
+            font-size: 10px !important;
+        }
+
+        .billing-table .payment-badge {
+            border: 1px solid #888;
+            background: #fff !important;
+            color: #000 !important;
+        }
+
+        .billing-table .receipt-number {
+            color: #000 !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="billing-page">
+    <div class="billing-toolbar">
+        <button type="button" class="billing-print-button" onclick="window.print()">
+            <i class="bi bi-printer-fill" aria-hidden="true"></i>
+            Print Billing Records
+        </button>
+    </div>
+
+    <div class="billing-print-header">
+        <h1>{{ lab_settings.lab_name if lab_settings and lab_settings.lab_name else session.get('lab_name', 'Smart Lab') }}</h1>
+        <h2>Billing Records</h2>
+        <p>Printed on: <span id="billingPrintDate"></span></p>
+    </div>
+
+    <div class="billing-card">
+        <div class="billing-card-header billing-screen-heading">
+            <div>
+                <h1>Billing Management</h1>
+                <p>View patient receipts, payment modes, and payment status.</p>
+            </div>
+        </div>
+
+        <div class="billing-search-row">
+            <label class="billing-search-box" for="billingSearch">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input
+                    type="search"
+                    id="billingSearch"
+                    placeholder="Search receipt, patient ID, name, payment mode, or status..."
+                    autocomplete="off"
+                    spellcheck="false"
+                >
+            </label>
+            <span class="billing-search-count" id="billingSearchCount" aria-live="polite">
+                {{ bills|length }} records
+            </span>
+        </div>
+
+        <div class="billing-table-wrap">
+            <table class="billing-table" id="billingTable">
+                <thead>
+                    <tr>
+                        <th>Receipt No</th>
+                        <th>Patient ID</th>
+                        <th>Patient Name</th>
+                        <th>Amount</th>
+                        <th>Payment Mode</th>
+                        <th>Payment Status</th>
+                        <th>Date</th>
+                        <th class="billing-action-column">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for bill in bills %}
+                    <tr>
+                        <td><span class="receipt-number">{{ bill[0] }}</span></td>
+                        <td>{{ bill[1] }}</td>
+                        <td>{{ bill[2] }}</td>
+                        <td>₹{{ bill[3] }}</td>
+                        <td>{{ bill[4] }}</td>
+                        <td>
+                            {% if bill[5] == 'Paid' %}
+                                <span class="payment-badge payment-paid">Paid</span>
+                            {% else %}
+                                <span class="payment-badge payment-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ bill[6] }}</td>
+                        <td class="billing-action-column">
+                            <a href="/view-bill/{{ bill[1] }}" class="billing-view-button">View</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="billing-empty">No billing records found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const printDate = document.getElementById("billingPrintDate");
+    if (printDate) {
+        printDate.textContent = new Date().toLocaleString("en-IN");
+    }
+
+    const searchInput = document.getElementById("billingSearch");
+    const table = document.getElementById("billingTable");
+    const searchCount = document.getElementById("billingSearchCount");
+
+    if (searchInput && table && searchCount) {
+        const rows = Array.from(table.querySelectorAll("tbody tr"))
+            .filter(row => !row.querySelector(".billing-empty"));
+
+        function filterBillingRows() {
+            const query = searchInput.value.trim().toLocaleLowerCase();
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const matches = row.innerText.toLocaleLowerCase().includes(query);
+                row.style.display = matches ? "" : "none";
+                if (matches) visibleCount++;
+            });
+
+            searchCount.textContent = `${visibleCount} of ${rows.length} records`;
+        }
+
+        searchInput.addEventListener("input", filterBillingRows);
+    }
+});
+</script>
+{% endblock %}

@@ -1,34 +1,69 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
+{% extends "base.html" %}
 
-    <meta charset="UTF-8">
-    <title>Expenses</title>
+{% block title %}Expenses Management | Smart Lab{% endblock %}
 
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/expenses.css') }}">
+<style>
+    .expenses-page { width:100%; min-width:0; color:#17233c; }
+    .expenses-container { max-width:1500px; margin:0 auto; padding:8px 4px 28px; }
+    .expenses-heading { display:flex; justify-content:space-between; align-items:center; gap:20px; margin:4px 0 24px; }
+    .expenses-eyebrow { display:inline-block; margin-bottom:8px; color:#3677f5; font-size:11px; font-weight:800; letter-spacing:1.5px; }
+    .expenses-heading h1 { margin:0; color:#172a49; font-size:clamp(27px,2.5vw,36px); font-weight:780; letter-spacing:-.8px; }
+    .expenses-heading p { margin:8px 0 0; color:#718096; font-size:14px; }
+    .expenses-tabs { gap:8px; padding:7px; border:1px solid #e7ecf4; border-radius:14px; background:#f7f9fd; }
+    .expenses-tabs .nav-link { padding:11px 18px; border:0; border-radius:10px; color:#5b6880; font-weight:650; transition:all .2s ease; }
+    .expenses-tabs .nav-link:hover { color:#2455d9; background:#eaf1ff; }
+    .expenses-tabs .nav-link.active { color:#fff; background:linear-gradient(135deg,#3677f5,#2455d9); box-shadow:0 5px 12px rgba(48,104,245,.2); }
+    .expenses-page .card { overflow:hidden; border:1px solid #e6ebf3; border-radius:16px; box-shadow:0 6px 22px rgba(20,40,80,.06)!important; }
+    .expenses-page .card-header { padding:15px 20px; border-bottom:1px solid rgba(230,235,243,.9); font-weight:700; }
+    .expenses-page .card-header.bg-primary { background:linear-gradient(135deg,#3677f5,#2455d9)!important; }
+    .expenses-page .card-header.bg-success { background:linear-gradient(135deg,#10a978,#087f5b)!important; }
+    .expenses-page .card-header.bg-warning { color:#604500; background:#fff4cf!important; }
+    .expenses-page .card-body { padding:22px; }
+    .expenses-page .form-label { margin-bottom:7px; color:#465670; font-size:13px; font-weight:650; }
+    .expenses-page .form-control, .expenses-page .form-select { min-height:43px; border-color:#dbe3ef; border-radius:9px; }
+    .expenses-page .form-control:focus, .expenses-page .form-select:focus { border-color:#6c9bff; box-shadow:0 0 0 3px rgba(54,119,245,.12); }
+    .expenses-page .btn { border-radius:9px; font-weight:650; }
+    .expenses-page .btn-primary { border-color:#3068f5; background:#3068f5; }
+    .expenses-page .btn-success { border-color:#0f9f6e; background:#0f9f6e; }
+    .expenses-page .btn-warning { border-color:#f1bd4b; }
+    .expenses-page .table-responsive { width:100%; }
+    .expenses-page .expenses-table { margin:0; white-space:nowrap; }
+    .expenses-page .expenses-table thead th { padding:13px 14px; border-bottom:1px solid #e1e8f2; background:#f5f8fd; color:#53627b; font-size:12px; font-weight:750; text-transform:uppercase; letter-spacing:.35px; }
+    .expenses-page .expenses-table tbody td { padding:13px 14px; color:#34435c; border-color:#edf1f6; vertical-align:middle; }
+    .expenses-page .expenses-table tbody tr:hover td { background:#f8fbff; }
+    .expenses-page .badge { padding:7px 10px; border-radius:7px; font-weight:700; }
+    .expenses-page .tab-content { min-width:0; }
+    @media(max-width:768px) {
+        .expenses-container { padding:4px 0 22px; }
+        .expenses-heading { align-items:flex-start; }
+        .expenses-page .card-body { padding:16px; }
+        .expenses-tabs .nav-link { padding:10px 12px; font-size:13px; }
+    }
+</style>
+{% endblock %}
 
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='css/expenses.css') }}">
+{% block content %}
+<section class="expenses-page">
+    <div class="expenses-container">
 
-</head>
-
-<body>
-
-<div class="container-fluid py-4">
-
-    <h2 class="mb-4">
-        Expenses Management
-    </h2>
+    <div class="expenses-heading">
+        <div>
+            <span class="expenses-eyebrow">FINANCE & COMMISSIONS</span>
+            <h1>Expenses Management</h1>
+            <p>Manage doctor commissions and track laboratory expenses.</p>
+        </div>
+    </div>
 
     <!-- Tabs -->
 
-    <ul class="nav nav-tabs mb-4">
+    <ul class="nav nav-tabs expenses-tabs mb-4" role="tablist">
 
         <li class="nav-item">
 
-            <button class="nav-link active"
-                    data-bs-toggle="tab"
-                    data-bs-target="#doctor">
+            <button class="nav-link active" type="button" role="tab" aria-selected="true"
+                    data-bs-toggle="tab" data-bs-target="#doctor" aria-controls="doctor">
 
                 Doctor Commission
 
@@ -38,9 +73,8 @@
 
         <li class="nav-item">
 
-            <button class="nav-link"
-                    data-bs-toggle="tab"
-                    data-bs-target="#other">
+            <button class="nav-link" type="button" role="tab" aria-selected="false"
+                    data-bs-toggle="tab" data-bs-target="#other" aria-controls="other">
 
                 Other Expenses
 
@@ -54,8 +88,7 @@
 
         <!-- Doctor Tab -->
 
-        <div class="tab-pane fade show active"
-             id="doctor">
+        <div class="tab-pane fade show active" id="doctor" role="tabpanel">
 
             <!-- Add Doctor Form -->
 
@@ -138,100 +171,41 @@
 
             <div class="row">
 
-                <!-- Doctor Search -->
+                <!-- From Date -->
                 <div class="col-md-4">
-
-                    <label>Doctor</label>
-
+                    <label class="form-label">From Date</label>
                     <input
-                        type="text"
+                        type="date"
                         class="form-control"
-                        name="doctor"
-                        placeholder="Doctor Name"
-                        value="{{ request.args.get('doctor','') }}">
-
+                        name="from_date"
+                        value="{{ request.args.get('from_date', '') }}">
                 </div>
 
-                <!-- Month -->
-                <div class="col-md-2">
-
-                    <label>Month</label>
-
-                    <select
+                <!-- To Date -->
+                <div class="col-md-4">
+                    <label class="form-label">To Date</label>
+                    <input
+                        type="date"
                         class="form-control"
-                        name="month">
-
-                        <option value="">All</option>
-
-                        {% for m in range(1,13) %}
-
-                        <option
-                        value="{{m}}"
-                        {% if request.args.get('month')==m|string %}
-                        selected
-                        {% endif %}>
-
-                        {{m}}
-
-                        </option>
-
-                        {% endfor %}
-
-                    </select>
-
-                </div>
-
-                <!-- Year -->
-
-                <div class="col-md-2">
-
-                    <label>Year</label>
-
-                    <select
-                    class="form-control"
-                    name="year">
-
-                        <option value="">All</option>
-
-                        {% for y in years %}
-
-                        <option
-value="{{ y.year }}"
-{% if request.args.get('year') == y.year|string %}
-selected
-{% endif %}
->
-
-{{ y.year }}
-
-</option>
-
-                        {% endfor %}
-
-                    </select>
-
+                        name="to_date"
+                        value="{{ request.args.get('to_date', '') }}">
                 </div>
 
                 <div class="col-md-2 d-flex align-items-end">
-
                     <button
-                    class="btn btn-primary w-100">
-
-                    Search
-
+                        type="submit"
+                        class="btn btn-primary w-100">
+                        Search
                     </button>
-
                 </div>
 
                 <div class="col-md-2 d-flex align-items-end">
-
                     <a
-                    href="{{url_for('expenses')}}"
-                    class="btn btn-secondary w-100">
-
-                    Reset
-
+                        href="{{ url_for('expenses') }}"
+                        class="btn btn-secondary w-100">
+                        Reset
                     </a>
+                </div>
 
                 </div>
 
@@ -252,7 +226,7 @@ selected
 
     <div class="card-body">
 
-        <table class="table table-bordered table-hover">
+        <div class="table-responsive"><table class="table table-bordered table-hover align-middle expenses-table">
 
             <thead class="table-light">
 
@@ -324,7 +298,7 @@ selected
 {% endfor %}
 </tbody>
 
-        </table>
+        </table></div>
 
     </div>
 
@@ -337,7 +311,7 @@ selected
 
     <div class="card-body">
 
-        <table class="table table-bordered table-hover">
+        <div class="table-responsive"><table class="table table-bordered table-hover align-middle expenses-table">
 
             <thead class="table-light">
 
@@ -401,7 +375,7 @@ bg-secondary
 {% endfor %}
             </tbody>
 
-        </table>
+        </table></div>
 
     </div>
 
@@ -409,8 +383,7 @@ bg-secondary
 
         <!-- Other Expense Tab -->
 
-        <div class="tab-pane fade"
-             id="other">
+        <div class="tab-pane fade" id="other" role="tabpanel">
 
             <div class="card shadow-sm">
 
@@ -435,13 +408,23 @@ bg-secondary
         </div>
 
     </div>
+    </div>
+</section>
 
-</div>
+{% endblock %}
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
+{% block extra_js %}
 <script src="{{ url_for('static', filename='js/expenses.js') }}"></script>
-
-</body>
-
-</html>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Keep the active tab accessible when Bootstrap switches tabs.
+    document.querySelectorAll(".expenses-tabs [data-bs-toggle='tab']").forEach(function (tab) {
+        tab.addEventListener("shown.bs.tab", function (event) {
+            document.querySelectorAll(".expenses-tabs [data-bs-toggle='tab']").forEach(function (item) {
+                item.setAttribute("aria-selected", item === event.target ? "true" : "false");
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

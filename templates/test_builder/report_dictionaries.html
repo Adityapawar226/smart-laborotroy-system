@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Report Dictionaries{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <h2>Report Dictionaries</h2>
+
+        <a href="{{ url_for('test_builder.add_report_dictionary') }}"
+           class="btn btn-success">
+
+            <i class="fas fa-plus"></i>
+
+            Add Dictionary
+
+        </a>
+
+    </div>
+
+    <table class="table table-bordered table-hover">
+
+        <thead class="table-primary">
+
+        <tr>
+
+            <th>ID</th>
+
+            <th>Dictionary Name</th>
+
+            <th>Description</th>
+
+            <th>Total Values</th>
+
+            <th width="200">Action</th>
+
+        </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for dictionary in dictionaries %}
+
+        <tr>
+
+            <td>{{ dictionary.id }}</td>
+
+            <td>{{ dictionary.dictionary_name }}</td>
+
+            <td>{{ dictionary.description }}</td>
+
+            <td>{{ dictionary.total_values }}</td>
+
+            <td>
+
+                <a href="{{ url_for('test_builder.manage_dictionary',
+                                    dictionary_id=dictionary.id) }}"
+                   class="btn btn-primary btn-sm">
+
+                    Manage Values
+
+                </a>
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endblock %}

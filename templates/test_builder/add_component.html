@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+
+{% block title %}
+Add Component
+{% endblock %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <button type="button" class="back-btn" onclick="history.back()">
+        <i class="fas fa-arrow-left"></i> Back
+    </button>
+    
+    <h2>Add Component</h2>
+    <hr>
+
+    <h4>{{ section.test_name }}</h4>
+    <p>Section: <strong>{{ section.section_name }}</strong></p>
+
+    <form method="POST" enctype="multipart/form-data">
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Component Type</label>
+            <select name="component_type" id="componentTypeSelect" class="form-select" required>
+               <option value="parameter_table">Parameter Table</option>
+<option value="dictionary_result">Dictionary Result</option>
+<option value="heading">Heading</option>
+<option value="paragraph">Paragraph</option>
+<option value="formula">Formula</option>
+<option value="image">Image</option>
+<option value="interpretation">Interpretation</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Component Name</label>
+            <input type="text" name="component_name" class="form-control" placeholder="e.g., CBC Parameters or Clinical Impression" required>
+        </div>
+
+        <div id="dynamicFields">
+
+    <!-- ================= HEADING ================= -->
+
+    <div id="headingFields" style="display:none;">
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+                Heading Text
+            </label>
+
+            <input
+                type="text"
+                class="form-control"
+                name="heading_text">
+
+        </div>
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+                Alignment
+            </label>
+
+            <select
+    class="form-select"
+    name="alignment">
+
+                <option value="left">Left</option>
+
+                <option value="center">
+                    Center
+                </option>
+
+                <option value="right">
+                    Right
+                </option>
+
+            </select>
+
+        </div>
+
+    </div>
+
+    <!-- ================= PARAGRAPH / INTERPRETATION ================= -->
+
+    <div id="paragraphFields" style="display:none;">
+
+        <div class="mb-3">
+
+            <label class="form-label fw-bold">
+                Content Type
+            </label>
+
+            <select
+    class="form-select"
+    id="paragraphMode"
+    name="mode">
+
+                <option value="static">
+                    Static Text
+                </option>
+
+                <option value="dictionary">
+                    Dictionary
+                </option>
+
+            </select>
+
+        </div>
+
+        <div
+            id="paragraphStatic"
+            class="mb-3">
+
+            <label class="form-label fw-bold">
+                Text
+            </label>
+
+            <textarea
+                class="form-control"
+                rows="5"
+                name="paragraph_text">
+            </textarea>
+
+        </div>
+
+        <div
+            id="paragraphDictionary"
+            class="mb-3"
+            style="display:none;">
+
+            <label class="form-label fw-bold">
+                Dictionary
+            </label>
+
+            <select
+                class="form-select"
+                name="dictionary_id">
+
+                <option value="">
+                    Select Dictionary
+                </option>
+
+                {% for d in dictionaries %}
+
+                <option value="{{ d.id }}">
+
+                    {{ d.dictionary_name }}
+
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+        </div>
+
+    </div>
+    <!-- ===================== DICTIONARY RESULT ===================== -->
+
+<div id="dictionaryResultFields" style="display:none;">
+
+    <div class="mb-3">
+        <label class="form-label fw-bold">
+            Dictionary Values
+        </label>
+
+        <div id="dictionaryContainer">
+
+            <div class="input-group mb-2 dictionary-row">
+
+                <input
+                    type="text"
+                    class="form-control"
+                    name="dictionary_values[]"
+                    placeholder="Enter value">
+
+                <button
+                    type="button"
+                    class="btn btn-danger removeDictionary">
+                    Delete
+                </button>
+
+            </div>
+
+        </div>
+
+        <button
+            type="button"
+            class="btn btn-primary btn-sm mt-2"
+            id="addDictionaryValue">
+
+            + Add Value
+
+        </button>
+
+    </div>
+
+</div>
+
+    <!-- ================= FORMULA ================= -->
+
+    <div
+        id="formulaFields"
+        style="display:none;">
+
+        <label class="form-label fw-bold">
+            Formula
+        </label>
+
+        <textarea
+            class="form-control"
+            rows="4"
+            name="formula_text">
+        </textarea>
+
+    </div>
+
+    <!-- ================= IMAGE ================= -->
+
+    <div
+        id="imageFields"
+        style="display:none;">
+
+        <label class="form-label fw-bold">
+
+            Image Upload
+
+        </label>
+
+        <input
+            type="file"
+            class="form-control"
+            name="image">
+
+    </div>
+
+</div>
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Display Order</label>
+            <input type="number" name="display_order" value="1" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">
+            Save Component
+        </button>
+
+        <a href="{{ url_for('test_builder.component_list', section_id=section.id) }}" class="btn btn-secondary">
+            Cancel
+        </a>
+
+    </form>
+</div>
+
+<!-- JavaScript to show/hide content box based on component type -->
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    const type = document.getElementById("componentTypeSelect");
+
+    const heading = document.getElementById("headingFields");
+    const paragraph = document.getElementById("paragraphFields");
+    const formula = document.getElementById("formulaFields");
+    const image = document.getElementById("imageFields");
+    const dictionaryResult = document.getElementById("dictionaryResultFields");
+
+    function refresh() {
+
+        heading.style.display = "none";
+        paragraph.style.display = "none";
+        formula.style.display = "none";
+        image.style.display = "none";
+        dictionaryResult.style.display = "none";
+
+        switch(type.value){
+
+            case "heading":
+                heading.style.display="block";
+                break;
+
+            case "paragraph":
+            case "interpretation":
+                paragraph.style.display="block";
+                break;
+
+            case "formula":
+                formula.style.display="block";
+                break;
+
+            case "image":
+                image.style.display="block";
+                break;
+
+            case "dictionary_result":
+                dictionaryResult.style.display="block";
+                break;
+        }
+    }
+
+    type.addEventListener("change", refresh);
+    refresh();
+
+    const mode = document.getElementById("paragraphMode");
+
+    function toggleParagraphMode(){
+
+        document.getElementById("paragraphStatic").style.display =
+            mode.value=="static" ? "block":"none";
+
+        document.getElementById("paragraphDictionary").style.display =
+            mode.value=="dictionary" ? "block":"none";
+    }
+
+    mode.addEventListener("change", toggleParagraphMode);
+    toggleParagraphMode();
+
+    // ================= Dictionary Result =================
+
+    const dictionaryContainer =
+        document.getElementById("dictionaryContainer");
+
+    document.getElementById("addDictionaryValue")
+    .addEventListener("click", function(){
+
+        const row = document.createElement("div");
+
+        row.className="input-group mb-2 dictionary-row";
+
+        row.innerHTML=`
+            <input
+                type="text"
+                class="form-control"
+                name="dictionary_values[]"
+                placeholder="Enter value">
+
+            <button
+                type="button"
+                class="btn btn-danger removeDictionary">
+                Delete
+            </button>
+        `;
+
+        dictionaryContainer.appendChild(row);
+
+    });
+
+    document.addEventListener("click",function(e){
+
+        if(e.target.classList.contains("removeDictionary")){
+
+            const rows=document.querySelectorAll(".dictionary-row");
+
+            if(rows.length>1){
+                e.target.parentElement.remove();
+            }
+
+        }
+
+    });
+
+});
+</script>
+
+{% endblock %}

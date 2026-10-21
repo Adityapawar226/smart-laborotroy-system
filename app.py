@@ -89,7 +89,21 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 # ============================================================
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
+def get_db():
+    """
+    Connect to the Aiven MySQL database.
+    Uses environment variables configured in Render.
+    """
 
+    return mysql.connector.connect(
+        host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT", "3306")),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        database=os.getenv("DB_NAME"),
+        connection_timeout=10,
+        ssl_disabled=False
+    )
 # Email configuration
 app.config["MAIL_HOST"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 465

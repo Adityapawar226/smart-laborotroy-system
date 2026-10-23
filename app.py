@@ -3333,7 +3333,7 @@ def delete_report(patient_id):
     return redirect(url_for("reports_management"))
 @app.route("/analytics")
 @login_required
-@role_required("Developer", "Admin", "Technician")
+@role_required("Developer", "Admin")
 def analytics():
 
     lab_id = session["lab_id"]

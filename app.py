@@ -5003,29 +5003,20 @@ def settings():
     # REPORT HEADER / FOOTER UPLOAD DIRECTORIES
     # ==================================================
 
+    # REPORT HEADER / FOOTER UPLOAD DIRECTORIES
+
     report_header_dir = os.path.join(
-        app.root_path,
-        "static",
-        "uploads",
-        "report_header"
-    )
+    str(UPLOAD_BASE_DIR),
+    "report_header"
+)
 
     report_footer_dir = os.path.join(
-        app.root_path,
-        "static",
-        "uploads",
-        "report_footer"
-    )
+    str(UPLOAD_BASE_DIR),
+    "report_footer"
+)
 
-    os.makedirs(
-        report_header_dir,
-        exist_ok=True
-    )
-
-    os.makedirs(
-        report_footer_dir,
-        exist_ok=True
-    )
+    os.makedirs(report_header_dir, exist_ok=True)
+    os.makedirs(report_footer_dir, exist_ok=True)
 
 
     try:

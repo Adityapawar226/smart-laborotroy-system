@@ -61,7 +61,7 @@
         }
     </script>
 
-    <!-- Notification and topbar CSS -->
+    <!-- Topbar layout CSS -->
     <style>
         .topbar {
             position: relative;
@@ -82,6 +82,7 @@
         .topbar .right {
             gap: 18px;
             overflow: visible;
+            margin-left: auto;
         }
 
         #menu-toggle {
@@ -94,47 +95,21 @@
             margin: 0;
         }
 
-        /* Notification wrapper */
-
-
-        /* Clickable bell */
-
-
-
-
-
-
-
-
-        /* Unread badge */
-
-
-        /* Notification popup */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
         @media (max-width: 600px) {
             .topbar .right {
                 gap: 8px;
+            }
+
+            .user-btn {
+                padding: 6px;
+                gap: 6px;
+            }
+
+            .user-name {
+                max-width: 110px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
         }
     </style>
@@ -357,9 +332,42 @@
             </div>
 
 
-            <!-- RIGHT: Time, notification bell, user menu -->
+            <!-- RIGHT: User menu only; notification UI and polling removed -->
+            <div class="right">
+                <div class="user-menu">
+                    <button
+                        type="button"
+                        class="user-btn"
+                        id="userMenuBtn"
+                        aria-label="Open user menu"
+                        aria-controls="userDropdown"
+                        aria-expanded="false">
+                        <i class="bi bi-person-circle" aria-hidden="true"></i>
+                        <span class="user-details">
+                            <span class="user-name">
+                                {{ session.get("username") or session.get("user_name") or session.get("full_name") or "User" }}
+                            </span>
+                            <span class="user-role">
+                                {{ session.get("role", "") }}
+                            </span>
+                        </span>
+                        <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </button>
 
-           
+                    <div class="user-dropdown" id="userDropdown">
+                        {% if session.get("role") == "Admin" %}
+                            <a href="{{ url_for('settings') }}">
+                                <i class="bi bi-gear" aria-hidden="true"></i>
+                                <span>Settings</span>
+                            </a>
+                        {% endif %}
+                        <a href="{{ url_for('logout') }}">
+                            <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+                            <span>Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
 
         </div>
 

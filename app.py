@@ -62,7 +62,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import bcrypt
 import smtplib
 import logging
-
+import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -7607,121 +7607,7 @@ def super_admin_broadcasts():
         cursor.close()
         db.close()
 
-@app.route("/api/lab-notifications", methods=["GET"])
-@login_required
-def get_lab_notifications():
-    lab_id = session.get("lab_id")
 
-    if not lab_id or session.get("role") == "Developer":
-        return {"error": "Unauthorized"}, 403
-
-    db = None
-    cursor = None
-
-    try:
-        db = get_db()
-        cursor = db.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT
-                ar.id AS recipient_id,
-                ar.is_read,
-                ar.created_at AS delivered_at,
-                a.id AS announcement_id,
-                a.title,
-                a.message,
-                a.created_at AS announcement_date,
-                COUNT(*) OVER() AS total_unread_count
-            FROM announcement_recipients ar
-            INNER JOIN announcements a
-                ON a.id = ar.announcement_id
-            WHERE ar.lab_id = %s
-              AND a.status = 'Published'
-            ORDER BY a.created_at DESC
-            LIMIT 20
-        """, (lab_id,))
-
-        notifications = cursor.fetchall()
-
-        # Convert date/time values to JSON-compatible strings.
-        for item in notifications:
-            for key, value in item.items():
-                if hasattr(value, "isoformat"):
-                    item[key] = value.isoformat()
-
-        # The window count above counts all matching notifications,
-        # so calculate the unread total separately only if needed.
-        cursor.execute("""
-            SELECT COUNT(*) AS unread_count
-            FROM announcement_recipients ar
-            INNER JOIN announcements a
-                ON a.id = ar.announcement_id
-            WHERE ar.lab_id = %s
-              AND ar.is_read = 0
-              AND a.status = 'Published'
-        """, (lab_id,))
-
-        unread_result = cursor.fetchone()
-        unread_count = unread_result["unread_count"]
-
-        # Remove the internal SQL field so the API response stays compatible.
-        for item in notifications:
-            item.pop("total_unread_count", None)
-
-        return {
-            "notifications": notifications,
-            "unread_count": unread_count
-        }
-
-    except Exception:
-        app.logger.exception("Error loading lab notifications")
-        return {"error": "Unable to load notifications"}, 500
-
-    finally:
-        if cursor is not None:
-            cursor.close()
-
-        if db is not None:
-            db.close()
-@app.route("/api/lab-notifications/<int:recipient_id>/read", methods=["POST"])
-@login_required
-def mark_lab_notification_read(recipient_id):
-    if session.get("role") == "Developer":
-        return jsonify({"success": False, "message": "Invalid operation"}), 403
-
-    lab_id = session.get("lab_id")
-
-    if not lab_id:
-        return jsonify({"success": False, "message": "Lab session missing"}), 401
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
-
-    try:
-        cursor.execute("""
-            UPDATE announcement_recipients
-            SET is_read = 1,
-                read_at = NOW()
-            WHERE id = %s
-              AND lab_id = %s
-              AND is_read = 0
-        """, (recipient_id, lab_id))
-
-        db.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Notification marked as read"
-        })
-
-    except Exception:
-        db.rollback()
-        app.logger.exception("Failed to mark notification as read")
-        return jsonify({"success": False, "message": "Unable to update notification"}), 500
-
-    finally:
-        cursor.close()
-        db.close()
 
 if __name__ == "__main__":
     app.run(

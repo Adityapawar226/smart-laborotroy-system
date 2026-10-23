@@ -95,144 +95,46 @@
         }
 
         /* Notification wrapper */
-        .notification-wrapper {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            z-index: 5000;
-        }
+
 
         /* Clickable bell */
-        .notification-btn {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 42px;
-            height: 42px;
-            padding: 0;
-            border: none;
-            border-radius: 50%;
-            background: transparent;
-            color: #ffffff;
-            cursor: pointer;
-        }
 
-        .notification-btn:hover {
-            background: rgba(255, 255, 255, 0.16);
-        }
 
-        .notification-btn .notification {
-            color: #ffffff;
-            font-size: 20px;
-        }
 
-        .notification-btn:focus-visible {
-            outline: 2px solid #ffffff;
-            outline-offset: 3px;
-        }
+
+
+
+
 
         /* Unread badge */
-        .notification-badge {
-            position: absolute;
-            top: 0;
-            right: 0;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 4px;
-            align-items: center;
-            justify-content: center;
-            border: 2px solid #3269ef;
-            border-radius: 999px;
-            background: #dc3545;
-            color: #ffffff;
-            font-size: 10px;
-            font-weight: 700;
-            line-height: 1;
-        }
+
 
         /* Notification popup */
-        .topbar .notification-dropdown {
-            position: absolute;
-            top: calc(100% + 10px);
-            right: 0;
-            left: auto;
-            width: 350px;
-            max-width: calc(100vw - 24px);
-            max-height: 420px;
-            overflow-y: auto;
-            background: #ffffff;
-            color: #172b4d;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-            z-index: 6000;
-        }
 
-        .notification-dropdown-header {
-            padding: 14px 16px;
-            background: #f8fafc;
-            border-bottom: 1px solid #e5e7eb;
-        }
 
-        .notification-dropdown-footer {
-            padding: 13px 16px;
-            background: #f8fafc;
-            border-top: 1px solid #e5e7eb;
-            text-align: center;
-        }
 
-        .notification-dropdown-footer a {
-            color: #2457d6;
-            text-decoration: none;
-            font-weight: 600;
-        }
 
-        .notification-dropdown-footer a:hover {
-            text-decoration: underline;
-        }
 
-        .notification-empty {
-            padding: 22px 16px;
-            text-align: center;
-            color: #718096;
-        }
 
-        .notification-item {
-            padding: 14px 16px;
-            border-bottom: 1px solid #e5e7eb;
-            overflow-wrap: anywhere;
-        }
 
-        .notification-item:last-child {
-            border-bottom: none;
-        }
 
-        .notification-item strong {
-            display: block;
-            color: #172b4d;
-        }
 
-        .notification-item p {
-            margin: 6px 0;
-            color: #4b5563;
-            white-space: pre-wrap;
-        }
 
-        .notification-item small {
-            color: #718096;
-        }
+
+
+
+
+
+
+
+
+
+
+
 
         @media (max-width: 600px) {
             .topbar .right {
                 gap: 8px;
-            }
-
-            .topbar .notification-dropdown {
-                right: -50px;
-                width: 320px;
             }
         }
     </style>
@@ -461,74 +363,6 @@
 
                 <span>{{ current_time }}</span>
 
-                <!-- NOTIFICATION BELL -->
-
-                <div class="notification-wrapper">
-
-                    <button
-                        type="button"
-                        class="notification-btn"
-                        id="notificationBtn"
-                        aria-label="Open notifications"
-                        aria-controls="notificationDropdown"
-                        aria-expanded="false">
-
-                        <i class="bi bi-bell-fill notification"></i>
-
-                        <span
-                            id="notificationBadge"
-                            class="notification-badge"
-                            style="display: none;">0</span>
-
-                    </button>
-
-
-                    <!-- NOTIFICATION POPUP -->
-
-                    <div
-                        class="notification-dropdown"
-                        id="notificationDropdown"
-                        style="display: none;">
-
-                        <div class="notification-dropdown-header">
-
-                            <strong>
-                                {% if session.get("role") == "Developer" %}
-                                    Announcements
-                                {% else %}
-                                    Notifications
-                                {% endif %}
-                            </strong>
-
-                        </div>
-
-                        <div
-                            id="notificationList"
-                            class="notification-list">
-
-                            <div class="notification-empty">
-                                Loading notifications...
-                            </div>
-
-                        </div>
-
-                        {% if session.get("role") == "Developer" %}
-
-                            <div class="notification-dropdown-footer">
-
-                                <a href="{{ url_for('super_admin_broadcasts') }}">
-                                    Manage Announcements
-                                </a>
-
-                            </div>
-
-                        {% endif %}
-
-                    </div>
-
-                </div>
-
-
                 <!-- USER MENU -->
 
                 <div class="user-menu">
@@ -704,296 +538,6 @@
                 }
 
             });
-
-        });
-    </script>
-
-
-    <!-- Notification system -->
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-
-            const bell = document.getElementById("notificationBtn");
-            const badge = document.getElementById("notificationBadge");
-            const dropdown = document.getElementById("notificationDropdown");
-            const list = document.getElementById("notificationList");
-
-            const isDeveloper = document.body.dataset.userRole === "Developer";
-
-            if (!bell || !badge || !dropdown || !list) {
-                return;
-            }
-
-
-            // Safely render server-provided text.
-
-            function escapeHTML(value) {
-
-                return String(value ?? "").replace(/[&<>"']/g, function (char) {
-
-                    return {
-                        "&": "&amp;",
-                        "<": "&lt;",
-                        ">": "&gt;",
-                        '"': "&quot;",
-                        "'": "&#39;"
-                    }[char];
-
-                });
-
-            }
-
-
-            // Load laboratory notifications.
-
-            async function loadNotifications() {
-
-                if (isDeveloper) {
-
-                    badge.style.display = "none";
-
-                    list.innerHTML = `
-                        <div class="notification-empty">
-                            Manage your announcements using the button below.
-                        </div>
-                    `;
-
-                    return;
-                }
-
-                try {
-
-                    const response = await fetch(
-                        "/api/lab-notifications",
-                        {
-                            method: "GET",
-                            credentials: "same-origin",
-                            cache: "no-store",
-                            headers: {
-                                "Accept": "application/json"
-                            }
-                        }
-                    );
-
-                    if (!response.ok) {
-                        throw new Error("HTTP " + response.status);
-                    }
-
-                    const data = await response.json();
-
-                    const notifications = data.notifications || [];
-                    const unreadCount = Number(data.unread_count || 0);
-
-
-                    // Update unread badge.
-
-                    badge.textContent =
-                        unreadCount > 99 ? "99+" : String(unreadCount);
-
-                    badge.style.display =
-                        unreadCount > 0 ? "flex" : "none";
-
-
-                    // Empty state.
-
-                    if (notifications.length === 0) {
-
-                        list.innerHTML = `
-                            <div class="notification-empty">
-                                No notifications yet.
-                            </div>
-                        `;
-
-                        return;
-                    }
-
-
-                    // Render notifications.
-
-                    list.innerHTML = notifications.map(function (item) {
-    const isRead = Number(item.is_read) === 1;
-
-    return `
-        <div class="notification-item"
-             data-recipient-id="${Number(item.recipient_id)}"
-             data-is-read="${isRead ? "1" : "0"}"
-             style="
-                padding:14px 16px;
-                border-bottom:1px solid #e5e7eb;
-                background:${isRead ? "#ffffff" : "#eff6ff"};
-                cursor:${isRead ? "default" : "pointer"};
-             ">
-
-            <strong>${escapeHTML(item.title)}</strong>
-
-            <p style="
-                margin:6px 0;
-                color:#4b5563;
-                white-space:pre-wrap;
-            ">${escapeHTML(item.message)}</p>
-
-            <small style="color:#6b7280;">
-                ${escapeHTML(item.announcement_date || "")}
-                <span class="notification-read-status">
-                    ${isRead ? " • Read" : " • Unread — click to mark as read"}
-                </span>
-            </small>
-
-        </div>
-    `;
-}).join("");
-
-
-                } catch (error) {
-
-                    console.error(
-                        "Notification loading failed:",
-                        error
-                    );
-
-                    list.innerHTML = `
-                        <div class="notification-empty">
-                            Unable to load notifications.
-                            Please refresh and try again.
-                        </div>
-                    `;
-
-                }
-
-            }
-            list.addEventListener("click", async function (event) {
-    const itemElement = event.target.closest(".notification-item");
-
-    if (!itemElement) {
-        return;
-    }
-
-    if (itemElement.dataset.isRead === "1") {
-        return;
-    }
-
-    const recipientId = Number(itemElement.dataset.recipientId);
-
-    if (!Number.isInteger(recipientId) || recipientId <= 0) {
-        console.error("Invalid notification recipient ID");
-        return;
-    }
-
-    const readStatus = itemElement.querySelector(
-        ".notification-read-status"
-    );
-
-    try {
-        const response = await fetch(
-            `/api/lab-notifications/${recipientId}/read`,
-            {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Accept": "application/json"
-                }
-            }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok || !result.success) {
-            throw new Error(
-                result.message || "Could not mark notification as read"
-            );
-        }
-
-        // Update the clicked notification immediately.
-        itemElement.dataset.isRead = "1";
-        itemElement.style.background = "#ffffff";
-        itemElement.style.cursor = "default";
-
-        if (readStatus) {
-            readStatus.textContent = " • Read";
-        }
-
-        // Refresh the unread badge from the server.
-        await loadNotifications();
-
-    } catch (error) {
-        console.error("Mark-as-read failed:", error);
-        alert("Unable to mark this notification as read. Please try again.");
-    }
-});
-
-
-            // Open / close notification popup.
-
-            bell.addEventListener("click", async function (event) {
-
-                event.preventDefault();
-                event.stopPropagation();
-
-                const isOpen =
-                    dropdown.style.display === "block";
-
-                dropdown.style.display =
-                    isOpen ? "none" : "block";
-
-                bell.setAttribute(
-                    "aria-expanded",
-                    String(!isOpen)
-                );
-
-                if (!isOpen) {
-                    await loadNotifications();
-                }
-
-            });
-
-
-            // Clicking inside popup must not close it.
-
-            dropdown.addEventListener("click", function (event) {
-                event.stopPropagation();
-            });
-
-
-            // Close popup when clicking elsewhere.
-
-            document.addEventListener("click", function () {
-
-                dropdown.style.display = "none";
-
-                bell.setAttribute(
-                    "aria-expanded",
-                    "false"
-                );
-
-            });
-
-
-            // Close popup with Escape key.
-
-            document.addEventListener("keydown", function (event) {
-
-                if (event.key === "Escape") {
-
-                    dropdown.style.display = "none";
-
-                    bell.setAttribute(
-                        "aria-expanded",
-                        "false"
-                    );
-
-                }
-
-            });
-
-
-            // Initial unread count and periodic refresh for lab users.
-
-            loadNotifications();
-
-            if (!isDeveloper) {
-                setInterval(loadNotifications, 30000);
-            }
 
         });
     </script>

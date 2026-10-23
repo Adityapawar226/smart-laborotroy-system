@@ -7606,6 +7606,7 @@ def super_admin_broadcasts():
     finally:
         cursor.close()
         db.close()
+
 @app.route("/api/lab-notifications", methods=["GET"])
 @login_required
 def get_lab_notifications():
@@ -7614,10 +7615,13 @@ def get_lab_notifications():
     if not lab_id or session.get("role") == "Developer":
         return {"error": "Unauthorized"}, 403
 
-    db = get_db()
-    cursor = db.cursor(dictionary=True)
+    db = None
+    cursor = None
 
     try:
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+
         cursor.execute("""
             SELECT
                 ar.id AS recipient_id,
@@ -7626,7 +7630,8 @@ def get_lab_notifications():
                 a.id AS announcement_id,
                 a.title,
                 a.message,
-                a.created_at AS announcement_date
+                a.created_at AS announcement_date,
+                COUNT(*) OVER() AS total_unread_count
             FROM announcement_recipients ar
             INNER JOIN announcements a
                 ON a.id = ar.announcement_id
@@ -7638,23 +7643,30 @@ def get_lab_notifications():
 
         notifications = cursor.fetchall()
 
+        # Convert date/time values to JSON-compatible strings.
         for item in notifications:
             for key, value in item.items():
                 if hasattr(value, "isoformat"):
                     item[key] = value.isoformat()
 
+        # The window count above counts all matching notifications,
+        # so calculate the unread total separately only if needed.
         cursor.execute("""
-    SELECT COUNT(*) AS unread_count
-    FROM announcement_recipients ar
-    INNER JOIN announcements a
-        ON a.id = ar.announcement_id
-    WHERE ar.lab_id = %s
-      AND ar.is_read = 0
-      AND a.status = 'Published'
-""", (lab_id,))
+            SELECT COUNT(*) AS unread_count
+            FROM announcement_recipients ar
+            INNER JOIN announcements a
+                ON a.id = ar.announcement_id
+            WHERE ar.lab_id = %s
+              AND ar.is_read = 0
+              AND a.status = 'Published'
+        """, (lab_id,))
 
         unread_result = cursor.fetchone()
         unread_count = unread_result["unread_count"]
+
+        # Remove the internal SQL field so the API response stays compatible.
+        for item in notifications:
+            item.pop("total_unread_count", None)
 
         return {
             "notifications": notifications,
@@ -7666,8 +7678,11 @@ def get_lab_notifications():
         return {"error": "Unable to load notifications"}, 500
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor is not None:
+            cursor.close()
+
+        if db is not None:
+            db.close()
 @app.route("/api/lab-notifications/<int:recipient_id>/read", methods=["POST"])
 @login_required
 def mark_lab_notification_read(recipient_id):

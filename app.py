@@ -17,6 +17,8 @@ from modules.report_merger import merge_results
 import qrcode
 import io
 import base64
+import os
+from pathlib import Path
 from modules.analyzer_management import analyzer_management_bp
 from itsdangerous import URLSafeSerializer
 from modules.report_loader import (
@@ -295,26 +297,37 @@ def get_component_settings(cursor, component_id):
 
     return settings 
 
-UPLOAD_LOGO = "static/uploads/logo"
-UPLOAD_SIGNATURE = "static/uploads/signature"
-UPLOAD_STAMP = "static/uploads/stamp"
 
+
+
+BASE_DIR = Path(__file__).resolve().parent
+
+# Vercel has a read-only application filesystem.
+# Use /tmp for temporary local uploads on Vercel.
+if os.environ.get("VERCEL"):
+    UPLOAD_BASE_DIR = Path("/tmp/smart_lab_uploads")
+else:
+    UPLOAD_BASE_DIR = BASE_DIR / "static" / "uploads"
+
+UPLOAD_LOGO = str(UPLOAD_BASE_DIR / "logo")
+UPLOAD_SIGNATURE = str(UPLOAD_BASE_DIR / "signature")
+UPLOAD_STAMP = str(UPLOAD_BASE_DIR / "stamp")
+UPLOAD_SIGNATORY = str(UPLOAD_BASE_DIR / "signatories")
+
+# Register upload paths
 app.config["UPLOAD_LOGO"] = UPLOAD_LOGO
 app.config["UPLOAD_SIGNATURE"] = UPLOAD_SIGNATURE
 app.config["UPLOAD_STAMP"] = UPLOAD_STAMP
-app.config["UPLOAD_SIGNATORY"] = os.path.join(
-    "static",
-    "uploads",
-    "signatories"
-)
+app.config["UPLOAD_SIGNATORY"] = UPLOAD_SIGNATORY
 
-os.makedirs(
-    app.config["UPLOAD_SIGNATORY"],
-    exist_ok=True
-)
-os.makedirs(UPLOAD_LOGO, exist_ok=True)
-os.makedirs(UPLOAD_SIGNATURE, exist_ok=True)
-os.makedirs(UPLOAD_STAMP, exist_ok=True)
+# Create directories in a writable location
+for upload_dir in (
+    UPLOAD_LOGO,
+    UPLOAD_SIGNATURE,
+    UPLOAD_STAMP,
+    UPLOAD_SIGNATORY,
+):
+    os.makedirs(upload_dir, exist_ok=True)
 
 
 

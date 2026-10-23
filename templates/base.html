@@ -745,6 +745,9 @@
             }
 
 
+            // Prevent overlapping notification API requests.
+            let notificationRequestInProgress = false;
+
             // Load laboratory notifications.
 
             async function loadNotifications() {
@@ -761,6 +764,13 @@
 
                     return;
                 }
+
+                // Avoid starting another request while one is still running.
+                if (notificationRequestInProgress) {
+                    return;
+                }
+
+                notificationRequestInProgress = true;
 
                 try {
 
@@ -859,9 +869,12 @@
                         </div>
                     `;
 
+                } finally {
+                    notificationRequestInProgress = false;
                 }
 
             }
+
             list.addEventListener("click", async function (event) {
     const itemElement = event.target.closest(".notification-item");
 
@@ -987,12 +1000,16 @@
             });
 
 
-            // Initial unread count and periodic refresh for lab users.
-
+            // Load notifications once when the page opens.
             loadNotifications();
 
+            // Refresh every 60 seconds while this browser tab is visible.
             if (!isDeveloper) {
-                setInterval(loadNotifications, 30000);
+                setInterval(function () {
+                    if (document.visibilityState === "visible") {
+                        loadNotifications();
+                    }
+                }, 60000);
             }
 
         });

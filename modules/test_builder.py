@@ -8,6 +8,7 @@ from flask import (
     session
 )
 import json
+from pathlib import Path
 
 from flask import (
     request,
@@ -33,14 +34,21 @@ test_builder_bp = Blueprint(
     template_folder="../templates/test_builder"
 )
 
-
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DB_SSL_CA = PROJECT_ROOT / "aiven-ca.pem"
 def get_db():
     return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME")
+        host=os.environ["DB_HOST"],
+        port=int(os.environ.get("DB_PORT", "15054")),
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        database=os.environ["DB_NAME"],
+        ssl_ca=str(DB_SSL_CA),
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,
+        connection_timeout=15
     )
+    
 def can_access_lab(target_lab_id, allow_global=True):
     """
     Check whether the logged-in user can access data

@@ -48,6 +48,12 @@ def get_db():
         ssl_verify_identity=True,
         connection_timeout=15
     )
+    app.logger.info(
+        "MySQL connection took %.3f seconds",
+        time.perf_counter() - started
+    )
+
+    return db
     
 def can_access_lab(target_lab_id, allow_global=True):
     """

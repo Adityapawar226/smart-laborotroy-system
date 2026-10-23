@@ -1,3 +1,4 @@
+
 from flask import (
     Blueprint,
     render_template,
@@ -5,26 +6,20 @@ from flask import (
     redirect,
     url_for,
     flash,
-    session
-)
-import json
-from pathlib import Path
-
-from flask import (
-    request,
-    redirect,
-    url_for,
-    render_template,
-    flash,
     session,
-    current_app
+    current_app,
 )
-from modules.formula_engine import calculate_formula
-from decimal import Decimal
-import mysql.connector
+
+import json
 import os
+import time
+from pathlib import Path
+from decimal import Decimal
+
+import mysql.connector
 from dotenv import load_dotenv
-from flask import redirect, url_for
+
+from modules.formula_engine import calculate_formula
 
 load_dotenv()
 
@@ -36,8 +31,17 @@ test_builder_bp = Blueprint(
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_SSL_CA = PROJECT_ROOT / "aiven-ca.pem"
+
+
 def get_db():
-    return mysql.connector.connect(
+    if not DB_SSL_CA.is_file():
+        raise FileNotFoundError(
+            f"MySQL CA certificate not found: {DB_SSL_CA}"
+        )
+
+    started = time.perf_counter()
+
+    db =  mysql.connector.connect(
         host=os.environ["DB_HOST"],
         port=int(os.environ.get("DB_PORT", "15054")),
         user=os.environ["DB_USER"],
@@ -48,12 +52,15 @@ def get_db():
         ssl_verify_identity=True,
         connection_timeout=15
     )
-    app.logger.info(
+
+    current_app.logger.info(
         "MySQL connection took %.3f seconds",
         time.perf_counter() - started
     )
 
     return db
+
+
     
 def can_access_lab(target_lab_id, allow_global=True):
     """

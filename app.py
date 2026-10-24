@@ -58,7 +58,7 @@ from flask import (
 
 from datetime import timedelta
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-
+import time
 import bcrypt
 import smtplib
 import logging
@@ -106,21 +106,44 @@ app.config["SESSION_COOKIE_SECURE"] = os.getenv(
 # ============================================================
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
+
 def get_db():
     """
-    Connect to the Aiven MySQL database.
-    Uses environment variables configured in Render.
+    Connect to the Aiven MySQL database and log connection time.
+    Never log database credentials.
     """
+    start_time = time.perf_counter()
 
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT", "3306")),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
-        connection_timeout=10,
-        ssl_disabled=False
-    )
+    try:
+        connection = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", "3306")),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME"),
+            connection_timeout=10,
+            ssl_disabled=False
+        )
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        app.logger.info(
+            "PERF | MySQL connection established | %.2f ms",
+            elapsed_ms
+        )
+
+        return connection
+
+    except Exception:
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        app.logger.exception(
+            "PERF | MySQL connection failed after %.2f ms",
+            elapsed_ms
+        )
+
+        raise
+
 # Email configuration
 app.config["MAIL_HOST"] = "smtp.gmail.com"
 app.config["MAIL_PORT"] = 465

@@ -93,8 +93,14 @@ if not app.secret_key:
 
 app.config["SECRET_KEY"] = app.secret_key
 
-# Remember Me lifetime
+# Session security. Set SESSION_COOKIE_SECURE=true in HTTPS production.
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = os.getenv(
+    "SESSION_COOKIE_SECURE",
+    "true" if (os.getenv("VERCEL") or os.getenv("RENDER")) else "false"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 # Email configuration
 # ============================================================
@@ -214,13 +220,8 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
 
-            print("=" * 50)
-            print("Current Role :", session.get("role"))
-            print("Allowed Roles:", roles)
-            print("Session Keys :", list(session.keys()))
-            print("User ID      :", session.get("user_id"))
-            print("Lab ID       :", session.get("lab_id"))
-            print("=" * 50)
+            # Avoid logging session identifiers and tenant/user details.
+            app.logger.debug("Role authorization check for endpoint=%s", f.__name__)
 
             if "user_id" not in session:
                 return redirect(url_for("login"))
@@ -337,31 +338,14 @@ for upload_dir in (
 # ------------------------------------
 
 
-@app.route("/setup-developer")
+@app.route("/setup-developer", methods=["GET", "POST"])
 def setup_developer():
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        # Check if developer already exists
-        cursor.execute("SELECT id FROM users WHERE role='Developer'")
-        if cursor.fetchone():
-            return "Developer account already exists! Lab ID: DEV001 | Username: developer"
-            
-        hashed_password = bcrypt.generate_password_hash("admin123").decode("utf-8")
-        
-        # Insert Developer into users table (Bypassing the laboratories table)
-        cursor.execute("""
-            INSERT INTO users (lab_id, username, password, role, status)
-            VALUES ('DEV001', 'developer', %s, 'Developer', 'Active')
-        """, (hashed_password,))
-        
-        db.commit()
-        return "Developer account created! <br><b>Lab ID:</b> DEV001 <br><b>Username:</b> developer <br><b>Password:</b> admin123"
-        
-    finally:
-        cursor.close()
-        db.close()
+    """Disabled: provision the initial Developer account out-of-band.
+
+    Do not create privileged accounts through a public, unauthenticated route.
+    Use a one-time administrative script or a protected deployment procedure.
+    """
+    return "Not Found", 404
 
 @app.route("/", methods=["GET", "POST"])
 def login():
@@ -486,12 +470,7 @@ def login():
             # DEBUG
             # ------------------------------------------------
 
-            print("=" * 50)
-            print("USERNAME :", session["username"])
-            print("ROLE     :", session["role"])
-            print("LAB ID   :", session["lab_id"])
-            print("REMEMBER :", remember_me)
-            print("=" * 50)
+            app.logger.info("Successful login; role=%s", session.get("role"))
 
             return redirect(
                 url_for("dashboard")
@@ -7610,9 +7589,12 @@ def super_admin_broadcasts():
 
 
 if __name__ == "__main__":
+    # Debug mode must never be enabled by default. Use a local-only
+    # development override when needed; production should run via Gunicorn.
+    debug_enabled = os.getenv("FLASK_DEBUG", "false").strip().lower() in {"1", "true", "yes", "on"}
     app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "5000")),
+        debug=debug_enabled
     )
     

@@ -918,6 +918,7 @@ def register_lab():
 
     return render_template("register_lab.html")
 
+
 @app.route("/dashboard")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -934,117 +935,294 @@ def dashboard():
         lab_id = session["lab_id"]
         search = request.args.get("search", "").strip()
 
-        # -----------------------------
-        # Recent Registrations
-        # -----------------------------
-        if search == "":
-         cursor.execute("""
-SELECT
-    p.patient_id,
-    p.name,
-    p.age,
-    GROUP_CONCAT(t.test_name SEPARATOR ', ') AS tests,
-    pay.total_amount,
-    pay.payment_mode,
-    pay.payment_status
-FROM patients p
-JOIN patient_tests pt
-    ON p.patient_id = pt.patient_id
-    AND p.lab_id = pt.lab_id
-JOIN tests t
-    ON pt.test_id = t.id
-    AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
-JOIN payments pay
-    ON p.patient_id = pay.patient_id
-    AND p.lab_id = pay.lab_id
-WHERE p.lab_id=%s
-AND DATE(p.created_at)=CURDATE()
-GROUP BY
-    p.id,
-    p.patient_id,
-    p.name,
-    p.age,
-    pay.total_amount,
-    pay.payment_mode,
-    pay.payment_status
-ORDER BY p.created_at DESC
-LIMIT 10
-""", (lab_id,))
+        # --------------------------------------------------
+        # 1. Recent Registrations / Patient Search
+        # --------------------------------------------------
+        if not search:
+            cursor.execute("""
+                SELECT
+                    p.patient_id,
+                    p.name,
+                    p.age,
+                    GROUP_CONCAT(
+                        DISTINCT t.test_name
+                        ORDER BY t.test_name
+                        SEPARATOR ', '
+                    ) AS tests,
+                    pay.total_amount,
+                    pay.payment_mode,
+                    pay.payment_status
+                FROM patients p
+                JOIN patient_tests pt
+                    ON pt.patient_id = p.patient_id
+                    AND pt.lab_id = p.lab_id
+                JOIN tests t
+                    ON t.id = pt.test_id
+                    AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
+                JOIN payments pay
+                    ON pay.patient_id = p.patient_id
+                    AND pay.lab_id = p.lab_id
+                WHERE p.lab_id = %s
+                  AND p.created_at >= CURDATE()
+                  AND p.created_at < CURDATE() + INTERVAL 1 DAY
+                GROUP BY
+                    p.id,
+                    p.patient_id,
+                    p.name,
+                    p.age,
+                    pay.total_amount,
+                    pay.payment_mode,
+                    pay.payment_status,
+                    p.created_at
+                ORDER BY p.created_at DESC
+                LIMIT 10
+            """, (lab_id,))
 
         else:
             cursor.execute("""
-        SELECT
-            p.patient_id, p.name, p.age,
-            GROUP_CONCAT(t.test_name SEPARATOR ', ') AS tests,
-            pay.total_amount, pay.payment_mode, pay.payment_status
-        FROM patients p
-        JOIN patient_tests pt ON p.patient_id = pt.patient_id AND p.lab_id = pt.lab_id
-        JOIN tests t ON pt.test_id = t.id AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
-        JOIN payments pay ON p.patient_id = pay.patient_id AND p.lab_id = pay.lab_id
-        WHERE p.lab_id=%s AND (p.patient_id LIKE %s OR p.name LIKE %s OR p.mobile LIKE %s)
-        GROUP BY
-            p.id, p.patient_id, p.name, p.age, pay.total_amount, pay.payment_mode, pay.payment_status
-        """, (lab_id, f"%{search}%", f"%{search}%", f"%{search}%"))
+                SELECT
+                    p.patient_id,
+                    p.name,
+                    p.age,
+                    GROUP_CONCAT(
+                        DISTINCT t.test_name
+                        ORDER BY t.test_name
+                        SEPARATOR ', '
+                    ) AS tests,
+                    pay.total_amount,
+                    pay.payment_mode,
+                    pay.payment_status
+                FROM patients p
+                JOIN patient_tests pt
+                    ON pt.patient_id = p.patient_id
+                    AND pt.lab_id = p.lab_id
+                JOIN tests t
+                    ON t.id = pt.test_id
+                    AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
+                JOIN payments pay
+                    ON pay.patient_id = p.patient_id
+                    AND pay.lab_id = p.lab_id
+                WHERE p.lab_id = %s
+                  AND (
+                      p.patient_id LIKE %s
+                      OR p.name LIKE %s
+                      OR p.mobile LIKE %s
+                  )
+                GROUP BY
+                    p.id,
+                    p.patient_id,
+                    p.name,
+                    p.age,
+                    pay.total_amount,
+                    pay.payment_mode,
+                    pay.payment_status,
+                    p.created_at
+                ORDER BY p.created_at DESC
+            """, (
+                lab_id,
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%"
+            ))
 
         patients = cursor.fetchall()
 
-        # Latest Payments
+        # --------------------------------------------------
+        # 2. Latest Payments
+        # --------------------------------------------------
         cursor.execute("""
-        SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
-        FROM payments p
-        JOIN patients pa ON p.patient_id = pa.patient_id AND p.lab_id = pa.lab_id
-        WHERE p.lab_id=%s ORDER BY p.id DESC LIMIT 10
+            SELECT
+                p.receipt_no,
+                pa.name,
+                p.total_amount,
+                p.payment_mode,
+                p.payment_status
+            FROM payments p
+            JOIN patients pa
+                ON pa.patient_id = p.patient_id
+                AND pa.lab_id = p.lab_id
+            WHERE p.lab_id = %s
+            ORDER BY p.id DESC
+            LIMIT 10
         """, (lab_id,))
+
         payments = cursor.fetchall()
 
-        # Stats
-        cursor.execute("SELECT COUNT(*) FROM patients WHERE DATE(created_at)=CURDATE() AND lab_id=%s", (lab_id,))
-        patient_count = cursor.fetchone()[0]
+        # --------------------------------------------------
+        # 3. Patient Statistics
+        # --------------------------------------------------
+        cursor.execute("""
+            SELECT
+                COUNT(*) AS total_patients,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN created_at >= CURDATE()
+                             AND created_at < CURDATE() + INTERVAL 1 DAY
+                            THEN 1 ELSE 0
+                        END
+                    ), 0
+                ) AS patient_count
+            FROM patients
+            WHERE lab_id = %s
+        """, (lab_id,))
 
-        cursor.execute("SELECT IFNULL(SUM(amount),0) FROM payment_transactions WHERE DATE(payment_date)=CURDATE() AND lab_id=%s", (lab_id,))
-        total_income = cursor.fetchone()[0]
+        patient_stats = cursor.fetchone()
+        total_patients = patient_stats[0]
+        patient_count = patient_stats[1]
 
-        cursor.execute("SELECT IFNULL(SUM(remaining_amount),0) FROM payments WHERE payment_status='Pending' AND lab_id=%s", (lab_id,))
+        # --------------------------------------------------
+        # 4. Payment Transaction Statistics
+        # --------------------------------------------------
+        cursor.execute("""
+            SELECT
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN payment_date >= CURDATE()
+                             AND payment_date < CURDATE() + INTERVAL 1 DAY
+                            THEN amount ELSE 0
+                        END
+                    ), 0
+                ) AS total_income,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN payment_mode = 'Cash'
+                             AND payment_date >= DATE_FORMAT(
+                                 CURDATE(), '%Y-%m-01'
+                             )
+                             AND payment_date < DATE_FORMAT(
+                                 CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
+                             )
+                            THEN amount ELSE 0
+                        END
+                    ), 0
+                ) AS cash_total,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN payment_mode = 'UPI'
+                             AND payment_date >= DATE_FORMAT(
+                                 CURDATE(), '%Y-%m-01'
+                             )
+                             AND payment_date < DATE_FORMAT(
+                                 CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
+                             )
+                            THEN amount ELSE 0
+                        END
+                    ), 0
+                ) AS upi_total,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN payment_mode = 'Cash'
+                             AND payment_date >= DATE_FORMAT(
+                                 CURDATE(), '%Y-%m-01'
+                             )
+                             AND payment_date < DATE_FORMAT(
+                                 CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
+                             )
+                            THEN 1 ELSE 0
+                        END
+                    ), 0
+                ) AS cash_count,
+
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN payment_mode = 'UPI'
+                             AND payment_date >= DATE_FORMAT(
+                                 CURDATE(), '%Y-%m-01'
+                             )
+                             AND payment_date < DATE_FORMAT(
+                                 CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
+                             )
+                            THEN 1 ELSE 0
+                        END
+                    ), 0
+                ) AS upi_count,
+
+                COALESCE(SUM(amount), 0) AS grand_total_income
+
+            FROM payment_transactions
+            WHERE lab_id = %s
+        """, (lab_id,))
+
+        transaction_stats = cursor.fetchone()
+
+        total_income = transaction_stats[0]
+        cash_total = transaction_stats[1]
+        upi_total = transaction_stats[2]
+        cash_count = transaction_stats[3]
+        upi_count = transaction_stats[4]
+        grand_total_income = transaction_stats[5]
+
+        # --------------------------------------------------
+        # 5. Pending Payments
+        # --------------------------------------------------
+        cursor.execute("""
+            SELECT COALESCE(SUM(remaining_amount), 0)
+            FROM payments
+            WHERE payment_status = 'Pending'
+              AND lab_id = %s
+        """, (lab_id,))
+
         pending_amount = cursor.fetchone()[0]
 
-        cursor.execute("SELECT IFNULL(SUM(amount),0) FROM payment_transactions WHERE payment_mode='Cash' AND MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE()) AND lab_id=%s", (lab_id,))
-        cash_total = cursor.fetchone()[0]
+        # --------------------------------------------------
+        # 6. Test and Report Statistics
+        # --------------------------------------------------
+        cursor.execute("""
+            SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM patient_tests
+                    WHERE lab_id = %s
+                ) AS total_tests,
 
-        cursor.execute("SELECT IFNULL(SUM(amount),0) FROM payment_transactions WHERE payment_mode='UPI' AND MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE()) AND lab_id=%s", (lab_id,))
-        upi_total = cursor.fetchone()[0]
+                (
+                    SELECT COUNT(DISTINCT patient_id)
+                    FROM test_results
+                    WHERE lab_id = %s
+                ) AS total_reports
+        """, (lab_id, lab_id))
 
-        cursor.execute("SELECT COUNT(*) FROM payment_transactions WHERE payment_mode='Cash' AND MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE()) AND lab_id=%s", (lab_id,))
-        cash_count = cursor.fetchone()[0]
+        test_stats = cursor.fetchone()
+        total_tests = test_stats[0]
+        total_reports = test_stats[1]
 
-        cursor.execute("SELECT COUNT(*) FROM payment_transactions WHERE payment_mode='UPI' AND MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE()) AND lab_id=%s", (lab_id,))
-        upi_count = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM patients WHERE lab_id=%s", (lab_id,))
-        total_patients = cursor.fetchone()[0]
-
-        cursor.execute("SELECT IFNULL(SUM(amount),0) FROM payment_transactions WHERE lab_id=%s", (lab_id,))
-        grand_total_income = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(*) FROM patient_tests WHERE lab_id=%s", (lab_id,))
-        total_tests = cursor.fetchone()[0]
-
-        cursor.execute("SELECT COUNT(DISTINCT patient_id) FROM test_results WHERE lab_id=%s", (lab_id,))
-        total_reports = cursor.fetchone()[0]
-
-        current_time = datetime.now().strftime("%d %B %Y | %I:%M %p")
+        current_time = datetime.now().strftime(
+            "%d %B %Y | %I:%M %p"
+        )
 
         return render_template(
             "dashboard.html",
-            patients=patients, search=search, payments=payments, patient_count=patient_count,
-            total_income=total_income, pending_amount=pending_amount, cash_total=cash_total,
-            upi_total=upi_total, cash_count=cash_count, upi_count=upi_count, current_time=current_time,
-            total_patients=total_patients, grand_total_income=grand_total_income, total_tests=total_tests,
+            patients=patients,
+            search=search,
+            payments=payments,
+            patient_count=patient_count,
+            total_income=total_income,
+            pending_amount=pending_amount,
+            cash_total=cash_total,
+            upi_total=upi_total,
+            cash_count=cash_count,
+            upi_count=upi_count,
+            current_time=current_time,
+            total_patients=total_patients,
+            grand_total_income=grand_total_income,
+            total_tests=total_tests,
             total_reports=total_reports
         )
 
     finally:
         cursor.close()
         db.close()
+
+
 # Add this import with the other imports at the top of your Flask application:
 # import uuid
 

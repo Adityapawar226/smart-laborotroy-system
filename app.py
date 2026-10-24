@@ -143,6 +143,22 @@ def get_db():
         )
 
         raise
+  
+def execute_timed(cursor, query_name, sql, params=None):
+    """Execute an SQL query and log its execution time."""
+    start_time = time.perf_counter()
+
+    try:
+        cursor.execute(sql, params or ())
+    finally:
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        app.logger.info(
+            "PERF | SQL | %s | %.2f ms",
+            query_name,
+            elapsed_ms
+        )
+
+
 
 # Email configuration
 app.config["MAIL_HOST"] = "smtp.gmail.com"

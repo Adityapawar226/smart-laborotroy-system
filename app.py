@@ -64,7 +64,7 @@ redis_client = redis.Redis(
     socket_timeout=3,
 )
 
-r = redis.Redis.from_url(os.environ.get('redis://default:AnonAOegzaHSdcohnXnYvC2svtyy6FdU@plot-flattering-pull-10400.db.redis.io:13756'))
+r = redis.Redis.from_url('redis://default:AnonAOegzaHSdcohnXnYvC2svtyy6FdU@plot-flattering-pull-10400.db.redis.io:13756')
 import json
 def get_cached_dashboard_data(lab_id):
     cache_key = f"lab_{lab_id}_stats"

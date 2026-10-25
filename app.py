@@ -32,14 +32,8 @@ from modules.result_loader import (
 )
 import base64
 import logging
-# Example inside your POST handler for logo/signatories/headers:
-logo_file = request.files.get("logo")
-logo_base64 = None
 
-if logo_file and logo_file.filename:
-    # Read the file bytes and encode to base64 string
-    file_bytes = logo_file.read()
-    logo_base64 = base64.b64encode(file_bytes).decode('utf-8')
+
 import qrcode
 from io import BytesIO
 from flask import send_file

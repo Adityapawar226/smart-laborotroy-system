@@ -109,6 +109,108 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def apply_patient_specific_reference_ranges(cursor, report_structure, patient):
+    """
+    Select one active reference range per parameter for this patient.
+    Patient age is stored as whole years by patient_registration().
+    This changes only the in-memory report structure, never database records.
+    """
+    if not patient or not isinstance(report_structure, list):
+        return report_structure
+
+    age = patient.get("age")
+    gender = str(patient.get("gender") or "").strip().lower()
+    try:
+        age_years = float(age) if age is not None else None
+    except (TypeError, ValueError):
+        age_years = None
+
+    parameter_ids = set()
+    for test in report_structure:
+        for section in test.get("sections", []) or []:
+            for component in section.get("components", []) or []:
+                for param in component.get("parameters", []) or []:
+                    pid = param.get("parameter_id", param.get("id"))
+                    if pid is not None:
+                        try:
+                            parameter_ids.add(int(pid))
+                        except (TypeError, ValueError):
+                            pass
+
+    if not parameter_ids:
+        return report_structure
+
+    marks = ", ".join(["%s"] * len(parameter_ids))
+    cursor.execute(f"""
+        SELECT parameter_id, gender, age_from, age_to, age_unit,
+               lower_value, upper_value, reference_text, interpretation
+        FROM parameter_reference_ranges
+        WHERE status = 'active'
+          AND parameter_id IN ({marks})
+        ORDER BY parameter_id, age_from, age_to
+    """, tuple(sorted(parameter_ids)))
+    rows = cursor.fetchall()
+
+    by_parameter = {}
+    for row in rows:
+        # Works with tuple cursors used by these routes.
+        pid, range_gender, age_from, age_to, age_unit, low, high, ref_text, interpretation = row
+        unit = str(age_unit or "Years").strip().lower()
+        # Patient ages in this app are entered/stored in years. Convert the
+        # configured range bounds to years for matching.
+        factor = 1.0
+        if unit.startswith("month"):
+            factor = 1.0 / 12.0
+        elif unit.startswith("day"):
+            factor = 1.0 / 365.25
+        elif unit.startswith("week"):
+            factor = 7.0 / 365.25
+        lo_age = None if age_from is None else float(age_from) * factor
+        hi_age = None if age_to is None else float(age_to) * factor
+        rg = str(range_gender or "Any").strip().lower()
+        gender_ok = rg in ("", "any", "all", "both", "unisex", "male/female") or rg == gender
+        age_ok = age_years is None or ((lo_age is None or age_years >= lo_age) and (hi_age is None or age_years <= hi_age))
+        if gender_ok and age_ok:
+            specificity = (1 if rg == gender else 0, 1 if lo_age is not None or hi_age is not None else 0)
+            by_parameter.setdefault(int(pid), []).append((specificity, low, high, ref_text, interpretation))
+
+    def fmt(low, high, text):
+        if text and str(text).strip():
+            return str(text).strip()
+        if low is not None and high is not None:
+            return f"{low} - {high}"
+        if low is not None:
+            return f">= {low}"
+        if high is not None:
+            return f"<= {high}"
+        return None
+
+    for test in report_structure:
+        for section in test.get("sections", []) or []:
+            for component in section.get("components", []) or []:
+                for param in component.get("parameters", []) or []:
+                    pid = param.get("parameter_id", param.get("id"))
+                    try:
+                        pid = int(pid)
+                    except (TypeError, ValueError):
+                        continue
+                    candidates = by_parameter.get(pid, [])
+                    if not candidates:
+                        continue
+                    candidates.sort(key=lambda x: x[0], reverse=True)
+                    _, low, high, ref_text, interpretation = candidates[0]
+                    selected = fmt(low, high, ref_text)
+                    if selected:
+                        param["reference_range"] = selected
+                    if interpretation:
+                        param["reference_interpretation"] = interpretation
+                    # Carry configured bounds for safe future critical-range handling.
+                    param["reference_lower_value"] = low
+                    param["reference_upper_value"] = high
+    return report_structure
+
+
+
 logger.info("DIAGNOSTIC: app.py imports started")
 from email.message import EmailMessage
 
@@ -3098,6 +3200,8 @@ def view_report(patient_id):
         # 8. APPLY REFERENCE RANGE STATUS
         # ====================================================
 
+        report_structure = apply_patient_specific_reference_ranges(cursor, report_structure, patient)
+
         report_structure = apply_reference_status(
             report_structure
         )
@@ -3320,6 +3424,8 @@ def public_report(token):
         # APPLY REFERENCE STATUS
         # ========================================================
 
+        report_structure = apply_patient_specific_reference_ranges(cursor, report_structure, patient)
+
         report_structure = apply_reference_status(
             report_structure
         )
@@ -3515,6 +3621,8 @@ def edit_report(patient_id):
         )
 
         # Apply reference-range status.
+        report_structure = apply_patient_specific_reference_ranges(cursor, report_structure, patient)
+
         report_structure = apply_reference_status(
             report_structure
         )

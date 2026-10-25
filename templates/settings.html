@@ -421,7 +421,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="data:image/png;base64,{{ settings.logo }}"
+                                        src="{% set logo_asset = settings.logo|string %}{{ logo_asset if logo_asset.startswith('http') or logo_asset.startswith('data:') else url_for('static', filename='uploads/logo/' ~ logo_asset) }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                     >
@@ -455,7 +455,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="data:image/png;base64,{{ settings.stamp }}"
+                                        src="{% set stamp_asset = settings.stamp|string %}{{ stamp_asset if stamp_asset.startswith('http') or stamp_asset.startswith('data:') else url_for('static', filename='uploads/stamp/' ~ stamp_asset) }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                     >
@@ -496,7 +496,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="data:image/png;base64,{{ settings.report_header }}"
+                                        src="{% set header_asset = settings.report_header|string %}{{ header_asset if header_asset.startswith('http') or header_asset.startswith('data:') else url_for('static', filename='uploads/report_header/' ~ header_asset) }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                         alt="Report Header"
@@ -535,7 +535,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="data:image/png;base64,{{ settings.report_footer }}"
+                                        src="{% set footer_asset = settings.report_footer|string %}{{ footer_asset if footer_asset.startswith('http') or footer_asset.startswith('data:') else url_for('static', filename='uploads/report_footer/' ~ footer_asset) }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                         alt="Report Footer"
@@ -578,7 +578,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="data:image/png;base64,{{ settings.signature }}"
+                                        src="{% set signature_asset = settings.signature|string %}{{ signature_asset if signature_asset.startswith('http') or signature_asset.startswith('data:') else url_for('static', filename='uploads/signature/' ~ signature_asset) }}"
                                         class="img-thumbnail"
                                         style="
                                             max-height:90px;
@@ -776,7 +776,7 @@
                                     {% if sign.signature %}
 
                                     <img
-                                        src="data:image/png;base64,{{ sign.signature }}"
+                                        src="{% set sign_asset = sign.signature|string %}{{ sign_asset if sign_asset.startswith('http') or sign_asset.startswith('data:') else url_for('static', filename='uploads/signatories/' ~ sign_asset) }}"
                                         style="height:55px;"
                                     >
 

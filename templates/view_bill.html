@@ -54,10 +54,7 @@
         <div class="bill-header">
 
             <img
-                src="{{ url_for(
-                    'static',
-                    filename='uploads/report_header/' ~ lab_settings.report_header
-                ) }}"
+                src="{% set header_asset = lab_settings.report_header|string %}{{ header_asset if header_asset.startswith('http') or header_asset.startswith('data:') else url_for('static', filename='uploads/report_header/' ~ header_asset) }}"
                 class="bill-header-image"
                 alt="Lab Header">
 
@@ -347,10 +344,7 @@
         <div class="bill-footer">
 
             <img
-                src="{{ url_for(
-                    'static',
-                    filename='uploads/report_footer/' ~ lab_settings.report_footer
-                ) }}"
+                src="{% set footer_asset = lab_settings.report_footer|string %}{{ footer_asset if footer_asset.startswith('http') or footer_asset.startswith('data:') else url_for('static', filename='uploads/report_footer/' ~ footer_asset) }}"
                 class="bill-footer-image"
                 alt="Lab Footer">
 

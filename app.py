@@ -11,6 +11,9 @@ from functools import wraps
 from modules.test_builder import test_builder_bp
 import uuid
 import math
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 from database import get_db
 from modules.patient_loader import load_patient
 from modules.reference_loader import apply_reference_status
@@ -141,6 +144,17 @@ app.config["SESSION_COOKIE_SECURE"] = os.getenv(
     "SESSION_COOKIE_SECURE",
     "true" if (os.getenv("VERCEL") or os.getenv("RENDER")) else "false"
 ).strip().lower() in {"1", "true", "yes", "on"}
+
+# ============================================================
+# CLOUDINARY CONFIGURATION
+# ============================================================
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 # Email configuration
 # ============================================================
@@ -5267,7 +5281,13 @@ def settings():
                 )
 
                 os.makedirs(directory, exist_ok=True)
-                file.save(os.path.join(directory, filename))
+                upload_result = cloudinary.uploader.upload(
+     file,
+    folder="medilens/lab-assets",
+    resource_type="image"
+)
+
+                image_url = upload_result["secure_url"]
 
                 return filename
 

@@ -31,7 +31,7 @@ from modules.result_loader import (
     load_component_results
 )
 import base64
-
+import logging
 # Example inside your POST handler for logo/signatories/headers:
 logo_file = request.files.get("logo")
 logo_base64 = None
@@ -5164,39 +5164,72 @@ def payment_details(receipt_no):
 @login_required
 @role_required("Developer", "Admin")
 def settings():
-    lab_id = session["lab_id"]
 
-    # ==================================================
-    # POST REQUEST: HANDLE FORM & BASE64 FILE CONVERSION
-    # ==================================================
-    if request.method == "POST":
+    lab_id = session.get("lab_id")
+
+    if not lab_id:
+        flash("Please log in again.", "warning")
+        return redirect(url_for("login"))
+
+    db = None
+    cursor = None
+
+    try:
         db = get_db()
         cursor = db.cursor(dictionary=True, buffered=True)
-        try:
-            # Fetch internal integer laboratory ID for signatories
-            cursor.execute("SELECT id FROM laboratories WHERE lab_id=%s", (lab_id,))
-            lab = cursor.fetchone()
-            if not lab:
-                flash("Laboratory not found!", "danger")
-                return redirect(url_for("dashboard"))
-            laboratory_id = lab["id"]
 
-            cursor.execute("SELECT id FROM lab_settings WHERE lab_id=%s LIMIT 1", (lab_id,))
+        # Get internal integer laboratory ID
+        cursor.execute(
+            """
+            SELECT id
+            FROM laboratories
+            WHERE lab_id = %s
+            LIMIT 1
+            """,
+            (lab_id,)
+        )
+        lab = cursor.fetchone()
+
+        if not lab:
+            flash("Laboratory not found!", "danger")
+            return redirect(url_for("dashboard"))
+
+        laboratory_id = lab["id"]
+
+        # ==================================================
+        # POST: SAVE SETTINGS
+        # ==================================================
+        if request.method == "POST":
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM lab_settings
+                WHERE lab_id = %s
+                LIMIT 1
+                """,
+                (lab_id,)
+            )
             existing = cursor.fetchone()
 
-            # Process files directly into Base64 strings (No disk saving needed for Vercel)
-            logo_file = request.files.get("logo")
-            signature_file = request.files.get("signature")
-            stamp_file = request.files.get("stamp")
-            report_header_file = request.files.get("report_header")
-            report_footer_file = request.files.get("report_footer")
-            signatory_signature_file = request.files.get("signatory_signature")
+            # Read uploaded files as Base64 strings
+            def read_upload(field_name):
+                file = request.files.get(field_name)
 
-            logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8') if logo_file and logo_file.filename else None
-            signature_base64 = base64.b64encode(signature_file.read()).decode('utf-8') if signature_file and signature_file.filename else None
-            stamp_base64 = base64.b64encode(stamp_file.read()).decode('utf-8') if stamp_file and stamp_file.filename else None
-            report_header_base64 = base64.b64encode(report_header_file.read()).decode('utf-8') if report_header_file and report_header_file.filename else None
-            report_footer_base64 = base64.b64encode(report_footer_file.read()).decode('utf-8') if report_footer_file and report_footer_file.filename else None
+                if file and file.filename:
+                    content = file.read()
+
+                    if content:
+                        return base64.b64encode(content).decode("ascii")
+
+                return None
+
+            logo_base64 = read_upload("logo")
+            signature_base64 = read_upload("signature")
+            stamp_base64 = read_upload("stamp")
+            header_base64 = read_upload("report_header")
+            footer_base64 = read_upload("report_footer")
+            signatory_base64 = read_upload("signatory_signature")
 
             data = (
                 request.form.get("lab_name", ""),
@@ -5217,126 +5250,212 @@ def settings():
                 request.form.get("upi_id", "")
             )
 
+            # Update existing settings
             if existing:
-                cursor.execute("""
+
+                cursor.execute(
+                    """
                     UPDATE lab_settings
                     SET
-                        lab_name=%s, owner_name=%s, registration_no=%s, gst_no=%s, nabl_no=%s,
-                        address=%s, city=%s, state=%s, pincode=%s, mobile=%s, alt_mobile=%s,
-                        email=%s, website=%s, receipt_prefix=%s, patient_prefix=%s, upi_id=%s,
-                        logo=COALESCE(%s, logo),
-                        signature=COALESCE(%s, signature),
-                        stamp=COALESCE(%s, stamp),
-                        report_header=COALESCE(%s, report_header),
-                        report_footer=COALESCE(%s, report_footer)
-                    WHERE lab_id=%s
-                """, data + (logo_base64, signature_base64, stamp_base64, report_header_base64, report_footer_base64, lab_id))
-            else:
-                cursor.execute("""
-                    INSERT INTO lab_settings
-                    (
-                        lab_id, lab_name, owner_name, registration_no, gst_no, nabl_no,
-                        address, city, state, pincode, mobile, alt_mobile, email, website,
-                        receipt_prefix, patient_prefix, upi_id, logo, signature, stamp,
-                        report_header, report_footer
+                        lab_name = %s,
+                        owner_name = %s,
+                        registration_no = %s,
+                        gst_no = %s,
+                        nabl_no = %s,
+                        address = %s,
+                        city = %s,
+                        state = %s,
+                        pincode = %s,
+                        mobile = %s,
+                        alt_mobile = %s,
+                        email = %s,
+                        website = %s,
+                        receipt_prefix = %s,
+                        patient_prefix = %s,
+                        upi_id = %s,
+                        logo = COALESCE(%s, logo),
+                        signature = COALESCE(%s, signature),
+                        stamp = COALESCE(%s, stamp),
+                        report_header = COALESCE(%s, report_header),
+                        report_footer = COALESCE(%s, report_footer)
+                    WHERE lab_id = %s
+                    """,
+                    data + (
+                        logo_base64,
+                        signature_base64,
+                        stamp_base64,
+                        header_base64,
+                        footer_base64,
+                        lab_id
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-                """, (lab_id,) + data + (logo_base64, signature_base64, stamp_base64, report_header_base64, report_footer_base64))
+                )
 
-            # Handle Signatory Insertion with Base64 signature
+            # Insert new settings
+            else:
+
+                cursor.execute(
+                    """
+                    INSERT INTO lab_settings (
+                        lab_id,
+                        lab_name,
+                        owner_name,
+                        registration_no,
+                        gst_no,
+                        nabl_no,
+                        address,
+                        city,
+                        state,
+                        pincode,
+                        mobile,
+                        alt_mobile,
+                        email,
+                        website,
+                        receipt_prefix,
+                        patient_prefix,
+                        upi_id,
+                        logo,
+                        signature,
+                        stamp,
+                        report_header,
+                        report_footer
+                    )
+                    VALUES (
+                        %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s
+                    )
+                    """,
+                    (lab_id,) + data + (
+                        logo_base64,
+                        signature_base64,
+                        stamp_base64,
+                        header_base64,
+                        footer_base64
+                    )
+                )
+
+            # Insert report signatory when all fields are provided
+            signatory_name = request.form.get(
+                "signatory_name", ""
+            ).strip()
+
+            signatory_designation = request.form.get(
+                "signatory_designation", ""
+            ).strip()
+
             if (
-                request.form.get("signatory_name")
-                and request.form.get("signatory_designation")
-                and signatory_signature_file
-                and signatory_signature_file.filename
+                signatory_name
+                and signatory_designation
+                and signatory_base64
             ):
-                sign_base64 = base64.b64encode(signatory_signature_file.read()).decode('utf-8')
-
-                cursor.execute("""
-                    INSERT INTO report_signatories (lab_id, name, designation, signature, status)
+                cursor.execute(
+                    """
+                    INSERT INTO report_signatories (
+                        lab_id,
+                        name,
+                        designation,
+                        signature,
+                        status
+                    )
                     VALUES (%s, %s, %s, %s, %s)
-                """, (laboratory_id, request.form["signatory_name"], request.form["signatory_designation"], sign_base64, "Active"))
+                    """,
+                    (
+                        laboratory_id,
+                        signatory_name,
+                        signatory_designation,
+                        signatory_base64,
+                        "Active"
+                    )
+                )
 
             db.commit()
 
-            # Refresh session cache for lab settings immediately
-            cursor.execute("SELECT * FROM lab_settings WHERE lab_id = %s LIMIT 1", (lab_id,))
+            # Refresh session settings
+            cursor.execute(
+                """
+                SELECT *
+                FROM lab_settings
+                WHERE lab_id = %s
+                LIMIT 1
+                """,
+                (lab_id,)
+            )
+
             session["lab_settings"] = cursor.fetchone()
 
             flash("Settings saved successfully.", "success")
+
             return redirect(url_for("settings"))
 
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            cursor.close()
-            db.close()
+        # ==================================================
+        # GET: FETCH SETTINGS
+        # ==================================================
 
-    # ==================================================
-    # GET REQUEST: PARALLEL DATA FETCHING (Settings, Users, Signatories)
-    # ==================================================
-    db_init = get_db()
-    cursor_init = db_init.cursor(buffered=True, dictionary=True)
-    try:
-        cursor_init.execute("SELECT id FROM laboratories WHERE lab_id=%s", (lab_id,))
-        lab = cursor_init.fetchone()
-        if not lab:
-            flash("Laboratory not found!", "danger")
-            return redirect(url_for("dashboard"))
-        laboratory_id = lab["id"]
-    finally:
-        cursor_init.close()
-        db_init.close()
+        cursor.execute(
+            """
+            SELECT *
+            FROM lab_settings
+            WHERE lab_id = %s
+            LIMIT 1
+            """,
+            (lab_id,)
+        )
+        settings_data = cursor.fetchone()
 
-    def fetch_settings():
-        conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
-        try:
-            cur.execute("SELECT * FROM lab_settings WHERE lab_id=%s LIMIT 1", (lab_id,))
-            return cur.fetchone()
-        finally:
-            cur.close()
-            conn.close()
+        # Fetch users
+        cursor.execute(
+            """
+            SELECT username, role, status
+            FROM users
+            WHERE lab_id = %s
+            ORDER BY role
+            """,
+            (lab_id,)
+        )
+        users = cursor.fetchall()
 
-    def fetch_users():
-        conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
-        try:
-            cur.execute("SELECT username, role, status FROM users WHERE lab_id=%s ORDER BY role", (lab_id,))
-            return cur.fetchall()
-        finally:
-            cur.close()
-            conn.close()
-
-    def fetch_signatories():
-        conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
-        try:
-            cur.execute("SELECT * FROM report_signatories WHERE lab_id=%s ORDER BY name", (laboratory_id,))
-            return cur.fetchall()
-        finally:
-            cur.close()
-            conn.close()
-
-    try:
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            f_settings = executor.submit(fetch_settings)
-            f_users = executor.submit(fetch_users)
-            f_sigs = executor.submit(fetch_signatories)
-
-            settings = f_settings.result()
-            users = f_users.result()
-            signatories = f_sigs.result()
+        # Fetch report signatories
+        cursor.execute(
+            """
+            SELECT *
+            FROM report_signatories
+            WHERE lab_id = %s
+            ORDER BY name
+            """,
+            (laboratory_id,)
+        )
+        signatories = cursor.fetchall()
 
         return render_template(
             "settings.html",
-            settings=settings,
+            settings=settings_data,
             users=users,
             signatories=signatories
         )
+
     except Exception:
+        if db is not None:
+            try:
+                db.rollback()
+            except Exception:
+                logger.exception("Settings rollback failed")
+
+        logger.exception("Settings route failed")
         raise
+
+    finally:
+        if cursor is not None:
+            try:
+                cursor.close()
+            except Exception:
+                logger.exception("Failed to close settings cursor")
+
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                logger.exception("Failed to close settings connection")
 
 @app.context_processor
 def inject_lab_settings():

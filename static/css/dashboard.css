@@ -13,8 +13,15 @@ body{
     width:240px;
     height:100vh;
     position:fixed;
+    top:0;
+    left:0;
+    overflow-y:auto;
+    overflow-x:hidden;
     background:#021a56;
     color:white;
+    box-sizing:border-box;
+    scrollbar-width:thin;
+    scrollbar-color:#4263a5 #021a56;
 }
 
 .logo-section{
@@ -298,8 +305,14 @@ body{
 
 .sidebar.collapsed .logo-section h4,
 .sidebar.collapsed .logo-section span,
-.sidebar.collapsed .menu li a{
+.sidebar.collapsed .menu li a span{
     display:none;
+}
+
+.sidebar.collapsed .menu li a{
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
 
 /* Keep Icons Visible */
@@ -329,8 +342,14 @@ body{
 
 .sidebar-collapsed .sidebar .logo-section h4,
 .sidebar-collapsed .sidebar .logo-section span,
-.sidebar-collapsed .sidebar .menu li a{
+.sidebar-collapsed .sidebar .menu li a span{
     display:none;
+}
+
+.sidebar-collapsed .sidebar .menu li a{
+    display:flex;
+    justify-content:center;
+    align-items:center;
 }
 
 .sidebar-collapsed .sidebar .menu li{
@@ -384,3 +403,48 @@ body{
     color:#fff;
     transform:translateY(-2px);
 }
+
+/* Sidebar navigation: keep all menu items accessible */
+.menu li a{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+}
+
+.menu li a i{
+    flex:0 0 20px;
+    text-align:center;
+}
+
+.sidebar.collapsed .logo-section{
+    justify-content:center;
+    padding:20px 8px;
+}
+
+.sidebar.collapsed .logo-section .lab-logo{
+    margin-right:0;
+}
+
+.sidebar.collapsed .menu{
+    padding:10px 6px;
+}
+
+.sidebar.collapsed .menu li{
+    padding:15px 8px;
+}
+
+/* Allow scrolling when the menu is taller than the viewport */
+.sidebar::-webkit-scrollbar{
+    width:6px;
+}
+
+.sidebar::-webkit-scrollbar-track{
+    background:#021a56;
+}
+
+.sidebar::-webkit-scrollbar-thumb{
+    background:#4263a5;
+    border-radius:6px;
+}
+

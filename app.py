@@ -4532,32 +4532,25 @@ def add_test(department_id):
         cursor.close()
         db.close()
 
+from concurrent.futures import ThreadPoolExecutor
+
 @app.route("/expenses", methods=["GET", "POST"])
 @login_required
 @role_required("Developer", "Admin")
 def expenses():
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
     lab_id = session["lab_id"]
 
-    try:
+    # =========================================================
+    # ADD DOCTOR (POST REQUEST)
+    # =========================================================
+    if request.method == "POST":
+        doctor_name = request.form["doctor_name"].strip()
+        commission = request.form["commission_percent"]
 
-        # =========================================================
-        # DATE FILTER
-        # =========================================================
-        from_date = request.args.get("from_date", "").strip()
-        to_date = request.args.get("to_date", "").strip()
-
-        # =========================================================
-        # ADD DOCTOR
-        # =========================================================
-        if request.method == "POST":
-
-            doctor_name = request.form["doctor_name"].strip()
-            commission = request.form["commission_percent"]
-
-            cursor.execute("""
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
                 INSERT INTO doctors
                 (
                     lab_id,
@@ -4570,124 +4563,105 @@ def expenses():
                 doctor_name,
                 commission
             ))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cur.close()
+            conn.close()
 
-            db.commit()
+        return redirect(url_for("expenses"))
 
-            return redirect(url_for("expenses"))
+    # =========================================================
+    # GET REQUEST: DATE FILTERS & PARALLEL FETCHING
+    # =========================================================
+    from_date = request.args.get("from_date", "").strip()
+    to_date = request.args.get("to_date", "").strip()
 
-        # =========================================================
-        # DOCTOR LIST
-        # =========================================================
-        cursor.execute("""
-            SELECT
-                id,
-                doctor_name,
-                commission_percent,
-                status
-            FROM doctors
-            WHERE lab_id = %s
-            ORDER BY doctor_name
-        """, (lab_id,))
+    def fetch_doctors_list():
+        conn = get_db()
+        cur = conn.cursor(dictionary=True, buffered=True)
+        try:
+            cur.execute("""
+                SELECT
+                    id,
+                    doctor_name,
+                    commission_percent,
+                    status
+                FROM doctors
+                WHERE lab_id = %s
+                ORDER BY doctor_name
+            """, (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-        doctors = cursor.fetchall()
+    def fetch_doctor_summary():
+        conn = get_db()
+        cur = conn.cursor(dictionary=True, buffered=True)
+        try:
+            query = """
+                SELECT
+                    d.id,
+                    d.doctor_name,
+                    d.commission_percent,
+                    COUNT(DISTINCT p.patient_id) AS total_patients,
+                    COALESCE(SUM(pay.total_amount), 0) AS total_business,
+                    COALESCE(SUM(pay.total_amount * d.commission_percent / 100), 0) AS total_commission,
+                    d.status
+                FROM doctors d
+                LEFT JOIN patients p
+                    ON d.id = p.doctor_id
+                    AND d.lab_id = p.lab_id
+                LEFT JOIN payments pay
+                    ON p.patient_id = pay.patient_id
+                    AND p.lab_id = pay.lab_id
+                WHERE d.lab_id = %s
+            """
+            params = [lab_id]
 
-        # =========================================================
-        # DOCTOR COMMISSION SUMMARY
-        # =========================================================
-
-        query = """
-            SELECT
-                d.id,
-                d.doctor_name,
-                d.commission_percent,
-
-                COUNT(DISTINCT p.patient_id) AS total_patients,
-
-                COALESCE(
-                    SUM(pay.total_amount),
-                    0
-                ) AS total_business,
-
-                COALESCE(
-                    SUM(pay.total_amount * d.commission_percent / 100),
-                    0
-                ) AS total_commission,
-
-                d.status
-
-            FROM doctors d
-
-            LEFT JOIN patients p
-                ON d.id = p.doctor_id
-                AND d.lab_id = p.lab_id
-
-            LEFT JOIN payments pay
-                ON p.patient_id = pay.patient_id
-                AND p.lab_id = pay.lab_id
-        """
-
-        params = [lab_id]
-
-        # =========================================================
-        # DATE RANGE FILTER
-        # =========================================================
-
-        if from_date and to_date:
+            if from_date and to_date:
+                query += """
+                    AND pay.payment_date >= %s
+                    AND pay.payment_date < DATE_ADD(%s, INTERVAL 1 DAY)
+                """
+                params.extend([from_date, to_date])
+            elif from_date:
+                query += """
+                    AND pay.payment_date >= %s
+                """
+                params.append(from_date)
+            elif to_date:
+                query += """
+                    AND pay.payment_date < DATE_ADD(%s, INTERVAL 1 DAY)
+                """
+                params.append(to_date)
 
             query += """
-                AND pay.payment_date >= %s
-                AND pay.payment_date < DATE_ADD(%s, INTERVAL 1 DAY)
+                GROUP BY
+                    d.id,
+                    d.doctor_name,
+                    d.commission_percent,
+                    d.status
+                ORDER BY d.doctor_name
             """
 
-            params.extend([
-                from_date,
-                to_date
-            ])
+            cur.execute(query, tuple(params))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-        elif from_date:
+    # Run both independent database tasks concurrently in background threads
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_doctors = executor.submit(fetch_doctors_list)
+            future_summary = executor.submit(fetch_doctor_summary)
 
-            query += """
-                AND pay.payment_date >= %s
-            """
-
-            params.append(from_date)
-
-        elif to_date:
-
-            query += """
-                AND pay.payment_date < DATE_ADD(%s, INTERVAL 1 DAY)
-            """
-
-            params.append(to_date)
-
-        # =========================================================
-        # GROUPING
-        # =========================================================
-
-        query += """
-            WHERE d.lab_id = %s
-
-            GROUP BY
-                d.id,
-                d.doctor_name,
-                d.commission_percent,
-                d.status
-
-            ORDER BY d.doctor_name
-        """
-
-        # IMPORTANT:
-        # lab_id is needed in WHERE, so put it at the correct
-        # position in params.
-        params = params[1:] + [lab_id]
-
-        cursor.execute(query, tuple(params))
-
-        summary = cursor.fetchall()
-
-        # =========================================================
-        # RENDER
-        # =========================================================
+            doctors = future_doctors.result()
+            summary = future_summary.result()
 
         return render_template(
             "expenses.html",
@@ -4696,14 +4670,8 @@ def expenses():
             from_date=from_date,
             to_date=to_date
         )
-
     except Exception:
-        db.rollback()
         raise
-
-    finally:
-        cursor.close()
-        db.close()
 
 @app.route("/doctor-patients/<int:doctor_id>")
 @login_required

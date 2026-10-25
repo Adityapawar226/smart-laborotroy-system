@@ -48,14 +48,24 @@ from modules.signatory_loader import load_signatories
 from modules.formula_handler import (
     calculate_formula_results,
 )
+import os
 import redis
+from dotenv import load_dotenv
 
-redis_client = redis.Redis.from_url(
-    os.environ["REDIS_URL"],
+load_dotenv()
+
+redis_client = redis.Redis(
+    host=os.environ["REDIS_HOST"],
+    port=int(os.environ["REDIS_PORT"]),
+    username=os.getenv("REDIS_USERNAME", "default"),
+    password=os.environ["REDIS_PASSWORD"],
     decode_responses=True,
-    socket_connect_timeout=2,
-    socket_timeout=2,
+    socket_connect_timeout=3,
+    socket_timeout=3,
 )
+
+redis_client.set("connection_test", "Redis connected")
+print(redis_client.get("connection_test"))
 from flask import (
     Flask,
     render_template,
@@ -65,6 +75,8 @@ from flask import (
     session,
     flash
 )
+
+
 
 from datetime import timedelta
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -127,7 +139,7 @@ def get_db():
     try:
         connection = mysql.connector.connect(
             host=os.getenv("DB_HOST"),
-            port=int(os.getenv("DB_PORT", "3306")),
+            port=int(os.getenv("DB_PORT", "15054")),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
             database=os.getenv("DB_NAME"),

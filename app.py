@@ -5160,25 +5160,30 @@ def payment_details(receipt_no):
         cursor.close()
         db.close()
 
+
 @app.route("/settings", methods=["GET", "POST"])
 @login_required
 @role_required("Developer", "Admin")
 def settings():
-
-    lab_id = session.get("lab_id")
-
-    if not lab_id:
-        flash("Please log in again.", "warning")
-        return redirect(url_for("login"))
-
     db = None
     cursor = None
 
     try:
+        # --------------------------------------------------
+        # 1. Validate session and connect to database
+        # --------------------------------------------------
+        lab_id = session.get("lab_id")
+
+        if not lab_id:
+            flash("Your session has expired. Please log in again.", "warning")
+            return redirect(url_for("login"))
+
         db = get_db()
         cursor = db.cursor(dictionary=True, buffered=True)
 
-        # Get internal integer laboratory ID
+        # --------------------------------------------------
+        # 2. Get internal integer laboratory ID
+        # --------------------------------------------------
         cursor.execute(
             """
             SELECT id
@@ -5188,19 +5193,45 @@ def settings():
             """,
             (lab_id,)
         )
+
         lab = cursor.fetchone()
 
         if not lab:
-            flash("Laboratory not found!", "danger")
+            flash("Laboratory not found.", "danger")
             return redirect(url_for("dashboard"))
 
         laboratory_id = lab["id"]
 
-        # ==================================================
-        # POST: SAVE SETTINGS
-        # ==================================================
+        # --------------------------------------------------
+        # 3. Ensure upload directories exist
+        # --------------------------------------------------
+        upload_dirs = {
+            "logo": app.config.get("UPLOAD_LOGO"),
+            "signature": app.config.get("UPLOAD_SIGNATURE"),
+            "stamp": app.config.get("UPLOAD_STAMP"),
+            "signatory": app.config.get("UPLOAD_SIGNATORY"),
+        }
+
+        for directory in upload_dirs.values():
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+
+        report_header_dir = os.path.join(
+            str(UPLOAD_BASE_DIR), "report_header"
+        )
+        report_footer_dir = os.path.join(
+            str(UPLOAD_BASE_DIR), "report_footer"
+        )
+
+        os.makedirs(report_header_dir, exist_ok=True)
+        os.makedirs(report_footer_dir, exist_ok=True)
+
+        # --------------------------------------------------
+        # 4. Handle POST request
+        # --------------------------------------------------
         if request.method == "POST":
 
+            # Fetch existing settings
             cursor.execute(
                 """
                 SELECT id
@@ -5210,49 +5241,88 @@ def settings():
                 """,
                 (lab_id,)
             )
+
             existing = cursor.fetchone()
 
-            # Read uploaded files as Base64 strings
-            def read_upload(field_name):
-                file = request.files.get(field_name)
-
-                if file and file.filename:
-                    content = file.read()
-
-                    if content:
-                        return base64.b64encode(content).decode("ascii")
-
-                return None
-
-            logo_base64 = read_upload("logo")
-            signature_base64 = read_upload("signature")
-            stamp_base64 = read_upload("stamp")
-            header_base64 = read_upload("report_header")
-            footer_base64 = read_upload("report_footer")
-            signatory_base64 = read_upload("signatory_signature")
-
-            data = (
-                request.form.get("lab_name", ""),
-                request.form.get("owner_name", ""),
-                request.form.get("registration_no", ""),
-                request.form.get("gst_no", ""),
-                request.form.get("nabl_no", ""),
-                request.form.get("address", ""),
-                request.form.get("city", ""),
-                request.form.get("state", ""),
-                request.form.get("pincode", ""),
-                request.form.get("mobile", ""),
-                request.form.get("alt_mobile", ""),
-                request.form.get("email", ""),
-                request.form.get("website", ""),
-                request.form.get("receipt_prefix", "RCPT"),
-                request.form.get("patient_prefix", "PAT"),
-                request.form.get("upi_id", "")
+            # Get uploaded files ONLY inside the request
+            logo = request.files.get("logo")
+            signature = request.files.get("signature")
+            stamp = request.files.get("stamp")
+            report_header = request.files.get("report_header")
+            report_footer = request.files.get("report_footer")
+            signatory_signature = request.files.get(
+                "signatory_signature"
             )
 
-            # Update existing settings
-            if existing:
+            # --------------------------------------------------
+            # 5. Save uploaded files
+            # --------------------------------------------------
+            def save_upload(file, directory, prefix=None):
+                if not file or not file.filename:
+                    return None
 
+                safe_name = secure_filename(file.filename)
+
+                if not safe_name:
+                    raise ValueError("Invalid uploaded filename.")
+
+                filename = (
+                    f"{prefix}_{uuid.uuid4().hex}_{safe_name}"
+                    if prefix
+                    else f"{uuid.uuid4().hex}_{safe_name}"
+                )
+
+                os.makedirs(directory, exist_ok=True)
+                file.save(os.path.join(directory, filename))
+
+                return filename
+
+            logo_name = save_upload(
+                logo, upload_dirs["logo"]
+            ) if logo and logo.filename and upload_dirs["logo"] else None
+
+            signature_name = save_upload(
+                signature, upload_dirs["signature"]
+            ) if signature and signature.filename and upload_dirs["signature"] else None
+
+            stamp_name = save_upload(
+                stamp, upload_dirs["stamp"]
+            ) if stamp and stamp.filename and upload_dirs["stamp"] else None
+
+            report_header_name = save_upload(
+                report_header, report_header_dir, "header"
+            )
+
+            report_footer_name = save_upload(
+                report_footer, report_footer_dir, "footer"
+            )
+
+            # --------------------------------------------------
+            # 6. Collect settings form data
+            # --------------------------------------------------
+            data = (
+                request.form.get("lab_name", "").strip(),
+                request.form.get("owner_name", "").strip(),
+                request.form.get("registration_no", "").strip(),
+                request.form.get("gst_no", "").strip(),
+                request.form.get("nabl_no", "").strip(),
+                request.form.get("address", "").strip(),
+                request.form.get("city", "").strip(),
+                request.form.get("state", "").strip(),
+                request.form.get("pincode", "").strip(),
+                request.form.get("mobile", "").strip(),
+                request.form.get("alt_mobile", "").strip(),
+                request.form.get("email", "").strip(),
+                request.form.get("website", "").strip(),
+                request.form.get("receipt_prefix", "RCPT").strip(),
+                request.form.get("patient_prefix", "PAT").strip(),
+                request.form.get("upi_id", "").strip(),
+            )
+
+            # --------------------------------------------------
+            # 7. Update or insert laboratory settings
+            # --------------------------------------------------
+            if existing:
                 cursor.execute(
                     """
                     UPDATE lab_settings
@@ -5281,18 +5351,16 @@ def settings():
                     WHERE lab_id = %s
                     """,
                     data + (
-                        logo_base64,
-                        signature_base64,
-                        stamp_base64,
-                        header_base64,
-                        footer_base64,
-                        lab_id
+                        logo_name,
+                        signature_name,
+                        stamp_name,
+                        report_header_name,
+                        report_footer_name,
+                        lab_id,
                     )
                 )
 
-            # Insert new settings
             else:
-
                 cursor.execute(
                     """
                     INSERT INTO lab_settings (
@@ -5320,22 +5388,25 @@ def settings():
                         report_footer
                     )
                     VALUES (
-                        %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s
                     )
                     """,
-                    (lab_id,) + data + (
-                        logo_base64,
-                        signature_base64,
-                        stamp_base64,
-                        header_base64,
-                        footer_base64
+                    (
+                        lab_id,
+                    ) + data + (
+                        logo_name,
+                        signature_name,
+                        stamp_name,
+                        report_header_name,
+                        report_footer_name,
                     )
                 )
 
-            # Insert report signatory when all fields are provided
+            # --------------------------------------------------
+            # 8. Save report signatory when submitted
+            # --------------------------------------------------
             signatory_name = request.form.get(
                 "signatory_name", ""
             ).strip()
@@ -5347,8 +5418,20 @@ def settings():
             if (
                 signatory_name
                 and signatory_designation
-                and signatory_base64
+                and signatory_signature
+                and signatory_signature.filename
             ):
+                if not upload_dirs["signatory"]:
+                    raise RuntimeError(
+                        "UPLOAD_SIGNATORY is not configured."
+                    )
+
+                sign_filename = save_upload(
+                    signatory_signature,
+                    upload_dirs["signatory"],
+                    "signatory",
+                )
+
                 cursor.execute(
                     """
                     INSERT INTO report_signatories (
@@ -5364,34 +5447,22 @@ def settings():
                         laboratory_id,
                         signatory_name,
                         signatory_designation,
-                        signatory_base64,
-                        "Active"
+                        sign_filename,
+                        "Active",
                     )
                 )
 
+            # --------------------------------------------------
+            # 9. Commit changes
+            # --------------------------------------------------
             db.commit()
 
-            # Refresh session settings
-            cursor.execute(
-                """
-                SELECT *
-                FROM lab_settings
-                WHERE lab_id = %s
-                LIMIT 1
-                """,
-                (lab_id,)
-            )
-
-            session["lab_settings"] = cursor.fetchone()
-
             flash("Settings saved successfully.", "success")
-
             return redirect(url_for("settings"))
 
-        # ==================================================
-        # GET: FETCH SETTINGS
-        # ==================================================
-
+        # --------------------------------------------------
+        # 10. Load settings for GET request
+        # --------------------------------------------------
         cursor.execute(
             """
             SELECT *
@@ -5403,7 +5474,9 @@ def settings():
         )
         settings_data = cursor.fetchone()
 
-        # Fetch users
+        # --------------------------------------------------
+        # 11. Load laboratory users
+        # --------------------------------------------------
         cursor.execute(
             """
             SELECT username, role, status
@@ -5415,7 +5488,9 @@ def settings():
         )
         users = cursor.fetchall()
 
-        # Fetch report signatories
+        # --------------------------------------------------
+        # 12. Load report signatories
+        # --------------------------------------------------
         cursor.execute(
             """
             SELECT *
@@ -5427,35 +5502,50 @@ def settings():
         )
         signatories = cursor.fetchall()
 
+        # --------------------------------------------------
+        # 13. Render page
+        # --------------------------------------------------
         return render_template(
             "settings.html",
             settings=settings_data,
             users=users,
-            signatories=signatories
+            signatories=signatories,
         )
 
     except Exception:
-        if db is not None:
+        if db:
             try:
                 db.rollback()
             except Exception:
-                logger.exception("Settings rollback failed")
+                app.logger.exception(
+                    "Rollback failed in settings route."
+                )
 
-        logger.exception("Settings route failed")
-        raise
+        app.logger.exception("Error in /settings route.")
+        flash(
+            "Unable to process settings. Please check the application logs.",
+            "danger",
+        )
+
+        return redirect(url_for("dashboard"))
 
     finally:
-        if cursor is not None:
+        if cursor:
             try:
                 cursor.close()
             except Exception:
-                logger.exception("Failed to close settings cursor")
+                app.logger.exception(
+                    "Failed to close settings cursor."
+                )
 
-        if db is not None:
+        if db:
             try:
                 db.close()
             except Exception:
-                logger.exception("Failed to close settings connection")
+                app.logger.exception(
+                    "Failed to close settings database connection."
+                )
+
 
 @app.context_processor
 def inject_lab_settings():

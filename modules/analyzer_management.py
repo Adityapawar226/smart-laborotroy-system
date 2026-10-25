@@ -6,7 +6,7 @@ physical analyzer is connected; live connectivity requires a protocol adapter.
 import os
 from datetime import datetime
 from functools import wraps
-
+from database import get_db
 import mysql.connector
 from flask import (
     Blueprint, render_template, request, redirect, url_for,

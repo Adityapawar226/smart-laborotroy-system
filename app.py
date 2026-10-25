@@ -11,11 +11,13 @@ from functools import wraps
 from modules.test_builder import test_builder_bp
 import uuid
 import math
+from database import get_db
 from modules.patient_loader import load_patient
 from modules.reference_loader import apply_reference_status
 from modules.report_merger import merge_results
 import qrcode
 import io
+from mysql.connector.pooling import MySQLConnectionPool
 import base64
 import os
 from pathlib import Path
@@ -45,6 +47,14 @@ from modules.result_saver import (
 from modules.signatory_loader import load_signatories
 from modules.formula_handler import (
     calculate_formula_results,
+)
+import redis
+
+redis_client = redis.Redis.from_url(
+    os.environ["REDIS_URL"],
+    decode_responses=True,
+    socket_connect_timeout=2,
+    socket_timeout=2,
 )
 from flask import (
     Flask,
@@ -109,7 +119,7 @@ app.config["SESSION_COOKIE_SECURE"] = os.getenv(
 
 def get_db():
     """
-    Connect to the Aiven MySQL database and log connection time.
+    Connect to Aiven MySQL and log connection performance.
     Never log database credentials.
     """
     start_time = time.perf_counter()
@@ -128,8 +138,9 @@ def get_db():
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         app.logger.info(
-            "PERF | MySQL connection established | %.2f ms",
-            elapsed_ms
+            "PERF | MySQL connection established | %.2f ms | connected=%s",
+            elapsed_ms,
+            connection.is_connected()
         )
 
         return connection
@@ -143,6 +154,8 @@ def get_db():
         )
 
         raise
+
+
   
 def execute_timed(cursor, query_name, sql, params=None):
     """Execute an SQL query and log its execution time."""
@@ -962,23 +975,62 @@ def register_lab():
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def dashboard():
+    """Render the dashboard and log timings for each database query."""
+    route_start = time.perf_counter()
 
-    # Developer should see the Super Admin Dashboard
+    # Developer should see the Super Admin Dashboard.
     if session.get("role") == "Developer":
         return redirect(url_for("super_admin_dashboard"))
 
-    db = get_db()
+    db_start = time.perf_counter()
+    db = get_db()  # get_db() already logs connection establishment time.
+    app.logger.info(
+        "PERF | Dashboard connection call completed | %.2f ms",
+        (time.perf_counter() - db_start) * 1000
+    )
     cursor = db.cursor(buffered=True)
+
+    def execute_timed(query_name, sql, params=()):
+        """Execute SQL and log execute time. Does not log parameters or patient data."""
+        query_start = time.perf_counter()
+        try:
+            cursor.execute(sql, params)
+        finally:
+            app.logger.info(
+                "PERF | Dashboard SQL execute | %s | %.2f ms",
+                query_name,
+                (time.perf_counter() - query_start) * 1000
+            )
+
+    def fetchall_timed(query_name):
+        fetch_start = time.perf_counter()
+        try:
+            return cursor.fetchall()
+        finally:
+            app.logger.info(
+                "PERF | Dashboard fetchall | %s | %.2f ms",
+                query_name,
+                (time.perf_counter() - fetch_start) * 1000
+            )
+
+    def fetchone_timed(query_name):
+        fetch_start = time.perf_counter()
+        try:
+            return cursor.fetchone()
+        finally:
+            app.logger.info(
+                "PERF | Dashboard fetchone | %s | %.2f ms",
+                query_name,
+                (time.perf_counter() - fetch_start) * 1000
+            )
 
     try:
         lab_id = session["lab_id"]
         search = request.args.get("search", "").strip()
 
-        # --------------------------------------------------
-        # 1. Recent Registrations / Patient Search
-        # --------------------------------------------------
+        # 1. Recent registrations / patient search
         if not search:
-            cursor.execute("""
+            execute_timed("recent_registrations", """
                 SELECT
                     p.patient_id,
                     p.name,
@@ -1016,9 +1068,8 @@ def dashboard():
                 ORDER BY p.created_at DESC
                 LIMIT 10
             """, (lab_id,))
-
         else:
-            cursor.execute("""
+            execute_timed("patient_search", """
                 SELECT
                     p.patient_id,
                     p.name,
@@ -1064,12 +1115,10 @@ def dashboard():
                 f"%{search}%"
             ))
 
-        patients = cursor.fetchall()
+        patients = fetchall_timed("recent_registrations_or_search")
 
-        # --------------------------------------------------
-        # 2. Latest Payments
-        # --------------------------------------------------
-        cursor.execute("""
+        # 2. Latest payments
+        execute_timed("latest_payments", """
             SELECT
                 p.receipt_no,
                 pa.name,
@@ -1084,13 +1133,10 @@ def dashboard():
             ORDER BY p.id DESC
             LIMIT 10
         """, (lab_id,))
+        payments = fetchall_timed("latest_payments")
 
-        payments = cursor.fetchall()
-
-        # --------------------------------------------------
-        # 3. Patient Statistics
-        # --------------------------------------------------
-        cursor.execute("""
+        # 3. Patient statistics
+        execute_timed("patient_statistics", """
             SELECT
                 COUNT(*) AS total_patients,
                 COALESCE(
@@ -1105,15 +1151,12 @@ def dashboard():
             FROM patients
             WHERE lab_id = %s
         """, (lab_id,))
-
-        patient_stats = cursor.fetchone()
+        patient_stats = fetchone_timed("patient_statistics")
         total_patients = patient_stats[0]
         patient_count = patient_stats[1]
 
-        # --------------------------------------------------
-        # 4. Payment Transaction Statistics
-        # --------------------------------------------------
-        cursor.execute("""
+        # 4. Payment transaction statistics
+        execute_timed("payment_transaction_statistics", """
             SELECT
                 COALESCE(
                     SUM(
@@ -1124,14 +1167,11 @@ def dashboard():
                         END
                     ), 0
                 ) AS total_income,
-
                 COALESCE(
                     SUM(
                         CASE
                             WHEN payment_mode = 'Cash'
-                             AND payment_date >= DATE_FORMAT(
-                                 CURDATE(), '%Y-%m-01'
-                             )
+                             AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                              AND payment_date < DATE_FORMAT(
                                  CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
                              )
@@ -1139,14 +1179,11 @@ def dashboard():
                         END
                     ), 0
                 ) AS cash_total,
-
                 COALESCE(
                     SUM(
                         CASE
                             WHEN payment_mode = 'UPI'
-                             AND payment_date >= DATE_FORMAT(
-                                 CURDATE(), '%Y-%m-01'
-                             )
+                             AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                              AND payment_date < DATE_FORMAT(
                                  CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
                              )
@@ -1154,14 +1191,11 @@ def dashboard():
                         END
                     ), 0
                 ) AS upi_total,
-
                 COALESCE(
                     SUM(
                         CASE
                             WHEN payment_mode = 'Cash'
-                             AND payment_date >= DATE_FORMAT(
-                                 CURDATE(), '%Y-%m-01'
-                             )
+                             AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                              AND payment_date < DATE_FORMAT(
                                  CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
                              )
@@ -1169,14 +1203,11 @@ def dashboard():
                         END
                     ), 0
                 ) AS cash_count,
-
                 COALESCE(
                     SUM(
                         CASE
                             WHEN payment_mode = 'UPI'
-                             AND payment_date >= DATE_FORMAT(
-                                 CURDATE(), '%Y-%m-01'
-                             )
+                             AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
                              AND payment_date < DATE_FORMAT(
                                  CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01'
                              )
@@ -1184,15 +1215,11 @@ def dashboard():
                         END
                     ), 0
                 ) AS upi_count,
-
                 COALESCE(SUM(amount), 0) AS grand_total_income
-
             FROM payment_transactions
             WHERE lab_id = %s
         """, (lab_id,))
-
-        transaction_stats = cursor.fetchone()
-
+        transaction_stats = fetchone_timed("payment_transaction_statistics")
         total_income = transaction_stats[0]
         cash_total = transaction_stats[1]
         upi_total = transaction_stats[2]
@@ -1200,45 +1227,37 @@ def dashboard():
         upi_count = transaction_stats[4]
         grand_total_income = transaction_stats[5]
 
-        # --------------------------------------------------
-        # 5. Pending Payments
-        # --------------------------------------------------
-        cursor.execute("""
+        # 5. Pending payments
+        execute_timed("pending_payments", """
             SELECT COALESCE(SUM(remaining_amount), 0)
             FROM payments
             WHERE payment_status = 'Pending'
               AND lab_id = %s
         """, (lab_id,))
+        pending_amount = fetchone_timed("pending_payments")[0]
 
-        pending_amount = cursor.fetchone()[0]
-
-        # --------------------------------------------------
-        # 6. Test and Report Statistics
-        # --------------------------------------------------
-        cursor.execute("""
+        # 6. Test and report statistics
+        execute_timed("test_and_report_statistics", """
             SELECT
                 (
                     SELECT COUNT(*)
                     FROM patient_tests
                     WHERE lab_id = %s
                 ) AS total_tests,
-
                 (
                     SELECT COUNT(DISTINCT patient_id)
                     FROM test_results
                     WHERE lab_id = %s
                 ) AS total_reports
         """, (lab_id, lab_id))
-
-        test_stats = cursor.fetchone()
+        test_stats = fetchone_timed("test_and_report_statistics")
         total_tests = test_stats[0]
         total_reports = test_stats[1]
 
-        current_time = datetime.now().strftime(
-            "%d %B %Y | %I:%M %p"
-        )
+        current_time = datetime.now().strftime("%d %B %Y | %I:%M %p")
 
-        return render_template(
+        render_start = time.perf_counter()
+        response = render_template(
             "dashboard.html",
             patients=patients,
             search=search,
@@ -1256,10 +1275,22 @@ def dashboard():
             total_tests=total_tests,
             total_reports=total_reports
         )
+        app.logger.info(
+            "PERF | Dashboard template rendering | %.2f ms",
+            (time.perf_counter() - render_start) * 1000
+        )
+        return response
 
     finally:
-        cursor.close()
-        db.close()
+        try:
+            cursor.close()
+        finally:
+            db.close()
+            app.logger.info(
+                "PERF | Dashboard total route processing | %.2f ms",
+                (time.perf_counter() - route_start) * 1000
+            )
+
 
 
 # Add this import with the other imports at the top of your Flask application:
@@ -5984,30 +6015,64 @@ def settings():
         cursor.close()
 
         db.close()
+
 @app.context_processor
 def inject_lab_settings():
-
     if "lab_id" not in session:
         return dict(lab_settings=None)
 
-    db = get_db()
-    cursor = db.cursor(buffered=True)
+    total_start = time.perf_counter()
+    db = None
+    cursor = None
 
     try:
+        connection_start = time.perf_counter()
+        db = get_db()
+
+        app.logger.info(
+            "PERF | Context processor connection | %.2f ms",
+            (time.perf_counter() - connection_start) * 1000
+        )
+
+        cursor = db.cursor(buffered=True)
+
+        query_start = time.perf_counter()
+
         cursor.execute("""
             SELECT *
             FROM lab_settings
-            WHERE lab_id=%s
+            WHERE lab_id = %s
             LIMIT 1
         """, (session["lab_id"],))
 
         settings = cursor.fetchone()
 
+        app.logger.info(
+            "PERF | Context processor query and fetch | %.2f ms",
+            (time.perf_counter() - query_start) * 1000
+        )
+
         return dict(lab_settings=settings)
 
+    except Exception:
+        app.logger.exception(
+            "Error loading laboratory settings for template"
+        )
+        raise
+
     finally:
-        cursor.close()
-        db.close()
+        if cursor is not None:
+            cursor.close()
+
+        if db is not None:
+            db.close()
+
+        app.logger.info(
+            "PERF | Context processor total | %.2f ms",
+            (time.perf_counter() - total_start) * 1000
+        )
+
+
 @app.route("/update-user-access", methods=["POST"])
 @login_required
 @role_required("Admin")

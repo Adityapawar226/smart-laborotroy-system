@@ -5166,12 +5166,14 @@ def payment_details(receipt_no):
 def settings():
     lab_id = session["lab_id"]
 
-    # Handle POST requests (Form submissions & Base64 image conversions)
+    # ==================================================
+    # POST REQUEST: HANDLE FORM & BASE64 FILE CONVERSION
+    # ==================================================
     if request.method == "POST":
         db = get_db()
         cursor = db.cursor(dictionary=True, buffered=True)
         try:
-            # Fetch internal integer laboratory ID needed for signatories
+            # Fetch internal integer laboratory ID for signatories
             cursor.execute("SELECT id FROM laboratories WHERE lab_id=%s", (lab_id,))
             lab = cursor.fetchone()
             if not lab:
@@ -5182,7 +5184,7 @@ def settings():
             cursor.execute("SELECT id FROM lab_settings WHERE lab_id=%s LIMIT 1", (lab_id,))
             existing = cursor.fetchone()
 
-            # Process files and convert directly to Base64 strings
+            # Process files directly into Base64 strings (No disk saving needed for Vercel)
             logo_file = request.files.get("logo")
             signature_file = request.files.get("signature")
             stamp_file = request.files.get("stamp")

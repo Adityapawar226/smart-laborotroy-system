@@ -421,10 +421,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/logo/' + settings.logo
-                                        ) }}"
+                                        src="data:image/png;base64,{{ settings.logo }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                     >
@@ -458,10 +455,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/stamp/' + settings.stamp
-                                        ) }}"
+                                        src="data:image/png;base64,{{ settings.stamp }}"
                                         class="img-thumbnail"
                                         style="max-height:100px; max-width:250px;"
                                     >
@@ -502,21 +496,16 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/report_header/' + settings.report_header
-                                        ) }}"
+                                        src="data:image/png;base64,{{ settings.report_header }}"
                                         class="img-thumbnail"
-                                        style="max-height:120px; max-width:100%;"
+                                        style="max-height:100px; max-width:250px;"
+                                        alt="Report Header"
                                     >
 
                                 </div>
 
-                                <small class="text-success">
-
-                                    Current header:
-                                    {{ settings.report_header }}
-
+                                <small class="text-success mt-1 d-block">
+                                    Header uploaded and saved successfully.
                                 </small>
 
                                 {% endif %}
@@ -546,21 +535,16 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/report_footer/' + settings.report_footer
-                                        ) }}"
+                                        src="data:image/png;base64,{{ settings.report_footer }}"
                                         class="img-thumbnail"
-                                        style="max-height:120px; max-width:100%;"
+                                        style="max-height:100px; max-width:250px;"
+                                        alt="Report Footer"
                                     >
 
                                 </div>
 
-                                <small class="text-success">
-
-                                    Current footer:
-                                    {{ settings.report_footer }}
-
+                                <small class="text-success mt-1 d-block">
+                                    Footer uploaded and saved successfully.
                                 </small>
 
                                 {% endif %}
@@ -594,10 +578,7 @@
                                 <div class="mt-2">
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/signature/' + settings.signature
-                                        ) }}"
+                                        src="data:image/png;base64,{{ settings.signature }}"
                                         class="img-thumbnail"
                                         style="
                                             max-height:90px;
@@ -795,10 +776,7 @@
                                     {% if sign.signature %}
 
                                     <img
-                                        src="{{ url_for(
-                                            'static',
-                                            filename='uploads/signatories/' + sign.signature
-                                        ) }}"
+                                        src="data:image/png;base64,{{ sign.signature }}"
                                         style="height:55px;"
                                     >
 

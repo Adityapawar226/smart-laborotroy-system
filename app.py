@@ -30,6 +30,16 @@ from modules.result_loader import (
     load_saved_results,
     load_component_results
 )
+import base64
+
+# Example inside your POST handler for logo/signatories/headers:
+logo_file = request.files.get("logo")
+logo_base64 = None
+
+if logo_file and logo_file.filename:
+    # Read the file bytes and encode to base64 string
+    file_bytes = logo_file.read()
+    logo_base64 = base64.b64encode(file_bytes).decode('utf-8')
 import qrcode
 from io import BytesIO
 from flask import send_file
@@ -1312,37 +1322,36 @@ def dashboard():
     "Technician"
 )
 def patient_registration():
+    lab_id = session["lab_id"]
 
-    db = get_db()
-    cursor = db.cursor(buffered=True)
-
+    # ==================================================
+    # GET NUMERIC LAB ID FOR lab_test_overrides (Initial Check)
+    # ==================================================
+    db_init = get_db()
+    cursor_init = db_init.cursor(buffered=True)
     try:
-        lab_id = session["lab_id"]
-
-        # --------------------------------------------------
-        # GET NUMERIC LAB ID FOR lab_test_overrides
-        # --------------------------------------------------
-        cursor.execute("""
+        cursor_init.execute("""
             SELECT id
             FROM laboratories
             WHERE lab_id = %s
             LIMIT 1
         """, (lab_id,))
-
-        lab_row = cursor.fetchone()
-
+        lab_row = cursor_init.fetchone()
         if not lab_row:
-            raise ValueError(
-                f"Laboratory not found: {lab_id}"
-            )
-
+            raise ValueError(f"Laboratory not found: {lab_id}")
         numeric_lab_id = lab_row[0]
+    finally:
+        cursor_init.close()
+        db_init.close()
 
-        # ==================================================
-        # POST REQUEST
-        # ==================================================
-        if request.method == "POST":
+    # ==================================================
+    # POST REQUEST (Patient Registration Handling)
+    # ==================================================
+    if request.method == "POST":
+        db = get_db()
+        cursor = db.cursor(buffered=True)
 
+        try:
             # -----------------------------------------------
             # Patient Details
             # -----------------------------------------------
@@ -1478,20 +1487,13 @@ def patient_registration():
                 collected_on
             ))
 
-                        # -----------------------------------------------
+            # -----------------------------------------------
             # Save Selected Tests With Patient-Specific Prices
             # -----------------------------------------------
             total_amount = Decimal("0.00")
-            # Reuse one Sample ID for tests with the same sample_type
-            # within this registration. This is a preliminary grouping
-            # rule; production grouping should follow the laboratory SOP.
             sample_ids_by_type = {}
 
-            selected_test_ids = request.form.getlist("tests")
             submitted_prices = request.form.getlist("patient_price")
-
-            if not selected_test_ids:
-                raise ValueError("Please select at least one test.")
 
             if len(selected_test_ids) != len(submitted_prices):
                 raise ValueError(
@@ -1503,13 +1505,11 @@ def patient_registration():
                 selected_test_ids,
                 submitted_prices
             ):
-                # Validate Test ID
                 try:
                     test_id = int(selected_id)
                 except (ValueError, TypeError):
                     raise ValueError("Invalid selected test ID.")
 
-                # Validate Patient Price
                 try:
                     patient_price = Decimal(
                         str(submitted_price).strip()
@@ -1580,13 +1580,9 @@ def patient_registration():
                 if not test_sample_type:
                     test_sample_type = "Unknown"
 
-                # Create one specimen record per sample type for this
-                # registration, and reuse its Sample ID for matching tests.
                 if test_sample_type not in sample_ids_by_type:
                     sample_id = None
 
-                    # UUID-based IDs avoid collisions across laboratories
-                    # without relying on a per-lab counter.
                     for _ in range(5):
                         candidate_sample_id = (
                             f"SMP-{year}-{uuid.uuid4().hex[:8].upper()}"
@@ -1627,8 +1623,6 @@ def patient_registration():
                 else:
                     sample_id = sample_ids_by_type[test_sample_type]
 
-                # Save the actual patient-specific price and link this test
-                # order to its specimen.
                 total_amount += patient_price
 
                 cursor.execute("""
@@ -1657,10 +1651,9 @@ def patient_registration():
             total_amount = total_amount.quantize(
                 Decimal("0.01")
             )
-            # Calculate remaining amount before determining payment status
             remaining_amount = max(
-            Decimal("0.00"),
-             total_amount - paid_amount
+                Decimal("0.00"),
+                total_amount - paid_amount
             ).quantize(Decimal("0.01"))
 
             payment_status = (
@@ -1668,6 +1661,7 @@ def patient_registration():
                 if remaining_amount == Decimal("0.00")
                 else "Pending"
             )
+
             # -----------------------------------------------
             # Save Payment
             # -----------------------------------------------
@@ -1771,16 +1765,10 @@ def patient_registration():
                         status
                     )
                     VALUES (
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s,
+                        %s, %s, %s, %s, %s,
                         CURDATE(),
                         DATE_ADD(CURDATE(), INTERVAL 7 DAY),
-                        %s,
-                        %s,
-                        %s,
+                        %s, %s, %s,
                         'Pending'
                     )
                 """, (
@@ -1794,9 +1782,6 @@ def patient_registration():
                     total_amount
                 ))
 
-            # -----------------------------------------------
-            # Commit
-            # -----------------------------------------------
             db.commit()
 
             flash(
@@ -1807,98 +1792,118 @@ def patient_registration():
 
             return redirect("/dashboard")
 
-        # ==================================================
-        # GET REQUEST: LOAD TESTS
-        # ==================================================
-        cursor.execute("""
-            SELECT
-                t.id,
-                t.test_name,
-                COALESCE(
-                    lto.price,
-                    lts.price,
-                    t.price
-                ) AS price,
-                CASE
-                    WHEN t.lab_id IS NULL
-                    THEN 'Global Master'
-                    ELSE 'Custom Lab Test'
-                END AS test_type
-            FROM tests t
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            cursor.close()
+            db.close()
 
-            LEFT JOIN lab_test_overrides lto
-                ON lto.test_id = t.id
-               AND lto.lab_id = %s
-               AND t.lab_id IS NULL
+    # ==================================================
+    # GET REQUEST: PARALLEL FETCHING (Tests, Doctors, Settings)
+    # ==================================================
+    def fetch_tests():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT
+                    t.id,
+                    t.test_name,
+                    COALESCE(
+                        lto.price,
+                        lts.price,
+                        t.price
+                    ) AS price,
+                    CASE
+                        WHEN t.lab_id IS NULL
+                        THEN 'Global Master'
+                        ELSE 'Custom Lab Test'
+                    END AS test_type
+                FROM tests t
 
-            LEFT JOIN lab_test_settings lts
-                ON lts.test_id = t.id
-               AND lts.lab_id = %s
+                LEFT JOIN lab_test_overrides lto
+                    ON lto.test_id = t.id
+                   AND lto.lab_id = %s
+                   AND t.lab_id IS NULL
 
-            WHERE (
-                    t.lab_id IS NULL
-                    OR t.lab_id = %s
-                  )
-              AND COALESCE(
-                    lts.is_deleted,
-                    FALSE
-                  ) = FALSE
-              AND COALESCE(
-                    lts.status,
-                    t.status
-                  ) = 'Active'
+                LEFT JOIN lab_test_settings lts
+                    ON lts.test_id = t.id
+                   AND lts.lab_id = %s
 
-            ORDER BY t.test_name
-        """, (
-            numeric_lab_id,
-            lab_id,
-            lab_id
-        ))
+                WHERE (
+                        t.lab_id IS NULL
+                        OR t.lab_id = %s
+                      )
+                  AND COALESCE(
+                        lts.is_deleted,
+                        FALSE
+                      ) = FALSE
+                  AND COALESCE(
+                        lts.status,
+                        t.status
+                      ) = 'Active'
 
-        tests = cursor.fetchall()
+                ORDER BY t.test_name
+            """, (
+                numeric_lab_id,
+                lab_id,
+                lab_id
+            ))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-        # -----------------------------------------------
-        # Load Doctors
-        # -----------------------------------------------
-        cursor.execute("""
-            SELECT id, doctor_name
-            FROM doctors
-            WHERE status = 'Active'
-              AND lab_id = %s
-            ORDER BY doctor_name
-        """, (lab_id,))
+    def fetch_doctors():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT id, doctor_name
+                FROM doctors
+                WHERE status = 'Active'
+                  AND lab_id = %s
+                ORDER BY doctor_name
+            """, (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-        doctors = cursor.fetchall()
+    def fetch_lab_settings():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT lab_name, upi_id
+                FROM lab_settings
+                WHERE lab_id = %s
+                LIMIT 1
+            """, (lab_id,))
+            return cur.fetchone()
+        finally:
+            cur.close()
+            conn.close()
 
-        # -----------------------------------------------
-        # Get UPI Settings
-        # -----------------------------------------------
-        cursor.execute("""
-            SELECT lab_name, upi_id
-            FROM lab_settings
-            WHERE lab_id = %s
-            LIMIT 1
-        """, (lab_id,))
+    try:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            f_tests = executor.submit(fetch_tests)
+            f_doctors = executor.submit(fetch_doctors)
+            f_settings = executor.submit(fetch_lab_settings)
 
-        lab_settings = cursor.fetchone()
+            tests = f_tests.result()
+            doctors = f_doctors.result()
+            lab_settings = f_settings.result()
 
-        # -----------------------------------------------
-        # Render
-        # -----------------------------------------------
         return render_template(
             "patient_registration.html",
             tests=tests,
             doctors=doctors,
             lab_settings=lab_settings
         )
-
     except Exception:
-        db.rollback()
         raise
-
-    finally:
-        cursor.close()
-        db.close()
 @app.route("/generate-upi-qr")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -2497,66 +2502,88 @@ def collect_payment(payment_id):
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def reports_management():
-
     lab_id = session["lab_id"]
 
-    db = get_db()
-    cursor = db.cursor(buffered=True)
+    def fetch_reports():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT
+                    p.patient_id,
+                    p.name,
+                    GROUP_CONCAT(
+                        DISTINCT t.test_name
+                        ORDER BY t.test_name
+                        SEPARATOR ', '
+                    ) AS tests,
+
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM test_results tr
+                            WHERE tr.patient_id = p.patient_id
+                              AND tr.lab_id = p.lab_id
+                        )
+                        THEN 'Completed'
+                        ELSE 'Pending'
+                    END AS report_status
+
+                FROM patients p
+
+                LEFT JOIN patient_tests pt
+                    ON p.patient_id = pt.patient_id
+                    AND p.lab_id = pt.lab_id
+
+                LEFT JOIN tests t
+                    ON pt.test_id = t.id
+                    AND (
+                        t.lab_id IS NULL
+                        OR t.lab_id = pt.lab_id
+                    )
+
+                WHERE p.lab_id = %s
+
+                GROUP BY
+                    p.id,
+                    p.patient_id,
+                    p.name,
+                    p.lab_id
+
+                ORDER BY p.id DESC
+            """, (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
+
+    def fetch_today_reports():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM patients p
+                WHERE p.lab_id = %s
+                  AND p.report_generated_on >= CURDATE()
+                  AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
+            """, (lab_id,))
+            res = cur.fetchone()
+            return res[0] if res else 0
+        finally:
+            cur.close()
+            conn.close()
 
     try:
-        # =========================================
-        # LOAD REPORTS FOR THE CURRENT LAB
-        # =========================================
-        cursor.execute("""
-            SELECT
-                p.patient_id,
-                p.name,
-                GROUP_CONCAT(
-                    DISTINCT t.test_name
-                    ORDER BY t.test_name
-                    SEPARATOR ', '
-                ) AS tests,
+        # Run both independent database tasks concurrently
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_reports = executor.submit(fetch_reports)
+            future_today = executor.submit(fetch_today_reports)
 
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM test_results tr
-                        WHERE tr.patient_id = p.patient_id
-                          AND tr.lab_id = p.lab_id
-                    )
-                    THEN 'Completed'
-                    ELSE 'Pending'
-                END AS report_status
+            reports = future_reports.result()
+            today_reports = future_today.result()
 
-            FROM patients p
-
-            LEFT JOIN patient_tests pt
-                ON p.patient_id = pt.patient_id
-                AND p.lab_id = pt.lab_id
-
-            LEFT JOIN tests t
-                ON pt.test_id = t.id
-                AND (
-                    t.lab_id IS NULL
-                    OR t.lab_id = pt.lab_id
-                )
-
-            WHERE p.lab_id = %s
-
-            GROUP BY
-                p.id,
-                p.patient_id,
-                p.name,
-                p.lab_id
-
-            ORDER BY p.id DESC
-        """, (lab_id,))
-
-        reports = cursor.fetchall()
-
-        # =========================================
-        # REPORT STATISTICS
-        # =========================================
+        # Calculate statistics in memory from fetched reports data
         total_reports = len(reports)
 
         completed_reports = sum(
@@ -2569,23 +2596,6 @@ def reports_management():
             if report[3] != "Completed"
         )
 
-        # =========================================
-        # REPORTS GENERATED TODAY
-        # =========================================
-        # Count reports using the report generation date.
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM patients p
-            WHERE p.lab_id = %s
-              AND p.report_generated_on >= CURDATE()
-              AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
-        """, (lab_id,))
-
-        today_reports = cursor.fetchone()[0] or 0
-
-        # =========================================
-        # RENDER DASHBOARD
-        # =========================================
         return render_template(
             "reports_management.html",
             reports=reports,
@@ -2596,18 +2606,11 @@ def reports_management():
         )
 
     except Exception as e:
-        db.rollback()
-
         print("=" * 60)
         print("[ERROR] reports_management()")
         print(str(e))
         print("=" * 60)
-
         raise
-
-    finally:
-        cursor.close()
-        db.close()
 @app.route("/enter-results/<patient_id>", methods=["GET", "POST"])
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -5161,812 +5164,168 @@ def payment_details(receipt_no):
 @login_required
 @role_required("Developer", "Admin")
 def settings():
-
-    print("METHOD =", request.method)
-
-    db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
-
     lab_id = session["lab_id"]
 
-    # ==================================================
-    # GET INTEGER LABORATORY ID
-    # Needed for Report Signatories
-    # ==================================================
+    # Handle POST requests (Form submissions & Base64 image conversions)
+    if request.method == "POST":
+        db = get_db()
+        cursor = db.cursor(dictionary=True, buffered=True)
+        try:
+            # Fetch internal integer laboratory ID needed for signatories
+            cursor.execute("SELECT id FROM laboratories WHERE lab_id=%s", (lab_id,))
+            lab = cursor.fetchone()
+            if not lab:
+                flash("Laboratory not found!", "danger")
+                return redirect(url_for("dashboard"))
+            laboratory_id = lab["id"]
 
-    cursor.execute("""
-        SELECT id
-        FROM laboratories
-        WHERE lab_id=%s
-    """, (lab_id,))
-
-    lab = cursor.fetchone()
-
-    if not lab:
-
-        flash(
-            "Laboratory not found!",
-            "danger"
-        )
-
-        cursor.close()
-        db.close()
-
-        return redirect(
-            url_for("dashboard")
-        )
-
-    laboratory_id = lab["id"]
-
-
-    # ==================================================
-    # REPORT HEADER / FOOTER UPLOAD DIRECTORIES
-    # ==================================================
-
-    # REPORT HEADER / FOOTER UPLOAD DIRECTORIES
-
-    report_header_dir = os.path.join(
-    str(UPLOAD_BASE_DIR),
-    "report_header"
-)
-
-    report_footer_dir = os.path.join(
-    str(UPLOAD_BASE_DIR),
-    "report_footer"
-)
-
-    os.makedirs(report_header_dir, exist_ok=True)
-    os.makedirs(report_footer_dir, exist_ok=True)
-
-
-    try:
-
-        # ==================================================
-        # POST
-        # ==================================================
-
-        if request.method == "POST":
-
-            print("=" * 60)
-            print("FORM DATA")
-            print(request.form)
-            print()
-
-            print("FILES")
-            print(request.files)
-            print("=" * 60)
-
-
-            # ==================================================
-            # CHECK EXISTING LAB SETTINGS
-            # ==================================================
-
-            cursor.execute("""
-                SELECT id
-                FROM lab_settings
-                WHERE lab_id=%s
-                LIMIT 1
-            """, (lab_id,))
-
+            cursor.execute("SELECT id FROM lab_settings WHERE lab_id=%s LIMIT 1", (lab_id,))
             existing = cursor.fetchone()
 
+            # Process files and convert directly to Base64 strings
+            logo_file = request.files.get("logo")
+            signature_file = request.files.get("signature")
+            stamp_file = request.files.get("stamp")
+            report_header_file = request.files.get("report_header")
+            report_footer_file = request.files.get("report_footer")
+            signatory_signature_file = request.files.get("signatory_signature")
 
-            # ==================================================
-            # FILES
-            # ==================================================
-
-            logo = request.files.get("logo")
-
-            signature = request.files.get(
-                "signature"
-            )
-
-            stamp = request.files.get(
-                "stamp"
-            )
-
-            report_header = request.files.get(
-                "report_header"
-            )
-
-            report_footer = request.files.get(
-                "report_footer"
-            )
-
-
-            print(
-                "========================================"
-            )
-
-            print(
-                "REPORT HEADER FILE:",
-                report_header
-            )
-
-            print(
-                "REPORT HEADER NAME:",
-                report_header.filename
-                if report_header else None
-            )
-
-            print(
-                "REPORT FOOTER FILE:",
-                report_footer
-            )
-
-            print(
-                "REPORT FOOTER NAME:",
-                report_footer.filename
-                if report_footer else None
-            )
-
-            print(
-                "========================================"
-            )
-
-
-            signatory_signature = request.files.get(
-                "signatory_signature"
-            )
-
-
-            # ==================================================
-            # FILE NAMES
-            # ==================================================
-
-            logo_name = None
-
-            signature_name = None
-
-            stamp_name = None
-
-            report_header_name = None
-
-            report_footer_name = None
-
-
-            # ==================================================
-            # LABORATORY LOGO
-            # ==================================================
-
-            if logo and logo.filename:
-
-                logo_name = secure_filename(
-                    logo.filename
-                )
-
-                logo.save(
-                    os.path.join(
-                        app.config["UPLOAD_LOGO"],
-                        logo_name
-                    )
-                )
-
-
-            # ==================================================
-            # LABORATORY DIGITAL SIGNATURE
-            # ==================================================
-
-            if signature and signature.filename:
-
-                signature_name = secure_filename(
-                    signature.filename
-                )
-
-                signature.save(
-                    os.path.join(
-                        app.config["UPLOAD_SIGNATURE"],
-                        signature_name
-                    )
-                )
-
-
-            # ==================================================
-            # LABORATORY STAMP
-            # ==================================================
-
-            if stamp and stamp.filename:
-
-                stamp_name = secure_filename(
-                    stamp.filename
-                )
-
-                stamp.save(
-                    os.path.join(
-                        app.config["UPLOAD_STAMP"],
-                        stamp_name
-                    )
-                )
-
-
-            # ==================================================
-            # REPORT HEADER
-            # ==================================================
-
-            if (
-                report_header
-                and report_header.filename
-            ):
-
-                report_header_name = (
-                    f"{uuid.uuid4().hex}_"
-                    f"{secure_filename(report_header.filename)}"
-                )
-
-                report_header.save(
-                    os.path.join(
-                        report_header_dir,
-                        report_header_name
-                    )
-                )
-
-                print(
-                    "Report Header Saved:",
-                    report_header_name
-                )
-
-
-            # ==================================================
-            # REPORT FOOTER
-            # ==================================================
-
-            if (
-                report_footer
-                and report_footer.filename
-            ):
-
-                report_footer_name = (
-                    f"{uuid.uuid4().hex}_"
-                    f"{secure_filename(report_footer.filename)}"
-                )
-
-                report_footer.save(
-                    os.path.join(
-                        report_footer_dir,
-                        report_footer_name
-                    )
-                )
-
-                print(
-                    "Report Footer Saved:",
-                    report_footer_name
-                )
-
-
-            # ==================================================
-            # LAB SETTINGS DATA
-            # ==================================================
+            logo_base64 = base64.b64encode(logo_file.read()).decode('utf-8') if logo_file and logo_file.filename else None
+            signature_base64 = base64.b64encode(signature_file.read()).decode('utf-8') if signature_file and signature_file.filename else None
+            stamp_base64 = base64.b64encode(stamp_file.read()).decode('utf-8') if stamp_file and stamp_file.filename else None
+            report_header_base64 = base64.b64encode(report_header_file.read()).decode('utf-8') if report_header_file and report_header_file.filename else None
+            report_footer_base64 = base64.b64encode(report_footer_file.read()).decode('utf-8') if report_footer_file and report_footer_file.filename else None
 
             data = (
-
-                request.form.get(
-                    "lab_name",
-                    ""
-                ),
-
-                request.form.get(
-                    "owner_name",
-                    ""
-                ),
-
-                request.form.get(
-                    "registration_no",
-                    ""
-                ),
-
-                request.form.get(
-                    "gst_no",
-                    ""
-                ),
-
-                request.form.get(
-                    "nabl_no",
-                    ""
-                ),
-
-                request.form.get(
-                    "address",
-                    ""
-                ),
-
-                request.form.get(
-                    "city",
-                    ""
-                ),
-
-                request.form.get(
-                    "state",
-                    ""
-                ),
-
-                request.form.get(
-                    "pincode",
-                    ""
-                ),
-
-                request.form.get(
-                    "mobile",
-                    ""
-                ),
-
-                request.form.get(
-                    "alt_mobile",
-                    ""
-                ),
-
-                request.form.get(
-                    "email",
-                    ""
-                ),
-
-                request.form.get(
-                    "website",
-                    ""
-                ),
-
-                request.form.get(
-                    "receipt_prefix",
-                    "RCPT"
-                ),
-
-                request.form.get(
-                    "patient_prefix",
-                    "PAT"
-                ),
-
-                # NEW
-                request.form.get(
-                    "upi_id",
-                    ""
-                )
-
+                request.form.get("lab_name", ""),
+                request.form.get("owner_name", ""),
+                request.form.get("registration_no", ""),
+                request.form.get("gst_no", ""),
+                request.form.get("nabl_no", ""),
+                request.form.get("address", ""),
+                request.form.get("city", ""),
+                request.form.get("state", ""),
+                request.form.get("pincode", ""),
+                request.form.get("mobile", ""),
+                request.form.get("alt_mobile", ""),
+                request.form.get("email", ""),
+                request.form.get("website", ""),
+                request.form.get("receipt_prefix", "RCPT"),
+                request.form.get("patient_prefix", "PAT"),
+                request.form.get("upi_id", "")
             )
 
-
-            # ==================================================
-            # UPDATE EXISTING SETTINGS
-            # ==================================================
-
             if existing:
-
-                print(
-                    "EXISTING =",
-                    existing
-                )
-
-                print(
-                    "LAB ID =",
-                    lab_id
-                )
-
-
                 cursor.execute("""
                     UPDATE lab_settings
-
                     SET
-
-                        lab_name=%s,
-
-                        owner_name=%s,
-
-                        registration_no=%s,
-
-                        gst_no=%s,
-
-                        nabl_no=%s,
-
-                        address=%s,
-
-                        city=%s,
-
-                        state=%s,
-
-                        pincode=%s,
-
-                        mobile=%s,
-
-                        alt_mobile=%s,
-
-                        email=%s,
-
-                        website=%s,
-
-                        receipt_prefix=%s,
-
-                        patient_prefix=%s,
-
-                        upi_id=%s,
-
-
-                        logo=COALESCE(
-                            %s,
-                            logo
-                        ),
-
-                        signature=COALESCE(
-                            %s,
-                            signature
-                        ),
-
-                        stamp=COALESCE(
-                            %s,
-                            stamp
-                        ),
-
-
-                        report_header=COALESCE(
-                            %s,
-                            report_header
-                        ),
-
-
-                        report_footer=COALESCE(
-                            %s,
-                            report_footer
-                        )
-
-
+                        lab_name=%s, owner_name=%s, registration_no=%s, gst_no=%s, nabl_no=%s,
+                        address=%s, city=%s, state=%s, pincode=%s, mobile=%s, alt_mobile=%s,
+                        email=%s, website=%s, receipt_prefix=%s, patient_prefix=%s, upi_id=%s,
+                        logo=COALESCE(%s, logo),
+                        signature=COALESCE(%s, signature),
+                        stamp=COALESCE(%s, stamp),
+                        report_header=COALESCE(%s, report_header),
+                        report_footer=COALESCE(%s, report_footer)
                     WHERE lab_id=%s
-
-                """,
-
-                data +
-
-                (
-                    logo_name,
-                    signature_name,
-                    stamp_name,
-                    report_header_name,
-                    report_footer_name,
-                    lab_id
-                ))
-
-
-                print(
-                    "Lab Settings Updated:",
-                    cursor.rowcount
-                )
-
-
-            # ==================================================
-            # INSERT NEW SETTINGS
-            # ==================================================
-
+                """, data + (logo_base64, signature_base64, stamp_base64, report_header_base64, report_footer_base64, lab_id))
             else:
-
                 cursor.execute("""
                     INSERT INTO lab_settings
                     (
-                        lab_id,
-
-                        lab_name,
-
-                        owner_name,
-
-                        registration_no,
-
-                        gst_no,
-
-                        nabl_no,
-
-                        address,
-
-                        city,
-
-                        state,
-
-                        pincode,
-
-                        mobile,
-
-                        alt_mobile,
-
-                        email,
-
-                        website,
-
-                        receipt_prefix,
-
-                        patient_prefix,
-
-                        upi_id,
-
-
-                        logo,
-
-                        signature,
-
-                        stamp,
-
-
-                        report_header,
-
-                        report_footer
+                        lab_id, lab_name, owner_name, registration_no, gst_no, nabl_no,
+                        address, city, state, pincode, mobile, alt_mobile, email, website,
+                        receipt_prefix, patient_prefix, upi_id, logo, signature, stamp,
+                        report_header, report_footer
                     )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (lab_id,) + data + (logo_base64, signature_base64, stamp_base64, report_header_base64, report_footer_base64))
 
-
-                    VALUES
-                    (
-                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                        %s,%s,%s,%s,%s,%s,%s,
-                        %s,%s,%s,
-                        %s,%s
-                    )
-
-                """,
-
-                (
-                    lab_id,
-                )
-
-                +
-
-                data
-
-                +
-
-                (
-                    logo_name,
-                    signature_name,
-                    stamp_name,
-                    report_header_name,
-                    report_footer_name
-                ))
-
-
-                print(
-                    "Lab Settings Inserted:",
-                    cursor.rowcount
-                )
-
-
-            # ==================================================
-            # SAVE REPORT SIGNATORY
-            # ==================================================
-
-            print(
-                "Name:",
-                request.form.get(
-                    "signatory_name"
-                )
-            )
-
-            print(
-                "Designation:",
-                request.form.get(
-                    "signatory_designation"
-                )
-            )
-
-            print(
-                "File:",
-                signatory_signature
-            )
-
-
+            # Handle Signatory Insertion with Base64 signature
             if (
-
-                request.form.get(
-                    "signatory_name"
-                )
-
-                and
-
-                request.form.get(
-                    "signatory_designation"
-                )
-
-                and signatory_signature
-
-                and signatory_signature.filename
-
+                request.form.get("signatory_name")
+                and request.form.get("signatory_designation")
+                and signatory_signature_file
+                and signatory_signature_file.filename
             ):
-
-                print(
-                    "ENTERED SIGNATORY BLOCK"
-                )
-
-
-                sign_filename = (
-
-                    f"{uuid.uuid4().hex}_"
-
-                    f"{secure_filename(
-                        signatory_signature.filename
-                    )}"
-
-                )
-
-
-                signatory_signature.save(
-
-                    os.path.join(
-
-                        app.config[
-                            "UPLOAD_SIGNATORY"
-                        ],
-
-                        sign_filename
-
-                    )
-
-                )
-
-
-                print(
-                    "Signatory image saved successfully"
-                )
-
-
-                # ==================================================
-                # INSERT SIGNATORY
-                # ==================================================
+                sign_base64 = base64.b64encode(signatory_signature_file.read()).decode('utf-8')
 
                 cursor.execute("""
-                    INSERT INTO report_signatories
-                    (
-                        lab_id,
-                        name,
-                        designation,
-                        signature,
-                        status
-                    )
-
-                    VALUES
-                    (
-                        %s,
-                        %s,
-                        %s,
-                        %s,
-                        %s
-                    )
-
-                """,
-
-                (
-                    laboratory_id,
-
-                    request.form[
-                        "signatory_name"
-                    ],
-
-                    request.form[
-                        "signatory_designation"
-                    ],
-
-                    sign_filename,
-
-                    "Active"
-                ))
-
-
-                print(
-                    "Signatory Inserted:",
-                    cursor.rowcount
-                )
-
-
-            # ==================================================
-            # COMMIT EVERYTHING
-            # ==================================================
+                    INSERT INTO report_signatories (lab_id, name, designation, signature, status)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (laboratory_id, request.form["signatory_name"], request.form["signatory_designation"], sign_base64, "Active"))
 
             db.commit()
 
+            # Refresh session cache for lab settings immediately
+            cursor.execute("SELECT * FROM lab_settings WHERE lab_id = %s LIMIT 1", (lab_id,))
+            session["lab_settings"] = cursor.fetchone()
 
-            # ==================================================
-            # DEBUG SAVED SETTINGS
-            # ==================================================
+            flash("Settings saved successfully.", "success")
+            return redirect(url_for("settings"))
 
-            cursor.execute("""
-                SELECT
-                    upi_id,
-                    report_header,
-                    report_footer
-                FROM lab_settings
-                WHERE lab_id=%s
-            """, (lab_id,))
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            cursor.close()
+            db.close()
 
+    # ==================================================
+    # GET REQUEST: PARALLEL DATA FETCHING (Settings, Users, Signatories)
+    # ==================================================
+    db_init = get_db()
+    cursor_init = db_init.cursor(buffered=True, dictionary=True)
+    try:
+        cursor_init.execute("SELECT id FROM laboratories WHERE lab_id=%s", (lab_id,))
+        lab = cursor_init.fetchone()
+        if not lab:
+            flash("Laboratory not found!", "danger")
+            return redirect(url_for("dashboard"))
+        laboratory_id = lab["id"]
+    finally:
+        cursor_init.close()
+        db_init.close()
 
-            saved_branding = cursor.fetchone()
+    def fetch_settings():
+        conn = get_db()
+        cur = conn.cursor(dictionary=True, buffered=True)
+        try:
+            cur.execute("SELECT * FROM lab_settings WHERE lab_id=%s LIMIT 1", (lab_id,))
+            return cur.fetchone()
+        finally:
+            cur.close()
+            conn.close()
 
+    def fetch_users():
+        conn = get_db()
+        cur = conn.cursor(dictionary=True, buffered=True)
+        try:
+            cur.execute("SELECT username, role, status FROM users WHERE lab_id=%s ORDER BY role", (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-            print(
-                "========================================"
-            )
+    def fetch_signatories():
+        conn = get_db()
+        cur = conn.cursor(dictionary=True, buffered=True)
+        try:
+            cur.execute("SELECT * FROM report_signatories WHERE lab_id=%s ORDER BY name", (laboratory_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
 
-            print(
-                "SAVED UPI ID:",
-                saved_branding["upi_id"]
-            )
+    try:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            f_settings = executor.submit(fetch_settings)
+            f_users = executor.submit(fetch_users)
+            f_sigs = executor.submit(fetch_signatories)
 
-            print(
-                "SAVED REPORT HEADER:",
-                saved_branding["report_header"]
-            )
-
-            print(
-                "SAVED REPORT FOOTER:",
-                saved_branding["report_footer"]
-            )
-
-            print(
-                "========================================"
-            )
-
-
-            flash(
-                "Settings saved successfully.",
-                "success"
-            )
-
-
-            return redirect(
-                url_for("settings")
-            )
-
-
-        # ==================================================
-        # GET SETTINGS
-        # ==================================================
-
-        cursor.execute("""
-            SELECT *
-            FROM lab_settings
-            WHERE lab_id=%s
-            LIMIT 1
-        """, (lab_id,))
-
-
-        settings = cursor.fetchone()
-
-
-        print("=" * 60)
-
-        print(
-            "SETTINGS DATA:"
-        )
-
-        print(settings)
-
-        print("=" * 60)
-
-
-        # ==================================================
-        # USERS
-        # ==================================================
-
-        cursor.execute("""
-            SELECT
-                username,
-                role,
-                status
-            FROM users
-            WHERE lab_id=%s
-            ORDER BY role
-        """, (lab_id,))
-
-
-        users = cursor.fetchall()
-
-
-        # ==================================================
-        # REPORT SIGNATORIES
-        # ==================================================
-
-        cursor.execute("""
-            SELECT *
-            FROM report_signatories
-            WHERE lab_id=%s
-            ORDER BY name
-        """, (laboratory_id,))
-
-
-        signatories = cursor.fetchall()
-
-
-        # ==================================================
-        # RENDER SETTINGS PAGE
-        # ==================================================
+            settings = f_settings.result()
+            users = f_users.result()
+            signatories = f_sigs.result()
 
         return render_template(
             "settings.html",
@@ -5974,20 +5333,8 @@ def settings():
             users=users,
             signatories=signatories
         )
-
-
     except Exception:
-
-        db.rollback()
-
         raise
-
-
-    finally:
-
-        cursor.close()
-
-        db.close()
 
 @app.context_processor
 def inject_lab_settings():

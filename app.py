@@ -64,8 +64,7 @@ redis_client = redis.Redis(
     socket_timeout=3,
 )
 
-redis_client.set("connection_test", "Redis connected")
-print(redis_client.get("connection_test"))
+
 from flask import (
     Flask,
     render_template,

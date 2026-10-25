@@ -5282,14 +5282,14 @@ def settings():
 
                 os.makedirs(directory, exist_ok=True)
                 upload_result = cloudinary.uploader.upload(
-     file,
+    file,
     folder="medilens/lab-assets",
     resource_type="image"
 )
 
                 image_url = upload_result["secure_url"]
 
-                return filename
+                return image_url
 
             logo_name = save_upload(
                 logo, upload_dirs["logo"]

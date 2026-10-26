@@ -2785,6 +2785,9 @@ def enter_results(patient_id):
                 if display_name:
                     parameter_values[display_name] = value
 
+            
+
+           
             # ----------------------------------------------
             # Save manual results
             # ----------------------------------------------
@@ -2797,15 +2800,21 @@ def enter_results(patient_id):
             )
 
             # ----------------------------------------------
-            # Calculate formula results
+            # Prepare values for formula calculations
             # ----------------------------------------------
-
-            # Use the formula handler already imported by
-            # your existing app.py.
 
             parameter_values.update(manual_values or {})
 
-            calculated_values = calculate_formula_results(
+            print("=" * 60)
+            print("[FORMULA INPUT VALUES]")
+            print(parameter_values)
+            print("=" * 60)
+
+            # ----------------------------------------------
+            # Calculate and save formula results ONCE
+            # ----------------------------------------------
+
+            save_formula_results(
                 cursor,
                 patient_id,
                 lab_id,
@@ -2813,15 +2822,16 @@ def enter_results(patient_id):
             )
 
             # ----------------------------------------------
-            # Save formula results
+            # Save dictionary/dropdown results
             # ----------------------------------------------
 
-            save_formula_results(
+            save_dictionary_results(
                 cursor,
                 patient_id,
                 lab_id,
-                calculated_values
+                request.form
             )
+
 
             # ----------------------------------------------
             # Save dictionary/dropdown results
@@ -2894,10 +2904,30 @@ def enter_results(patient_id):
         # 4. BUILD REPORT STRUCTURE
         # ==================================================
 
+        
+# ==================================================
+# 4. BUILD REPORT STRUCTURE
+#    USING PATIENT AGE AND GENDER
+# ==================================================
+
+        patient_age = patient.get("age")
+        patient_gender = patient.get("gender")
+
+        print("=" * 60)
+        print("[REFERENCE RANGE DEBUG]")
+        print("Patient ID:", patient_id)
+        print("Patient Age:", repr(patient_age))
+        print("Patient Gender:", repr(patient_gender))
+        print("=" * 60)
+
         report_structure = build_report_structure(
-            cursor,
-            patient_id
-        )
+     cursor,
+    patient_id=patient_id,
+    patient_age=patient_age,
+    patient_gender=patient_gender
+)
+
+
 
         # ==================================================
         # 5. LOAD SAVED RESULTS
@@ -2977,6 +3007,11 @@ def enter_results(patient_id):
 # VIEW REPORT
 # ============================================================
 
+
+# ============================================================
+# VIEW REPORT
+# ============================================================
+
 @app.route("/view-report/<patient_id>")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -3000,6 +3035,18 @@ def view_report(patient_id):
 
         if not patient:
             return "Patient not found", 404
+
+        # Get the patient's actual age and gender.
+        patient_age = patient.get("age")
+        patient_gender = patient.get("gender")
+
+        print("=" * 60)
+        print("VIEW REPORT DEBUG")
+        print("Patient ID:", patient_id)
+        print("Patient age:", patient_age)
+        print("Patient gender:", patient_gender)
+        print("Lab ID:", lab_id)
+        print("=" * 60)
 
         # ====================================================
         # 2. LOAD REPORT DESCRIPTION
@@ -3057,11 +3104,14 @@ def view_report(patient_id):
 
         # ====================================================
         # 4. BUILD REPORT STRUCTURE
+        #    USING PATIENT-SPECIFIC REFERENCE RANGES
         # ====================================================
 
         report_structure = build_report_structure(
             cursor,
-            patient_id
+            patient_id=patient_id,
+            patient_age=patient_age,
+            patient_gender=patient_gender
         )
 
         # ====================================================
@@ -3168,7 +3218,8 @@ def view_report(patient_id):
         print("=" * 60)
         print("VIEW REPORT DEBUG")
         print("Patient ID:", patient_id)
-        print("Lab ID:", lab_id)
+        print("Patient age:", patient_age)
+        print("Patient gender:", patient_gender)
         print("Report description:", repr(report_description))
         print("Signatories:", signatories)
         print("Lab settings:", lab_settings)
@@ -3217,6 +3268,8 @@ def view_report(patient_id):
     finally:
         cursor.close()
         db.close()
+
+
 # ============================================================
 # PUBLIC REPORT - QR CODE ACCESS
 # ============================================================

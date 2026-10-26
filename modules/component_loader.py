@@ -1,3 +1,4 @@
+
 import json
 
 from modules.dictionary_loader import load_dictionary_values
@@ -38,12 +39,12 @@ def _build_reference_range(
     age_unit=None,
     gender=None,
 ):
-    """
-    Build a simple reference-range string.
-    Age and gender are deliberately not displayed.
-    """
+    """Build a reference-range string."""
     if lower_value is not None and upper_value is not None:
-        return f"{_format_number(lower_value)} - {_format_number(upper_value)}"
+        return (
+            f"{_format_number(lower_value)} - "
+            f"{_format_number(upper_value)}"
+        )
 
     if reference_text and str(reference_text).strip():
         return str(reference_text).strip()
@@ -57,19 +58,90 @@ def _build_reference_range(
     return ""
 
 
-def _load_reference_ranges(cursor, parameter_ids):
+def _age_in_range_unit(age_years, age_unit):
     """
-    Load active reference ranges for parameter IDs.
+    Convert the patient's stored age to the unit used by the range.
 
-    Returns:
-        {parameter_id: [range_text, ...]}
+    Patient registration currently stores age as an integer in years.
     """
-    reference_ranges = {parameter_id: [] for parameter_id in parameter_ids}
+    if age_years is None:
+        return None
+
+    try:
+        age = float(age_years)
+    except (TypeError, ValueError):
+        return None
+
+    unit = str(age_unit or "years").strip().lower()
+
+    if unit in {"month", "months", "mon", "m"}:
+        return age * 12
+
+    if unit in {"day", "days", "d"}:
+        return age * 365.25
+
+    if unit in {"week", "weeks", "wk", "w"}:
+        return age * 52.1775
+
+    # Default: years
+    return age
+
+
+def _gender_matches(range_gender, patient_gender):
+    """
+    Return (matches, specificity).
+
+    Gender-specific matches receive higher priority than general ranges.
+    """
+    range_value = str(range_gender or "all").strip().lower()
+    patient_value = str(patient_gender or "").strip().lower()
+
+    general_values = {
+        "",
+        "all",
+        "any",
+        "both",
+        "unisex",
+        "male/female",
+        "all genders",
+    }
+
+    if range_value in general_values:
+        return True, 0
+
+    if not patient_value:
+        return False, 0
+
+    if range_value == patient_value:
+        return True, 1
+
+    return False, 0
+
+
+def _load_reference_ranges(
+    cursor,
+    parameter_ids,
+    patient_age=None,
+    patient_gender=None,
+):
+    """
+    Select one applicable active reference range per parameter.
+
+    Priority:
+      1. Match the patient's gender and age.
+      2. Prefer gender-specific ranges over general ranges.
+      3. Prefer the narrowest applicable age interval.
+    """
+    selected = {
+        parameter_id: None
+        for parameter_id in parameter_ids
+    }
 
     if not parameter_ids:
-        return reference_ranges
+        return selected
 
     placeholders = ", ".join(["%s"] * len(parameter_ids))
+
     query = f"""
         SELECT
             parameter_id,
@@ -82,18 +154,23 @@ def _load_reference_ranges(cursor, parameter_ids):
             reference_text,
             interpretation
         FROM parameter_reference_ranges
-        WHERE status = 'active'
+        WHERE LOWER(status) = 'active'
           AND parameter_id IN ({placeholders})
         ORDER BY parameter_id, age_from, age_to
     """
 
     cursor.execute(query, tuple(parameter_ids))
-    rows = cursor.fetchall()
+    rows = cursor.fetchall() or []
+
+    candidates = {
+        parameter_id: []
+        for parameter_id in parameter_ids
+    }
 
     for row in rows:
         (
             parameter_id,
-            gender,
+            range_gender,
             age_from,
             age_to,
             age_unit,
@@ -103,70 +180,139 @@ def _load_reference_ranges(cursor, parameter_ids):
             interpretation,
         ) = row
 
+        gender_match, gender_specificity = _gender_matches(
+            range_gender,
+            patient_gender,
+        )
+
+        if not gender_match:
+            continue
+
+        age_value = _age_in_range_unit(
+            patient_age,
+            age_unit,
+        )
+
+        # If the patient has an age, enforce the configured boundaries.
+        if age_value is not None:
+            if age_from is not None and age_value < float(age_from):
+                continue
+
+            if age_to is not None and age_value > float(age_to):
+                continue
+
+        # If age is unknown, do not choose an age-restricted range.
+        elif age_from is not None or age_to is not None:
+            continue
+
         range_text = _build_reference_range(
             reference_text=reference_text,
             lower_value=lower_value,
             upper_value=upper_value,
-            age_from=age_from,
-            age_to=age_to,
-            age_unit=age_unit,
-            gender=gender,
         )
 
-        if range_text:
-            reference_ranges.setdefault(parameter_id, []).append(range_text)
+        if not range_text:
+            continue
 
-    # Remove duplicate strings, preserving order.
-    for parameter_id, ranges in reference_ranges.items():
-        reference_ranges[parameter_id] = list(dict.fromkeys(ranges))
+        # Prefer narrower intervals when both age boundaries exist.
+        if age_from is not None and age_to is not None:
+            age_span = float(age_to) - float(age_from)
+        else:
+            age_span = float("inf")
 
-    return reference_ranges
+        candidates.setdefault(parameter_id, []).append(
+            (
+                gender_specificity,
+                age_span,
+                range_text,
+                lower_value,
+                upper_value,
+                interpretation,
+            )
+        )
+
+    # Choose the single best applicable range.
+    for parameter_id, options in candidates.items():
+        if not options:
+            continue
+
+        options.sort(
+            key=lambda item: (
+                -item[0],
+                item[1],
+            )
+        )
+
+        best = options[0]
+
+        selected[parameter_id] = {
+            "text": best[2],
+            "lower_value": best[3],
+            "upper_value": best[4],
+            "interpretation": best[5],
+        }
+
+    return selected
 
 
-def _load_parameter_dictionary_id(cursor, parameter_id, component_settings):
-    """
-    Resolve a parameter's dictionary ID from explicit component settings.
+def _load_parameter_dictionary_id(
+    cursor,
+    parameter_id,
+    component_settings,
+):
+    """Resolve a parameter's dictionary ID from explicit settings."""
+    dictionary_id = component_settings.get(
+        f"dictionary_id_{parameter_id}"
+    )
 
-    Supported settings:
-      - dictionary_id_<parameter_id>
-      - parameter_dictionaries: {"<parameter_id>": dictionary_id}
-
-    Deliberately does not scan arbitrary database tables because that can
-    select an unrelated mapping. If your application stores mappings in a
-    dedicated table, add that table's exact schema/query here.
-    """
-    dictionary_id = component_settings.get(f"dictionary_id_{parameter_id}")
     if dictionary_id:
         return dictionary_id
 
-    parameter_dictionaries = component_settings.get("parameter_dictionaries", {})
+    parameter_dictionaries = component_settings.get(
+        "parameter_dictionaries",
+        {},
+    )
+
     if isinstance(parameter_dictionaries, dict):
-        dictionary_id = parameter_dictionaries.get(str(parameter_id))
+        dictionary_id = parameter_dictionaries.get(
+            str(parameter_id)
+        )
+
         if dictionary_id is None:
-            dictionary_id = parameter_dictionaries.get(parameter_id)
+            dictionary_id = parameter_dictionaries.get(
+                parameter_id
+            )
 
     return dictionary_id
 
 
 def _safe_load_dictionary_values(cursor, dictionary_id):
-    """Load dictionary values without hiding database errors in debug mode."""
+    """Load dictionary values safely."""
     if dictionary_id in (None, ""):
         return []
 
     try:
-        return load_dictionary_values(cursor, dictionary_id) or []
+        return load_dictionary_values(
+            cursor,
+            dictionary_id,
+        ) or []
+
     except Exception as exc:
         print(
-            f"[component_loader] Failed loading dictionary "
+            "[component_loader] Failed loading dictionary "
             f"{dictionary_id!r}: {exc}"
         )
         return []
 
 
-def load_component(cursor, comp):
+def load_component(
+    cursor,
+    comp,
+    patient_age=None,
+    patient_gender=None,
+):
     """
-    Load one report component, its active parameters, dictionary options,
-    and reference ranges.
+    Load a report component and select reference ranges for this patient.
 
     Expected component tuple:
         (id, component_name, component_type, component_content)
@@ -181,10 +327,12 @@ def load_component(cursor, comp):
     component_name = comp[1]
     component_type = comp[2]
     component_content = comp[3]
-    component_settings = _parse_component_content(component_content)
 
-    # Read the dedicated settings table. In this application, settings such as
-    # dictionary_id may be stored here rather than only in component_content.
+    component_settings = _parse_component_content(
+        component_content
+    )
+
+    # Load additional component settings.
     try:
         cursor.execute(
             """
@@ -194,14 +342,17 @@ def load_component(cursor, comp):
             """,
             (component_id,),
         )
-        for setting_key, setting_value in (cursor.fetchall() or []):
+
+        for setting_key, setting_value in cursor.fetchall() or []:
             if setting_key:
-                component_settings.setdefault(str(setting_key), setting_value)
+                component_settings.setdefault(
+                    str(setting_key),
+                    setting_value,
+                )
+
     except Exception as exc:
-        # Keep component_content usable if this installation does not have
-        # report_component_settings or the query fails.
         print(
-            f"[component_loader] Could not load settings for "
+            "[component_loader] Could not load settings for "
             f"component {component_id}: {exc}"
         )
 
@@ -217,29 +368,21 @@ def load_component(cursor, comp):
         "selected_value": "",
     }
 
-    # 1. Component-level dictionary, e.g. a dictionary_result component.
-    component_dictionary_id = component_settings.get("dictionary_id")
+    # Component-level dictionary.
+    component_dictionary_id = component_settings.get(
+        "dictionary_id"
+    )
+
     if component_dictionary_id:
         dictionary_values = _safe_load_dictionary_values(
-            cursor, component_dictionary_id
+            cursor,
+            component_dictionary_id,
         )
+
         component_data["dropdown_options"] = dictionary_values
         component_data["dictionary_values"] = dictionary_values
 
-    print(
-        "[component_loader] Component:",
-        component_id,
-        "| type:",
-        component_type,
-        "| settings:",
-        component_settings,
-        "| dictionary_id:",
-        component_settings.get("dictionary_id"),
-        "| dictionary_values:",
-        component_data["dictionary_values"],
-    )
-
-    # 2. Load parameter definitions.
+    # Load parameter definitions.
     cursor.execute(
         """
         SELECT
@@ -268,18 +411,22 @@ def load_component(cursor, comp):
         """,
         (component_id,),
     )
+
     rows = cursor.fetchall()
 
     if not rows:
         return component_data
 
-    parameter_ids = [row[0] for row in rows]
-    reference_ranges = _load_reference_ranges(cursor, parameter_ids)
-    print(
-        "[component_loader] Reference ranges for component",
-        component_id,
-        ":",
-        reference_ranges,
+    parameter_ids = [
+        row[0]
+        for row in rows
+    ]
+
+    reference_ranges = _load_reference_ranges(
+        cursor,
+        parameter_ids,
+        patient_age,
+        patient_gender,
     )
 
     for row in rows:
@@ -302,43 +449,63 @@ def load_component(cursor, comp):
             display_order,
         ) = row
 
-        data_type = str(data_type or "numeric").strip().lower()
-        reference_type = str(reference_type or "normal").strip().lower()
+        data_type = str(
+            data_type or "numeric"
+        ).strip().lower()
+
+        reference_type = str(
+            reference_type or "normal"
+        ).strip().lower()
 
         if formula_id or data_type == "formula":
             input_type = "formula"
+
         elif data_type == "list":
             input_type = "dropdown"
+
         elif data_type == "text":
             input_type = "text"
+
         else:
             input_type = "numeric"
 
-        # Use the explicit reference ranges first, then min/max fallback.
-        parameter_reference_ranges = reference_ranges.get(parameter_id, [])
-        if parameter_reference_ranges:
-            reference_range = "; ".join(parameter_reference_ranges)
+        # Use the selected patient-specific range first.
+        selected_reference = reference_ranges.get(
+            parameter_id
+        )
+
+        if selected_reference:
+            reference_range = selected_reference["text"]
+
         elif min_range is not None and max_range is not None:
             reference_range = (
-                f"{_format_number(min_range)} - {_format_number(max_range)}"
+                f"{_format_number(min_range)} - "
+                f"{_format_number(max_range)}"
             )
+
         elif min_range is not None:
             reference_range = f">= {_format_number(min_range)}"
+
         elif max_range is not None:
             reference_range = f"<= {_format_number(max_range)}"
+
         else:
             reference_range = ""
 
-        # 3. Parameter-level dictionary. No arbitrary table scanning.
+        # Parameter-level dictionary options.
         dropdown_options = []
-        dictionary_id = None
+
         if input_type == "dropdown":
             dictionary_id = _load_parameter_dictionary_id(
-                cursor, parameter_id, component_settings
+                cursor,
+                parameter_id,
+                component_settings,
             )
+
             if dictionary_id:
                 dropdown_options = _safe_load_dictionary_values(
-                    cursor, dictionary_id
+                    cursor,
+                    dictionary_id,
                 )
 
         parameter_data = {
@@ -354,19 +521,51 @@ def load_component(cursor, comp):
             "data_type": data_type,
             "reference_type": reference_type,
             "reference_range": reference_range,
+
+            # Keep numeric bounds available for result interpretation.
+            "reference_lower": (
+                selected_reference["lower_value"]
+                if selected_reference
+                else min_range
+            ),
+            "reference_upper": (
+                selected_reference["upper_value"]
+                if selected_reference
+                else max_range
+            ),
+            "reference_interpretation": (
+                selected_reference["interpretation"]
+                if selected_reference
+                else ""
+            ),
+
             "formula_id": formula_id,
             "formula_expression": formula_expression or "",
-            "decimal_places": decimal_places if decimal_places is not None else 2,
-            "formula_decimal_places": (
-                decimal_places if decimal_places is not None else 2
+            "decimal_places": (
+                decimal_places
+                if decimal_places is not None
+                else 2
             ),
-            "default_value": default_value if default_value is not None else "",
+            "formula_decimal_places": (
+                decimal_places
+                if decimal_places is not None
+                else 2
+            ),
+            "default_value": (
+                default_value
+                if default_value is not None
+                else ""
+            ),
             "editable": editable,
             "optional_field": optional_field,
             "display_order": display_order,
             "dropdown_options": dropdown_options,
             "result": None,
         }
-        component_data["parameters"].append(parameter_data)
+
+        component_data["parameters"].append(
+            parameter_data
+        )
 
     return component_data
+

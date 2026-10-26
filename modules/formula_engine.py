@@ -26,16 +26,24 @@ OPERATORS = {
 
 def normalize_parameter_name(name):
     """
-    Normalize parameter names for matching.
+    Normalize parameter names for formula matching.
 
     Examples:
-        RBC Count  -> RBC_COUNT
-        rbc_count  -> RBC_COUNT
-        Hemoglobin -> HEMOGLOBIN
+        RBC Count       -> RBC_COUNT
+        R.B.C Count     -> RBC_COUNT
+        R.B.C_COUNT     -> RBC_COUNT
+        rbc_count       -> RBC_COUNT
+        Hemoglobin      -> HEMOGLOBIN
+        Packed Cell Volume (HCT) -> PACKED_CELL_VOLUME_HCT
     """
 
     name = str(name).strip().upper()
 
+    # Remove periods within abbreviations:
+    # R.B.C -> RBC
+    name = re.sub(r"(?<=[A-Z0-9])\.(?=[A-Z0-9])", "", name)
+
+    # Replace remaining punctuation and spaces with underscores.
     name = re.sub(r"[^A-Z0-9]+", "_", name)
 
     return name.strip("_")

@@ -1077,3 +1077,42 @@ table.print-layout.report-test-page {
 .section-title {
     display: none !important;
 }
+
+
+/* =========================================================
+   FIX: Keep parameter columns aligned even when a section
+   renders its column heading only in the first component.
+   Each component may create a separate .report-table; tables
+   without a <thead> must still use the same four-column grid.
+   ========================================================= */
+
+.report-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+}
+
+/* Apply the same widths to body cells as the visible header. */
+.report-table tbody tr:not(.reference-text-row) > td:nth-child(1) {
+    width: 40% !important;
+}
+
+.report-table tbody tr:not(.reference-text-row) > td:nth-child(2) {
+    width: 15% !important;
+}
+
+.report-table tbody tr:not(.reference-text-row) > td:nth-child(3) {
+    width: 17% !important;
+}
+
+.report-table tbody tr:not(.reference-text-row) > td:nth-child(4) {
+    width: 28% !important;
+}
+
+/* Keep dropdown tables as their own two-column layout. */
+.report-table.dropdown-table tbody tr > td:nth-child(1) {
+    width: 40% !important;
+}
+
+.report-table.dropdown-table tbody tr > td:nth-child(2) {
+    width: 60% !important;
+}

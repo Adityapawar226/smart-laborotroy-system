@@ -648,7 +648,7 @@ def add_component(section_id):
     )
 @test_builder_bp.route("/parameters/add/<int:component_id>", methods=["GET", "POST"])
 def add_parameter(component_id):
-
+    print("========== ADD_PARAMETER ROUTE CALLED ==========", flush=True)
     if "lab_id" not in session:
         return redirect(url_for("login"))
 
@@ -698,7 +698,8 @@ def add_parameter(component_id):
     # -------------------------------------------------
 
     if request.method == "POST":
-
+        print("========== ADD_PARAMETER POST RECEIVED ==========", flush=True)
+        print("FORM DATA:", request.form.to_dict(), flush=True)
         display_name = request.form["display_name"].strip()
         short_name = request.form.get("short_name")
         unit = request.form.get("unit")
@@ -739,27 +740,33 @@ def add_parameter(component_id):
             .replace("-", "_")
         )
 
+                # ---------------------------------------------
+        # Check Duplicate Parameter Within Same Component
         # ---------------------------------------------
-        # Check Duplicate Parameter
-        # ---------------------------------------------
-
         cursor.execute("""
             SELECT id
             FROM parameter_definition
-            WHERE lab_id <=> %s
+            WHERE component_id = %s
+              AND lab_id <=> %s
               AND parameter_code = %s
             LIMIT 1
         """, (
+            component_id,
             component["test_lab_id"],
             parameter_code
         ))
 
         existing_parameter = cursor.fetchone()
 
-        if existing_parameter:
+        print(
+            "DUPLICATE CHECK:",
+            repr(existing_parameter),
+            flush=True
+        )
 
+        if existing_parameter:
             flash(
-                f"Parameter '{display_name}' already exists in this lab.",
+                f"Parameter '{display_name}' already exists in this component.",
                 "warning"
             )
 
@@ -772,15 +779,71 @@ def add_parameter(component_id):
                     component_id=component_id
                 )
             )
-
         # ---------------------------------------------
         # Formula
         # ---------------------------------------------
+        print(
+    "REACHED FORMULA SECTION",
+    flush=True
+)
+     
+        # ---------------------------------------------
+        # Formula
+        # ---------------------------------------------
+        formula_id = request.form.get("formula_id", "").strip()
 
-        formula_id = request.form.get("formula_id")
+        print("\n========== ADD PARAMETER DEBUG ==========", flush=True)
+        print("Parameter name:", repr(display_name), flush=True)
+        print("Data type:", repr(data_type), flush=True)
+        print("Reference type:", repr(reference_type), flush=True)
+        print("Submitted formula ID:", repr(formula_id), flush=True)
 
         if formula_id == "":
             formula_id = None
+        else:
+            try:
+                formula_id = int(formula_id)
+            except (ValueError, TypeError):
+                flash("Invalid formula selected.", "danger")
+                cursor.close()
+                db.close()
+                return redirect(
+                    url_for(
+                        "test_builder.add_parameter",
+                        component_id=component_id
+                    )
+                )
+
+        # Validate the selected formula exists and is active.
+        if formula_id is not None:
+            cursor.execute("""
+                SELECT id
+                FROM report_formulas
+                WHERE id = %s
+                  AND status = 'active'
+                LIMIT 1
+            """, (formula_id,))
+
+            selected_formula = cursor.fetchone()
+
+            if not selected_formula:
+                flash(
+                    "Selected formula does not exist or is inactive.",
+                    "danger"
+                )
+                cursor.close()
+                db.close()
+                return redirect(
+                    url_for(
+                        "test_builder.add_parameter",
+                        component_id=component_id
+                    )
+                )
+
+        print("Formula ID to insert:", repr(formula_id), flush=True)
+        print("=========================================\n", flush=True)
+
+
 
         # ---------------------------------------------
         # Insert Parameter
@@ -829,9 +892,32 @@ def add_parameter(component_id):
             display_order
         ))
 
+        
         db.commit()
-
         parameter_id = cursor.lastrowid
+
+        print(
+            "INSERT SUCCESS:",
+            "parameter_id =", parameter_id,
+            "formula_id =", formula_id,
+            flush=True
+        )
+
+        cursor.execute("""
+            SELECT id, display_name, data_type, formula_id
+            FROM parameter_definition
+            WHERE id = %s
+        """, (parameter_id,))
+
+        saved_parameter = cursor.fetchone()
+
+        print(
+            "DATABASE VERIFICATION:",
+            saved_parameter,
+            flush=True
+        )
+
+
 
         # ---------------------------------------------
         # Save Dropdown Values
@@ -1083,94 +1169,212 @@ def add_reference_range(parameter_id):
     db = get_db()
     cursor = db.cursor(dictionary=True)
 
-    # Get Parameter Details
-    cursor.execute("""
-    SELECT
-        pd.*,
-        rc.component_name,
-        ts.section_name,
-        t.test_name,
-        t.lab_id AS test_lab_id
-    FROM parameter_definition pd
-    JOIN report_components rc
-        ON pd.component_id = rc.id
-    JOIN test_sections ts
-        ON rc.section_id = ts.id
-    JOIN tests t
-        ON rc.test_id = t.id
-    WHERE pd.id = %s
-      AND (
-          %s = 'Developer'
-          OR t.lab_id = %s
-      )
-""", (
-    parameter_id,
-    session.get("role"),
-    session["lab_id"]
-))
+    try:
+        # ==================================================
+        # 1. GET PARAMETER DETAILS
+        # ==================================================
 
-    parameter = cursor.fetchone()
-
-    if not parameter:
-        flash("Parameter not found.", "danger")
-        cursor.close()
-        db.close()
-        return redirect(url_for("test_builder.configure_test_list"))
-
-    if request.method == "POST":
-
-        # Convert form value to Decimal
-        def decimal_or_none(value):
-            value = (value or "").strip()
-            return Decimal(value) if value else None
-
-        lower_value = decimal_or_none(request.form.get("lower_value"))
-        upper_value = decimal_or_none(request.form.get("upper_value"))
-        critical_low = decimal_or_none(request.form.get("critical_low"))
-        critical_high = decimal_or_none(request.form.get("critical_high"))
-        age_from = decimal_or_none(request.form.get("age_from"))
-        age_to = decimal_or_none(request.form.get("age_to"))
-
-        reference_text = request.form.get("reference_text", "").strip() or None
-        interpretation = request.form.get("interpretation", "").strip() or None
-
-        cursor.execute("""
-            INSERT INTO parameter_reference_ranges
+        cursor.execute(
+            """
+            SELECT
+                pd.*,
+                rc.component_name,
+                ts.section_name,
+                t.test_name,
+                t.id AS test_id,
+                t.lab_id AS test_lab_id
+            FROM parameter_definition pd
+            JOIN report_components rc
+                ON pd.component_id = rc.id
+            JOIN test_sections ts
+                ON rc.section_id = ts.id
+            JOIN tests t
+                ON rc.test_id = t.id
+            WHERE pd.id = %s
+              AND (
+                  %s = 'Developer'
+                  OR t.lab_id = %s
+              )
+            """,
             (
                 parameter_id,
-                gender,
-                age_from,
-                age_to,
-                age_unit,
-                lower_value,
-                upper_value,
-                critical_low,
-                critical_high,
-                reference_text,
-                interpretation
+                session.get("role"),
+                session.get("lab_id")
             )
-            VALUES
-            (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            parameter_id,
-            request.form["gender"],
-            age_from,
-            age_to,
-            request.form["age_unit"],
-            lower_value,
-            upper_value,
-            critical_low,
-            critical_high,
-            reference_text,
-            interpretation
-        ))
+        )
 
-        db.commit()
+        parameter = cursor.fetchone()
 
-        flash("Reference range added successfully.", "success")
-         
-        cursor.close()
-        db.close()
+        if not parameter:
+            flash("Parameter not found.", "danger")
+            return redirect(url_for("reports_management"))
+
+        # ==================================================
+        # 2. HANDLE FORM SUBMISSION
+        # ==================================================
+
+        if request.method == "POST":
+
+            def decimal_or_none(value):
+                value = (value or "").strip()
+
+                if not value:
+                    return None
+
+                return Decimal(value)
+
+            lower_value = decimal_or_none(
+                request.form.get("lower_value")
+            )
+
+            upper_value = decimal_or_none(
+                request.form.get("upper_value")
+            )
+
+            critical_low = decimal_or_none(
+                request.form.get("critical_low")
+            )
+
+            critical_high = decimal_or_none(
+                request.form.get("critical_high")
+            )
+
+            age_from = decimal_or_none(
+                request.form.get("age_from")
+            )
+
+            age_to = decimal_or_none(
+                request.form.get("age_to")
+            )
+
+            reference_text = (
+                request.form.get("reference_text", "").strip()
+                or None
+            )
+
+            interpretation = (
+                request.form.get("interpretation", "").strip()
+                or None
+            )
+
+            gender = request.form.get("gender", "").strip()
+            age_unit = request.form.get("age_unit", "").strip()
+
+            if not gender or not age_unit:
+                flash(
+                    "Please select both gender and age unit.",
+                    "danger"
+                )
+
+                return render_template(
+                    "test_builder/add_reference_range.html",
+                    parameter=parameter
+                )
+
+            if (
+                lower_value is not None
+                and upper_value is not None
+                and lower_value > upper_value
+            ):
+                flash(
+                    "Lower reference value cannot exceed upper value.",
+                    "danger"
+                )
+
+                return render_template(
+                    "test_builder/add_reference_range.html",
+                    parameter=parameter
+                )
+
+            if (
+                age_from is not None
+                and age_to is not None
+                and age_from > age_to
+            ):
+                flash(
+                    "Starting age cannot exceed ending age.",
+                    "danger"
+                )
+
+                return render_template(
+                    "test_builder/add_reference_range.html",
+                    parameter=parameter
+                )
+
+            # ==============================================
+            # 3. SAVE REFERENCE RANGE
+            # ==============================================
+
+            cursor.execute(
+                """
+                INSERT INTO parameter_reference_ranges
+                (
+                    parameter_id,
+                    gender,
+                    age_from,
+                    age_to,
+                    age_unit,
+                    lower_value,
+                    upper_value,
+                    critical_low,
+                    critical_high,
+                    reference_text,
+                    interpretation
+                )
+                VALUES
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    parameter_id,
+                    gender,
+                    age_from,
+                    age_to,
+                    age_unit,
+                    lower_value,
+                    upper_value,
+                    critical_low,
+                    critical_high,
+                    reference_text,
+                    interpretation
+                )
+            )
+
+            db.commit()
+
+            flash(
+                "Reference range added successfully.",
+                "success"
+            )
+
+            # Redirect using the existing parameter-specific endpoint.
+            return redirect(
+                url_for(
+                    "test_builder.reference_range_list",
+                    parameter_id=parameter_id
+                )
+            )
+
+        # ==================================================
+        # 4. DISPLAY ADD REFERENCE RANGE FORM
+        # ==================================================
+
+        return render_template(
+            "test_builder/add_reference_range.html",
+            parameter=parameter
+        )
+
+    except Exception as e:
+        db.rollback()
+
+        current_app.logger.exception(
+            "Error adding reference range for parameter %s",
+            parameter_id
+        )
+
+        flash(
+            "Unable to process the reference range. Check the server logs.",
+            "danger"
+        )
 
         return redirect(
             url_for(
@@ -1179,13 +1383,12 @@ def add_reference_range(parameter_id):
             )
         )
 
-    cursor.close()
-    db.close()
+    finally:
+        cursor.close()
+        db.close()
 
-    return render_template(
-        "test_builder/add_reference_range.html",
-        parameter=parameter
-    )
+
+
 @test_builder_bp.route("/departments")
 def department_list():
 

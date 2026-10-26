@@ -1,3 +1,4 @@
+
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
@@ -9,16 +10,27 @@ document.addEventListener("DOMContentLoaded", function () {
         document.querySelectorAll(".formula-result")
     );
 
-    // Normalize parameter names and codes.
+    // --------------------------------------------------
+    // NORMALIZE PARAMETER NAMES
+    // --------------------------------------------------
     function normalizeName(name) {
-        return String(name || "")
+        let value = String(name || "")
             .trim()
-            .toUpperCase()
-            .replace(/[^A-Z0-9]+/g, "_")
-            .replace(/^_+|_+$/g, "");
+            .toUpperCase();
+
+        // R.B.C Count -> RBC Count
+        // R.B.C_COUNT -> RBC_COUNT
+        value = value.replace(/\./g, "");
+
+        // Convert remaining punctuation and spaces to underscores.
+        value = value.replace(/[^A-Z0-9]+/g, "_");
+
+        return value.replace(/^_+|_+$/g, "");
     }
 
-    // Collect all possible aliases for an input field.
+    // --------------------------------------------------
+    // COLLECT ALIASES FOR EACH INPUT
+    // --------------------------------------------------
     function getAliases(input) {
         const aliases = [
             input.dataset.code,
@@ -28,25 +40,88 @@ document.addEventListener("DOMContentLoaded", function () {
             input.name
         ];
 
-        const match = String(input.name || "").match(/^param_(\d+)$/i);
+        const displayName = String(
+            input.dataset.displayName || ""
+        );
 
-        if (match) {
-            aliases.push("PARAM_" + match[1]);
+        // Hemoglobin (Hb) -> also register HB.
+        const parentheticalMatches =
+            displayName.matchAll(/\(([^)]+)\)/g);
+
+        for (const match of parentheticalMatches) {
+            aliases.push(match[1]);
         }
 
-        return aliases.map(normalizeName).filter(Boolean);
+        // Add the numeric parameter ID as an alias.
+        const fieldName = String(input.name || "");
+        const idMatch = fieldName.match(/^param_(\d+)$/i);
+
+        if (idMatch) {
+            aliases.push("PARAM_" + idMatch[1]);
+        }
+
+        const normalized = aliases
+            .map(normalizeName)
+            .filter(Boolean);
+
+        // Add known CBC aliases.
+        const expanded = [];
+
+        normalized.forEach(function (alias) {
+            expanded.push(alias);
+
+            // RBC aliases
+            if (
+                alias === "RBC" ||
+                alias === "R_B_C" ||
+                alias === "RBC_COUNT" ||
+                alias === "R_B_C_COUNT"
+            ) {
+                expanded.push("RBC");
+                expanded.push("RBC_COUNT");
+                expanded.push("R_B_C_COUNT");
+            }
+
+            // Hemoglobin aliases
+            if (
+                alias === "HB" ||
+                alias === "HEMOGLOBIN" ||
+                alias === "HEMOGLOBIN_HB"
+            ) {
+                expanded.push("HB");
+                expanded.push("HEMOGLOBIN");
+                expanded.push("HEMOGLOBIN_HB");
+            }
+
+            // Hematocrit / packed cell volume aliases
+            if (
+                alias === "HCT" ||
+                alias === "PCV" ||
+                alias === "PACKED_CELL_VOLUME_HCT"
+            ) {
+                expanded.push("HCT");
+                expanded.push("PCV");
+                expanded.push("PACKED_CELL_VOLUME_HCT");
+            }
+        });
+
+        return [...new Set(expanded)];
     }
 
-    // Read the current values entered by the user.
+    // --------------------------------------------------
+    // READ CURRENT VALUES
+    // --------------------------------------------------
     function readValues() {
         const values = {};
 
         function addInput(input) {
-            if (!input || String(input.value).trim() === "") {
+            const rawValue = String(input.value || "").trim();
+
+            if (rawValue === "") {
                 return;
             }
 
-            const value = Number(input.value);
+            const value = Number(rawValue);
 
             if (!Number.isFinite(value)) {
                 return;
@@ -63,8 +138,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return values;
     }
 
-    // Safely evaluate basic arithmetic expressions.
-    // Supports +, -, *, /, %, parentheses and decimals.
+    // --------------------------------------------------
+    // SAFE ARITHMETIC EXPRESSION EVALUATOR
+    // Supports + - * / % and parentheses.
+    // --------------------------------------------------
     function calculateExpression(expression) {
         const source = String(expression || "")
             .replace(/×/g, "*")
@@ -180,19 +257,25 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Replace formula variables with their corresponding numeric values.
+    // --------------------------------------------------
+    // SUBSTITUTE FORMULA VARIABLES
+    // --------------------------------------------------
     function calculateFormula(expression, values) {
         if (!expression) {
             return null;
         }
 
         let processed = String(expression)
+            .toUpperCase()
             .replace(/×/g, "*")
             .replace(/÷/g, "/");
 
-        const keys = Object.keys(values).sort(function (a, b) {
-            return b.length - a.length;
-        });
+        // Replace longer variable names first.
+        const keys = Object.keys(values).sort(
+            function (a, b) {
+                return b.length - a.length;
+            }
+        );
 
         keys.forEach(function (key) {
             const escaped = key.replace(
@@ -204,7 +287,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 "(?<![A-Z0-9_])" +
                 escaped +
                 "(?![A-Z0-9_])",
-                "gi"
+                "g"
             );
 
             processed = processed.replace(
@@ -213,7 +296,7 @@ document.addEventListener("DOMContentLoaded", function () {
             );
         });
 
-        // Do not calculate if any variable remains unresolved.
+        // Do not calculate if variables remain unresolved.
         if (/[A-Z_][A-Z0-9_]*/i.test(processed)) {
             return null;
         }
@@ -221,14 +304,15 @@ document.addEventListener("DOMContentLoaded", function () {
         return calculateExpression(processed);
     }
 
-    // Recalculate formula fields whenever manual values change.
+    // --------------------------------------------------
+    // RECALCULATE FORMULA FIELDS
+    // --------------------------------------------------
     function updateFormulaFields() {
         const values = readValues();
 
         let pending = formulaInputs.slice();
         let pass = 0;
 
-        // Repeat passes to support formulas that depend on other formulas.
         while (
             pending.length > 0 &&
             pass < formulaInputs.length + 1
@@ -264,7 +348,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 input.value = result.toFixed(decimals);
 
-                // Make this calculated result available to dependent formulas.
+                // Make this result available to dependent formulas.
                 getAliases(input).forEach(function (alias) {
                     values[alias] = result;
                 });
@@ -279,22 +363,26 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Clear formulas whose required inputs are missing.
+        // Keep unresolved formulas empty.
         pending.forEach(function (input) {
             input.value = "";
         });
     }
 
-    // Listen for changes in manual result fields.
+    // --------------------------------------------------
+    // LISTEN FOR USER INPUT
+    // --------------------------------------------------
     manualInputs.forEach(function (input) {
         input.addEventListener("input", updateFormulaFields);
         input.addEventListener("change", updateFormulaFields);
     });
 
-    // Calculate once when the page loads.
+    // Recalculate on page load.
     updateFormulaFields();
 
-    // Debug information for the browser console.
+    // --------------------------------------------------
+    // DIAGNOSTICS
+    // --------------------------------------------------
     console.info("[Formula Live] Initialized", {
         manualFields: manualInputs.length,
         formulaFields: formulaInputs.length,
@@ -304,8 +392,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 id: input.id,
                 name: input.name,
                 formula: input.dataset.formula,
-                code: input.dataset.code
+                code: input.dataset.code,
+                shortName: input.dataset.shortName,
+                displayName: input.dataset.displayName
             };
         })
     });
 });
+

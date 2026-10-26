@@ -109,6 +109,8 @@
                                     <div class="section-description">{{ section.description }}</div>
                                     {% endif %}
 
+                                    {# Show the parameter table column headings only once per section. #}
+                                    {% set table_state = namespace(header_shown=false) %}
                                     {% for component in section.components %}
                                         {% if component.component_type == "heading" and component.component_content %}
                                         <div class="report-heading">{{ component.component_content }}</div>
@@ -121,6 +123,7 @@
                                         {% if component.component_type in ["parameter", "parameter_table", "formula", "dictionary"] %}
                                             {% if component.parameters %}
                                             <table class="report-table">
+                                                {% if not table_state.header_shown %}
                                                 <thead>
                                                     <tr>
                                                         <th class="parameter-column">Parameter</th>
@@ -129,6 +132,8 @@
                                                         <th class="reference-column">Reference Range</th>
                                                     </tr>
                                                 </thead>
+                                                {% set table_state.header_shown = true %}
+                                                {% endif %}
                                                 <tbody>
                                                     {% for parameter in component.parameters %}
                                                         {% if parameter.result is not none and parameter.result|string|trim != '' %}

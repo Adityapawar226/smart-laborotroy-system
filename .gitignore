@@ -38,4 +38,42 @@ modules.zip
 report generation/*.pdf
 
 # Local uploads - configure persistent storage in production
-static/uploads/
+# Ignore uploaded files by default
+static/uploads/*
+
+# Allow required report branding assets
+!static/uploads/report_header/
+!static/uploads/report_footer/
+!static/uploads/signatories/
+
+# Include files inside these directories
+static/uploads/report_header/*
+static/uploads/report_footer/*
+static/uploads/signatories/*
+
+# Allow the files within those directories
+!static/uploads/report_header/**
+!static/uploads/report_footer/**
+!static/uploads/signatories/**
+# Python and Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+ENV/
+
+# Environment Variables & Secrets
+.env
+
+# Local database or temporary files
+*.db
+*.sqlite3
+/tmp/
+smart_lab_uploads/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

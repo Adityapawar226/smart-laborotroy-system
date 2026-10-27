@@ -98,7 +98,10 @@ from flask import (
 )
 
 
+from flask_compress import Compress
 
+app = Flask(__name__)
+compress = Compress(app)  # Enables automatic gzip/brotli compression for routes
 from datetime import timedelta
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import time
@@ -161,28 +164,36 @@ cloudinary.config(
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
 
+from mysql.connector.pooling import MySQLConnectionPool
+
+# Initialize connection pool once when the app starts up
+db_pool = MySQLConnectionPool(
+    pool_name="smart_lab_pool",
+    pool_size=10,  # Keeps 10 reusable connections ready in the pool
+    pool_reset_session=True,
+    host=os.getenv("DB_HOST"),
+    port=int(os.getenv("DB_PORT", "15054")),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    database=os.getenv("DB_NAME"),
+    connection_timeout=10,
+    ssl_disabled=False
+)
+
 def get_db():
     """
-    Connect to Aiven MySQL and log connection performance.
-    Never log database credentials.
+    Fetch a connection from the MySQL connection pool and log performance.
     """
     start_time = time.perf_counter()
 
     try:
-        connection = mysql.connector.connect(
-            host=os.getenv("DB_HOST"),
-            port=int(os.getenv("DB_PORT", "15054")),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASSWORD"),
-            database=os.getenv("DB_NAME"),
-            connection_timeout=10,
-            ssl_disabled=False
-        )
+        # Get connection from the pre-initialized pool instead of creating a fresh TCP handshake
+        connection = db_pool.get_connection()
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         app.logger.info(
-            "PERF | MySQL connection established | %.2f ms | connected=%s",
+            "PERF | Pooled MySQL connection acquired | %.2f ms | connected=%s",
             elapsed_ms,
             connection.is_connected()
         )
@@ -193,12 +204,11 @@ def get_db():
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         app.logger.exception(
-            "PERF | MySQL connection failed after %.2f ms",
+            "PERF | Pooled MySQL connection failed after %.2f ms",
             elapsed_ms
         )
 
         raise
-
 
   
 def execute_timed(cursor, query_name, sql, params=None):
@@ -1315,7 +1325,42 @@ def dashboard():
             "PERF | Dashboard total route processing | %.2f ms",
             (time.perf_counter() - route_start) * 1000
         )
-
+@app.route("/api/dashboard-stats")
+@login_required
+@role_required("Developer", "Admin", "Technician")
+def dashboard_stats_api():
+    """Lightweight API endpoint to serve dashboard stats asynchronously."""
+    lab_id = session["lab_id"]
+    cache_key = f"lab_{lab_id}_dashboard_stats"
+    
+    # Check cache first
+    cached_stats = r.get(cache_key)
+    if cached_stats:
+        return jsonify(json.loads(cached_stats))
+    
+    # If not cached, fetch quickly or return default structure
+    # (We can use a single pooled connection for quick fetching)
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True, buffered=True)
+    try:
+        cursor.execute("SELECT COUNT(*) AS total_patients FROM patients WHERE lab_id = %s", (lab_id,))
+        p_res = cursor.fetchone()
+        
+        payload = {
+            "total_patients": p_res["total_patients"] if p_res else 0,
+            "patient_count": 0,
+            "total_income": 0,
+            "pending_amount": 0,
+            "total_tests": 0,
+            "total_reports": 0
+        }
+        
+        # Cache for 60 seconds
+        r.set(cache_key, json.dumps(payload, default=str), ex=60)
+        return jsonify(payload)
+    finally:
+        cursor.close()
+        conn.close()
 # Add this import with the other imports at the top of your Flask application:
 # import uuid
 

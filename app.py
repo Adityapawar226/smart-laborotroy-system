@@ -1247,12 +1247,12 @@ def dashboard():
                 total_patients = patient_stats["total_patients"]
                 patient_count = patient_stats["patient_count"]
                 transaction_stats = future_t_stats.result()
-                total_income = transaction_stats[0]
-                cash_total = transaction_stats[1]
-                upi_total = transaction_stats[2]
-                cash_count = transaction_stats[3]
-                upi_count = transaction_stats[4]
-                grand_total_income = transaction_stats[5]
+                total_income = transaction_stats["total_income"]
+                cash_total = transaction_stats["cash_total"]
+                upi_total = transaction_stats["upi_total"]
+                cash_count = transaction_stats["cash_count"]
+                upi_count = transaction_stats["upi_count"]
+                grand_total_income = transaction_stats["grand_total_income"]
 
                 pending_amount = future_pending.result()
 

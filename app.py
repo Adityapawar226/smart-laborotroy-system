@@ -1055,7 +1055,7 @@ def dashboard():
             # 2. Fallback to parallel execution if cache misses or a search query is active
             def fetch_patients():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()
                 try:
                     if not search:
                         cur.execute("""
@@ -1836,7 +1836,7 @@ def patient_registration():
     # ==================================================
     def fetch_tests():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor()  # Use standard tuple cursor
         try:
             cur.execute("""
                 SELECT
@@ -1888,9 +1888,9 @@ def patient_registration():
             conn.close()
 
     def fetch_doctors():
-        conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
-        try:
+         conn = get_db()
+         cur = conn.cursor()  # Standard tuple cursor
+         try:
             cur.execute("""
                 SELECT id, doctor_name
                 FROM doctors
@@ -1899,7 +1899,7 @@ def patient_registration():
                 ORDER BY doctor_name
             """, (lab_id,))
             return cur.fetchall()
-        finally:
+         finally:
             cur.close()
             conn.close()
 
@@ -2538,7 +2538,7 @@ def reports_management():
 
     def fetch_reports():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor()  # Use standard tuple cursor
         try:
             cur.execute("""
                 SELECT
@@ -2588,10 +2588,9 @@ def reports_management():
         finally:
             cur.close()
             conn.close()
-
     def fetch_today_reports():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor()  # Use standard tuple cursor
         try:
             cur.execute("""
                 SELECT COUNT(*)
@@ -3801,17 +3800,16 @@ def analytics():
 
     # -----------------------------
     # Monthly Income
-    # -----------------------------
+   
         cursor.execute("""
-    SELECT
-        DATE_FORMAT(payment_date,'%Y-%m'),
-        SUM(paid_amount)
-    FROM payments
-    WHERE lab_id=%s
-    GROUP BY DATE_FORMAT(payment_date,'%Y-%m')
-    ORDER BY DATE_FORMAT(payment_date,'%Y-%m')
+        SELECT
+            DATE_FORMAT(payment_date, '%%Y-%%m'),
+            SUM(paid_amount)
+        FROM payments
+        WHERE lab_id = %s
+        GROUP BY DATE_FORMAT(payment_date, '%%Y-%%m')
+        ORDER BY DATE_FORMAT(payment_date, '%%Y-%%m')
     """, (lab_id,))
-
         monthly_data = cursor.fetchall()
 
         monthly_income = monthly_data
@@ -4663,8 +4661,9 @@ def expenses():
 
     def fetch_doctors_list():
         conn = get_db()
-        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cur = None
         try:
+            cur = conn.cursor(pymysql.cursors.DictCursor)
             cur.execute("""
                 SELECT
                     id,
@@ -4677,12 +4676,13 @@ def expenses():
             """, (lab_id,))
             return cur.fetchall()
         finally:
-            cur.close()
+            if cur:
+                cur.close()
             conn.close()
 
     def fetch_doctor_summary():
         conn = get_db()
-        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             query = """
                 SELECT

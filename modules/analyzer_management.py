@@ -277,7 +277,7 @@ def communication_logs():
                 error_message, retry_count, last_retry_at, processed_at
                 FROM analyzer_packets WHERE lab_id=%s ORDER BY COALESCE(last_retry_at, processed_at) DESC LIMIT 200""", (session["lab_id"],))
             packets = cur.fetchall()
-        except mysql.connector.Error:
+        except pymysql.Error:
             db.rollback()
             unavailable = True
         return render_template("analyzer_management_logs.html", packets=packets, unavailable=unavailable)
@@ -358,7 +358,7 @@ def test_mappings():
                 db.commit()
                 flash("Analyzer test mapping saved successfully.", "success")
 
-            except mysql.connector.IntegrityError:
+            except pymysql.err.IntegrityError:
                 db.rollback()
                 flash(
                     "This analyzer test code is already mapped. "

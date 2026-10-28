@@ -163,46 +163,32 @@ cloudinary.config(
 # ============================================================
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
-
-from mysql.connector.pooling import MySQLConnectionPool
-
-# Initialize connection pool once when the app starts up
-# Update your pool initialization block in app.py:
-try:
-    db_pool = MySQLConnectionPool(
-        pool_name="smart_lab_pool",
-        pool_size=3,  # Keep pool size small for serverless
-        pool_reset_session=True,
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT", "15054")),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
-        connection_timeout=5,
-        ssl_disabled=False
-    )
-except Exception as e:
-    app.logger.warning("Connection pool initialization skipped or deferred: %s", e)
-    db_pool = None
+# Instead of mysql.connector.connect(...), use pymysql:
+import pymysql
 
 def get_db():
-    """Fetch from pool if available, otherwise fallback to direct connection."""
-    if db_pool:
-        try:
-            return db_pool.get_connection()
-        except Exception:
-            pass
+    """
+    Connect to database using PyMySQL.
+    """
+    start_time = time.perf_counter()
 
-    # Fallback direct connection for serverless cold-starts
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        port=int(os.getenv("DB_PORT", "15054")),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
-        connection_timeout=5,
-        ssl_disabled=False
-    )
+    try:
+        connection = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", "15054")),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME"),
+            connect_timeout=10
+        )
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+        app.logger.info("PERF | PyMySQL connection established | %.2f ms", elapsed_ms)
+        return connection
+
+    except Exception:
+        app.logger.exception("PERF | PyMySQL connection failed")
+        raise
 
   
 def execute_timed(cursor, query_name, sql, params=None):

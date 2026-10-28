@@ -22,12 +22,16 @@ CONNECTION_TYPES = ("USB", "Serial/COM", "TCP/IP", "File Import", "Other")
 PROTOCOLS = ("Unknown", "ASTM", "HL7", "HTTP/JSON", "CSV", "Vendor-specific", "Other")
 
 
+import pymysql
+
 def get_db():
-    return mysql.connector.connect(
+    return pymysql.connect(
         host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT", "15054")),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
         database=os.getenv("DB_NAME"),
+        connect_timeout=10
     )
 
 

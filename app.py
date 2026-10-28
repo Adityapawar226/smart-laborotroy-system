@@ -1116,28 +1116,28 @@ def dashboard():
                     conn.close()
 
             def fetch_patient_stats():
-                conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
-                try:
-                    cur.execute("""
-                        SELECT
-                            COUNT(*) AS total_patients,
-                            COALESCE(
-                                SUM(
-                                    CASE
-                                        WHEN created_at >= CURDATE()
-                                         AND created_at < CURDATE() + INTERVAL 1 DAY
-                                        THEN 1 ELSE 0
-                                    END
-                                ), 0
-                            ) AS patient_count
-                        FROM patients
-                        WHERE lab_id = %s
-                    """, (lab_id,))
-                    return cur.fetchone()
-                finally:
-                    cur.close()
-                    conn.close()
+               conn = get_db()
+               cur = conn.cursor(pymysql.cursors.DictCursor)  # Must be DictCursor
+               try:
+                cur.execute("""
+            SELECT
+                COUNT(*) AS total_patients,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN created_at >= CURDATE()
+                             AND created_at < CURDATE() + INTERVAL 1 DAY
+                            THEN 1 ELSE 0
+                        END
+                    ), 0
+                ) AS patient_count
+            FROM patients
+            WHERE lab_id = %s
+        """, (lab_id,))
+                return cur.fetchone()
+               finally:
+                cur.close()
+                conn.close()
 
             def fetch_transaction_stats():
                 conn = get_db()

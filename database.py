@@ -1,11 +1,10 @@
-
 import os
 import time
 import logging
 from pathlib import Path
 
-import mysql.connector
-from mysql.connector.pooling import MySQLConnectionPool
+import pymysql
+from pymysqlpool import ConnectionPool
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ _pool = None
 
 def initialize_db_pool():
     """
-    Initialize one small MySQL connection pool per Python process.
+    Initialize one small PyMySQL connection pool per Python process.
     Requires DB_HOST, DB_PORT, DB_USER, DB_PASSWORD and DB_NAME.
     """
 
@@ -53,35 +52,33 @@ def initialize_db_pool():
     start = time.perf_counter()
 
     try:
-        _pool = MySQLConnectionPool(
-            pool_name="medilens_pool",
-            pool_size=3,
-            pool_reset_session=True,
+        _pool = ConnectionPool(
+            size=3,
+            maxsize=5,
             host=os.environ["DB_HOST"],
             port=int(os.environ["DB_PORT"]),
             user=os.environ["DB_USER"],
             password=os.environ["DB_PASSWORD"],
             database=os.environ["DB_NAME"],
-            ssl_ca=str(DB_SSL_CA),
-            ssl_verify_cert=True,
-            ssl_verify_identity=True,
-            connection_timeout=10,
+            ssl={"ca": str(DB_SSL_CA)},
+            connect_timeout=10,
+            autocommit=False
         )
 
         logger.info(
-            "PERF | MySQL connection pool initialized | %.2f ms",
+            "PERF | PyMySQL connection pool initialized | %.2f ms",
             (time.perf_counter() - start) * 1000,
         )
 
         return _pool
 
     except Exception:
-        logger.exception("MySQL connection pool initialization failed")
+        logger.exception("PyMySQL connection pool initialization failed")
         raise
 
 
 def get_db():
-    """Get a connection from the shared pool."""
+    """Get a connection from the shared PyMySQL pool or fallback to direct connection."""
 
     start = time.perf_counter()
 
@@ -89,21 +86,23 @@ def get_db():
         pool = initialize_db_pool()
         connection = pool.get_connection()
 
-        # A pooled connection can be returned after db.close().
-        # Check whether the underlying connection is still usable.
-        if not connection.is_connected():
-            connection.reconnect(attempts=1, delay=0)
-
         logger.info(
-            "PERF | MySQL pooled connection acquired | %.2f ms",
+            "PERF | PyMySQL pooled connection acquired | %.2f ms",
             (time.perf_counter() - start) * 1000,
         )
 
         return connection
 
     except Exception:
-        logger.exception(
-            "Unable to acquire a MySQL pooled connection"
+        logger.warning("Pool acquisition failed, falling back to direct PyMySQL connection")
+        
+        # Fallback direct connection for serverless cold-starts or pool limits
+        return pymysql.connect(
+            host=os.environ["DB_HOST"],
+            port=int(os.environ["DB_PORT"]),
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASSWORD"],
+            database=os.environ["DB_NAME"],
+            ssl={"ca": str(DB_SSL_CA)},
+            connect_timeout=10
         )
-        raise
-

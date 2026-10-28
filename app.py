@@ -20,7 +20,7 @@ from modules.reference_loader import apply_reference_status
 from modules.report_merger import merge_results
 import qrcode
 import io
-from mysql.connector.pooling import MySQLConnectionPool
+
 import base64
 import os
 from pathlib import Path

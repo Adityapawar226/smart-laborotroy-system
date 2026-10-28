@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from decimal import Decimal
 
-import mysql.connector
+import pymysql
 from dotenv import load_dotenv
 
 from modules.formula_engine import calculate_formula
@@ -41,17 +41,18 @@ def get_db():
 
     started = time.perf_counter()
 
-    db =  mysql.connector.connect(
-        host=os.environ["DB_HOST"],
-        port=int(os.environ.get("DB_PORT", "15054")),
-        user=os.environ["DB_USER"],
-        password=os.environ["DB_PASSWORD"],
-        database=os.environ["DB_NAME"],
-        ssl_ca=str(DB_SSL_CA),
-        ssl_verify_cert=True,
-        ssl_verify_identity=True,
-        connection_timeout=15
-    )
+    import pymysql
+
+    db = pymysql.connect(
+    host=os.environ["DB_HOST"],
+    port=int(os.environ.get("DB_PORT", "15054")),
+    user=os.environ["DB_USER"],
+    password=os.environ["DB_PASSWORD"],
+    database=os.environ["DB_NAME"],
+    ssl={"ca": str(DB_SSL_CA)},
+    connect_timeout=15,
+    cursorclass=pymysql.cursors.DictCursor
+)
 
     current_app.logger.info(
         "MySQL connection took %.3f seconds",

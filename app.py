@@ -159,11 +159,11 @@ cloudinary.config(
     secure=True
 )
 
-# Email configuration
+
 # ============================================================
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
-# Instead of mysql.connector.connect(...), use pymysql:
+
 
 
 def get_db():

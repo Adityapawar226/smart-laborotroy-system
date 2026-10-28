@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
 from pathlib import Path
 import hashlib
-import json
-import os
+json = __import__("json")
+os = __import__("os")
 
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-import mysql.connector
+import pymysql
 
 
 # =========================================================
@@ -32,17 +32,25 @@ ANALYZER_TEST_MAPPING = {
     "CBC": 26
 }
 
+# SSL Certificate for Aiven MySQL
+DB_SSL_CA = PROJECT_DIR / "aiven-ca.pem"
+
 
 # =========================================================
 # DATABASE CONNECTION
 # =========================================================
 
 def get_db():
-    return mysql.connector.connect(
+    ssl_config = {"ca": str(DB_SSL_CA)} if DB_SSL_CA.is_file() else None
+    return pymysql.connect(
         host=os.getenv("DB_HOST"),
+        port=int(os.getenv("DB_PORT", "15054")),
         user=os.getenv("DB_USER"),
         password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME")
+        database=os.getenv("DB_NAME"),
+        ssl=ssl_config,
+        connect_timeout=15,
+        cursorclass=pymysql.cursors.DictCursor
     )
 
 
@@ -118,13 +126,22 @@ def record_packet_failure(
         failure_connection.commit()
     except Exception:
         app.logger.exception("Could not persist analyzer packet failure")
-        if failure_connection and failure_connection.is_connected():
-            failure_connection.rollback()
+        if failure_connection:
+            try:
+                failure_connection.rollback()
+            except Exception:
+                pass
     finally:
         if failure_cursor:
-            failure_cursor.close()
-        if failure_connection and failure_connection.is_connected():
-            failure_connection.close()
+            try:
+                failure_cursor.close()
+            except Exception:
+                pass
+        if failure_connection:
+            try:
+                failure_connection.close()
+            except Exception:
+                pass
 
 
 def test_db_connection():
@@ -141,14 +158,14 @@ def test_db_connection():
         print("MySQL connection successful!")
         print("Connected database:", database_name)
 
-    except mysql.connector.Error as exc:
+    except pymysql.Error as exc:
         print("MySQL connection failed:", exc)
 
     finally:
         if cursor:
             cursor.close()
 
-        if connection and connection.is_connected():
+        if connection:
             connection.close()
 
 
@@ -329,9 +346,9 @@ def receive_analyzer_packet():
     try:
 
         connection = get_db()
-        connection.start_transaction()
+        connection.begin()
 
-        cursor = connection.cursor(dictionary=True)
+        cursor = connection.cursor()
 
         # -------------------------------------------------
         # STEP 7: Find the exact sample
@@ -427,10 +444,6 @@ def receive_analyzer_packet():
         # -------------------------------------------------
         # STEP 8A: Reserve this packet ID (idempotency guard)
         # -------------------------------------------------
-        # The analyzer_packets.message_id UNIQUE key is the final
-        # protection against concurrent/repeated delivery. This insert
-        # is in the same transaction as result inserts, so a failed save
-        # rolls the reservation back and allows a safe retry.
         try:
             cursor.execute(
                 """
@@ -456,8 +469,8 @@ def receive_analyzer_packet():
                     packet_hash
                 )
             )
-        except mysql.connector.IntegrityError as exc:
-            if exc.errno != 1062:
+        except pymysql.err.IntegrityError as exc:
+            if exc.args[0] != 1062:
                 raise
 
             # Undo this transaction, then inspect the existing packet.
@@ -475,8 +488,6 @@ def receive_analyzer_packet():
             existing_packet = cursor.fetchone()
 
             if not existing_packet:
-                # The conflicting unique key may have been a different
-                # unique index; do not silently treat it as a duplicate.
                 return jsonify({
                     "ok": False,
                     "error": "Packet conflicts with an existing analyzer record"
@@ -504,9 +515,7 @@ def receive_analyzer_packet():
                 }), 200
 
             if existing_packet["status"] == "failed":
-                # A failed packet with the same hash is safe to retry. Start a
-                # fresh transaction because the duplicate insert rolled back.
-                connection.start_transaction()
+                connection.begin()
                 cursor.execute(
                     """
                     UPDATE analyzer_packets
@@ -535,7 +544,6 @@ def receive_analyzer_packet():
                     )
                 )
                 if cursor.rowcount == 1:
-                    # Continue below with parameter mapping and result saving.
                     pass
                 else:
                     connection.rollback()
@@ -556,13 +564,6 @@ def receive_analyzer_packet():
 
         # -------------------------------------------------
         # STEP 9: Load parameter definitions
-        #
-        # parameter_definition does not contain test_id.
-        # Test association is resolved through:
-        #
-        # parameter_definition
-        #     -> report_components
-        #     -> test_sections
         # -------------------------------------------------
 
         cursor.execute(
@@ -613,17 +614,6 @@ def receive_analyzer_packet():
 
         # -------------------------------------------------
         # STEP 10: Build parameter lookup
-        #
-        # FIX:
-        # HB and Hb normalize to the same key: "hb".
-        # If both belong to parameter ID 49, this is not
-        # ambiguous.
-        #
-        # If the same normalized key belongs to different
-        # parameter IDs, mark it ambiguous.
-        #
-        # Lab-specific definitions take precedence over
-        # global definitions when the same key is present.
         # -------------------------------------------------
 
         parameter_lookup = {}
@@ -652,20 +642,15 @@ def receive_analyzer_packet():
                     normalized_key
                 ]
 
-                # Already ambiguous: do not choose randomly.
                 if existing_parameter is None:
                     continue
 
-                # Same parameter ID means duplicate aliases
-                # for the same parameter, not an ambiguity.
                 if (
                     existing_parameter["parameter_id"]
                     == row["parameter_id"]
                 ):
                     continue
 
-                # Prefer the lab-specific definition over a
-                # global definition if both have the same key.
                 existing_is_lab_specific = (
                     existing_parameter["parameter_lab_id"] == lab_id
                 )
@@ -687,8 +672,6 @@ def receive_analyzer_packet():
                     continue
 
                 else:
-                    # Different parameters share the same key
-                    # at the same priority level.
                     parameter_lookup[normalized_key] = None
 
         # -------------------------------------------------
@@ -712,8 +695,6 @@ def receive_analyzer_packet():
 
             parameter_id = parameter["parameter_id"]
 
-            # Prevent two incoming aliases from inserting
-            # duplicate results for the same parameter.
             if parameter_id in seen_parameter_ids:
                 duplicate_packet_keys.append(incoming_key)
                 continue
@@ -759,8 +740,6 @@ def receive_analyzer_packet():
 
         # -------------------------------------------------
         # STEP 12: Check existing results
-        #
-        # Do not silently overwrite existing results.
         # -------------------------------------------------
 
         cursor.execute(
@@ -794,10 +773,6 @@ def receive_analyzer_packet():
         ]
 
         if duplicate_parameters:
-            # Compatibility with results saved before analyzer_packets
-            # tracking was added: if ALL incoming parameters already exist
-            # and their values match, record this packet as completed instead
-            # of returning 409 or inserting the results a second time.
             all_already_present = all(
                 parameter["parameter_id"] in existing_values
                 for parameter, _ in mapped_results
@@ -927,7 +902,6 @@ def receive_analyzer_packet():
             )
         )
 
-        # Mark the packet completed in the same transaction as its results.
         cursor.execute(
             """
             UPDATE analyzer_packets
@@ -940,22 +914,7 @@ def receive_analyzer_packet():
             (message_id, lab_id, analyzer_id)
         )
 
-        # Commit packet log, results and analyzer status together.
         connection.commit()
-
-        # -------------------------------------------------
-        # STEP 15: Log successful integration
-        # -------------------------------------------------
-
-        print("\n========== ANALYZER RESULTS SAVED ==========")
-        print("Analyzer:", analyzer_id)
-        print("Patient:", patient_id)
-        print("Sample:", sample_id)
-        print("Lab:", lab_id)
-        print("Patient Test ID:", patient_test_id)
-        print("Test:", patient_test["test_name"])
-        print("Results saved:", len(mapped_results))
-        print("============================================\n")
 
         return jsonify({
             "ok": True,
@@ -976,20 +935,22 @@ def receive_analyzer_packet():
     # DATABASE ERROR HANDLING
     # -----------------------------------------------------
 
-    except mysql.connector.Error as exc:
+    except pymysql.Error as exc:
 
-        if connection and connection.is_connected():
-            connection.rollback()
+        if connection:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
 
         app.logger.exception(
             "MySQL error while saving analyzer results"
         )
-        # Save failure metadata in a separate transaction after rollback.
         record_packet_failure(
             locals().get("message_id"), locals().get("analyzer_id"),
             locals().get("sample_id"), locals().get("patient_test_id"),
             locals().get("lab_id"), locals().get("test_code"),
-            locals().get("packet_hash"), f"MySQL error {getattr(exc, 'errno', '')}: {exc}"
+            locals().get("packet_hash"), f"MySQL error {getattr(exc, 'args', [None])[0]}: {exc}"
         )
 
         return jsonify({
@@ -1005,8 +966,11 @@ def receive_analyzer_packet():
 
     except Exception as exc:
 
-        if connection and connection.is_connected():
-            connection.rollback()
+        if connection:
+            try:
+                connection.rollback()
+            except Exception:
+                pass
 
         app.logger.exception(
             "Unexpected analyzer integration error"
@@ -1028,10 +992,16 @@ def receive_analyzer_packet():
     finally:
 
         if cursor:
-            cursor.close()
+            try:
+                cursor.close()
+            except Exception:
+                pass
 
-        if connection and connection.is_connected():
-            connection.close()
+        if connection:
+            try:
+                connection.close()
+            except Exception:
+                pass
 
 
 # =========================================================

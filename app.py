@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-import mysql.connector
+
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from decimal import Decimal

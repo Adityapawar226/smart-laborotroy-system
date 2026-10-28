@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from functools import wraps
 from database import get_db
-import mysql.connector
+
 from flask import (
     Blueprint, render_template, request, redirect, url_for,
     session, flash, current_app
@@ -124,7 +124,7 @@ def dashboard():
         try:
             cur.execute("SELECT COUNT(*) AS total, SUM(status='failed') AS failed_count, SUM(status='completed') AS completed_count FROM analyzer_packets WHERE lab_id=%s", (lab_id,))
             packet_stats = cur.fetchone() or {}
-        except mysql.connector.Error:
+        except pymysql.Error:
             # Keep the configuration dashboard usable if receiver table migration differs.
             db.rollback()
             packet_stats = {"total": 0, "failed_count": 0, "completed_count": 0}

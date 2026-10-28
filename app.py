@@ -2589,21 +2589,21 @@ def reports_management():
             cur.close()
             conn.close()
     def fetch_today_reports():
-        conn = get_db()
-        cur = conn.cursor()  # Use standard tuple cursor
-        try:
-            cur.execute("""
-                SELECT COUNT(*)
-                FROM patients p
-                WHERE p.lab_id = %s
-                  AND p.report_generated_on >= CURDATE()
-                  AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
-            """, (lab_id,))
-            res = cur.fetchone()
-            return res[0] if res else 0
-        finally:
-            cur.close()
-            conn.close()
+     conn = get_db()
+     cur = conn.cursor()  # Standard tuple cursor
+     try:
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM patients p
+            WHERE p.lab_id = %s
+              AND p.report_generated_on >= CURDATE()
+              AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
+        """, (lab_id,))
+        res = cur.fetchone()
+        return res[0] if res else 0
+     finally:
+        cur.close()
+        conn.close()
 
     try:
         # Run both independent database tasks concurrently

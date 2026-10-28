@@ -1100,7 +1100,7 @@ def dashboard():
 
             def fetch_payments():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
@@ -1117,7 +1117,7 @@ def dashboard():
 
             def fetch_patient_stats():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT
@@ -1141,7 +1141,7 @@ def dashboard():
 
             def fetch_transaction_stats():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT
@@ -1905,7 +1905,7 @@ def patient_registration():
 
     def fetch_lab_settings():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT lab_name, upi_id
@@ -4663,7 +4663,7 @@ def expenses():
         conn = get_db()
         cur = None
         try:
-            cur = conn.cursor(pymysql.cursors.DictCursor)
+            cur = conn.cursor()
             cur.execute("""
                 SELECT
                     id,
@@ -4682,7 +4682,7 @@ def expenses():
 
     def fetch_doctor_summary():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor()
         try:
             query = """
                 SELECT

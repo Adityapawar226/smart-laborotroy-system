@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from decimal import Decimal
 
-
+import pymysql
 from dotenv import load_dotenv
 
 from modules.formula_engine import calculate_formula
@@ -1695,7 +1695,7 @@ def edit_test(test_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(buffered=True, dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         # --------------------------------------------------

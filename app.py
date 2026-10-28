@@ -1320,7 +1320,7 @@ def dashboard_stats_api():
     # If not cached, fetch quickly or return default structure
     # (We can use a single pooled connection for quick fetching)
     conn = get_db()
-    cursor = conn.cursor(dictionary=True, buffered=True)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
     try:
         cursor.execute("SELECT COUNT(*) AS total_patients FROM patients WHERE lab_id = %s", (lab_id,))
         p_res = cursor.fetchone()
@@ -1360,7 +1360,7 @@ def patient_registration():
     # GET NUMERIC LAB ID FOR lab_test_overrides (Initial Check)
     # ==================================================
     db_init = get_db()
-    cursor_init = db_init.cursor(buffered=True)
+    cursor_init = db_init.cursor()
     try:
         cursor_init.execute("""
             SELECT id
@@ -3099,10 +3099,7 @@ def view_report(patient_id):
         # 3. LOAD LAB SETTINGS
         # ====================================================
 
-        settings_cursor = db.cursor(
-            dictionary=True,
-            buffered=True
-        )
+        settings_cursor = db.cursor(pymysql.cursors.DictCursor)
 
         try:
             settings_cursor.execute(
@@ -3998,10 +3995,7 @@ def view_bill(patient_id):
 
 
         # -------- Load Lab Settings --------
-        settings_cursor = db.cursor(
-            dictionary=True,
-            buffered=True
-        )
+        settings_cursor = db.cursor(pymysql.cursors.DictCursor)
 
         settings_cursor.execute("""
             SELECT
@@ -4151,7 +4145,7 @@ def patient_search():
 def add_test(department_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True, dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     role = session["role"]
 
@@ -4669,7 +4663,7 @@ def expenses():
 
     def fetch_doctors_list():
         conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT
@@ -4688,7 +4682,7 @@ def expenses():
 
     def fetch_doctor_summary():
         conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
             query = """
                 SELECT

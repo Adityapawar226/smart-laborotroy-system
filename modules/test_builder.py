@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 from decimal import Decimal
 
-import pymysql
+
 from dotenv import load_dotenv
 
 from modules.formula_engine import calculate_formula

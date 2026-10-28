@@ -1055,7 +1055,7 @@ def dashboard():
             # 2. Fallback to parallel execution if cache misses or a search query is active
             def fetch_patients():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     if not search:
                         cur.execute("""
@@ -1100,7 +1100,7 @@ def dashboard():
 
             def fetch_payments():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     cur.execute("""
                         SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
@@ -1117,7 +1117,7 @@ def dashboard():
 
             def fetch_patient_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     cur.execute("""
                         SELECT
@@ -1141,7 +1141,7 @@ def dashboard():
 
             def fetch_transaction_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     cur.execute("""
                         SELECT
@@ -1205,7 +1205,7 @@ def dashboard():
 
             def fetch_pending_payments():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     cur.execute("""
                         SELECT COALESCE(SUM(remaining_amount), 0)
@@ -1220,7 +1220,7 @@ def dashboard():
 
             def fetch_test_report_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor(pymysql.cursors.DictCursor)
                 try:
                     cur.execute("""
                         SELECT
@@ -1837,7 +1837,7 @@ def patient_registration():
     # ==================================================
     def fetch_tests():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT
@@ -1890,7 +1890,7 @@ def patient_registration():
 
     def fetch_doctors():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT id, doctor_name
@@ -1906,7 +1906,7 @@ def patient_registration():
 
     def fetch_lab_settings():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT lab_name, upi_id
@@ -2539,7 +2539,7 @@ def reports_management():
 
     def fetch_reports():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT
@@ -2592,7 +2592,7 @@ def reports_management():
 
     def fetch_today_reports():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 SELECT COUNT(*)
@@ -4637,7 +4637,7 @@ def expenses():
         commission = request.form["commission_percent"]
 
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor(pymysql.cursors.DictCursor)
         try:
             cur.execute("""
                 INSERT INTO doctors

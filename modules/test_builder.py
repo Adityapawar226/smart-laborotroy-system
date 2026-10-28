@@ -99,7 +99,7 @@ def configure_test(test_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -192,7 +192,7 @@ def add_section(test_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -275,7 +275,7 @@ def component_list(section_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -347,7 +347,7 @@ def add_component(section_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # -------------------------------------------------
     # Get Section Details
@@ -654,7 +654,7 @@ def add_parameter(component_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # -------------------------------------------------
     # Load Component Information
@@ -1010,7 +1010,7 @@ def parameter_list(component_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # -------------------------------------------------
     # Load Component Information
@@ -1094,7 +1094,7 @@ def reference_range_list(parameter_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # Parameter Details
     cursor.execute("""
@@ -1168,7 +1168,7 @@ def add_reference_range(parameter_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         # ==================================================
@@ -1394,7 +1394,7 @@ def add_reference_range(parameter_id):
 def department_list():
 
    db = get_db()
-   cursor = db.cursor(dictionary=True)
+   cursor = db.cursor(pymysql.cursors.DictCursor)
 
    cursor.execute("""
     SELECT
@@ -1427,7 +1427,7 @@ def department_tests(department_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         role = session.get("role")
@@ -1616,7 +1616,7 @@ def toggle_test_status(test_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         cursor.execute("""
@@ -2077,7 +2077,7 @@ def edit_component(component_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
     SELECT
@@ -2163,7 +2163,7 @@ def edit_reference_range(range_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # --------------------------------------------------
     # Get Existing Reference Range
@@ -2372,7 +2372,7 @@ def delete_reference_range(range_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # Get parameter id before deleting
     cursor.execute("""
@@ -2466,7 +2466,7 @@ def save_dropdown_options(parameter_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -2552,7 +2552,7 @@ def report_dictionaries():
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT
@@ -2628,7 +2628,7 @@ def manage_dictionary(dictionary_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT *
@@ -2688,7 +2688,7 @@ def report_formulas():
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT *
@@ -2712,7 +2712,7 @@ def add_formula():
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     if request.method == "POST":
 
@@ -2776,7 +2776,7 @@ def edit_formula(formula_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # -------------------------------
     # Get Formula
@@ -2890,7 +2890,7 @@ def configure_parameter(parameter_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
     SELECT
@@ -2933,7 +2933,7 @@ def configure_parameter(parameter_id):
 def delete_component(component_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     if "lab_id" not in session:
      return redirect(url_for("login"))
@@ -3009,7 +3009,7 @@ def edit_dictionary_result(component_id):
 
     try:
         db = get_db()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
 
         # ======================================================
         # 2. LOAD COMPONENT AND VALIDATE ACCESS
@@ -3450,7 +3450,7 @@ def edit_parameter(parameter_id):
         return redirect(url_for("login"))
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 

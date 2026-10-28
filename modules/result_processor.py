@@ -5,7 +5,7 @@ class ResultProcessor:
 
     def __init__(self, db):
         self.db = db
-        self.cursor = db.cursor(dictionary=True)
+        self.cursor = db.cursor(pymysql.cursors.DictCursor)
 
     def process(
         self,

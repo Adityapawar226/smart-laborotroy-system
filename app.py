@@ -5835,7 +5835,7 @@ def delete_patient(patient_id):
 def user_management():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -5868,7 +5868,7 @@ def user_management():
 def add_user():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -5982,7 +5982,7 @@ def add_user():
 def edit_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -6116,7 +6116,7 @@ def edit_user(user_id):
 def delete_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -6200,7 +6200,7 @@ def delete_user(user_id):
 def delete_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     # Get image filename
     cursor.execute("""
@@ -6243,7 +6243,7 @@ def delete_signatory(id):
 def edit_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT *
@@ -6322,7 +6322,7 @@ def edit_signatory(id):
 def edit_parameter(parameter_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT *
@@ -6376,7 +6376,7 @@ def edit_parameter(parameter_id):
 def delete_parameter(parameter_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     cursor.execute("""
         SELECT component_id
@@ -6413,7 +6413,7 @@ def delete_parameter(parameter_id):
 def super_admin_dashboard():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         # ----------------------------------------------------
@@ -6542,7 +6542,7 @@ def super_admin_dashboard():
 def super_admin_labs():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         search = request.args.get("search", "").strip()
@@ -6650,7 +6650,7 @@ def super_admin_labs():
 def super_admin_assign_subscription():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         # Fetch all laboratories
@@ -6804,7 +6804,7 @@ def super_admin_assign_subscription():
 def super_admin_plans():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         search = request.args.get("search", "").strip()
@@ -6984,7 +6984,7 @@ def super_admin_create_plan():
             return render_template("super_admin_create_plan.html")
 
         db = get_db()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
 
         try:
             # Prevent duplicate plan names
@@ -7049,7 +7049,7 @@ def super_admin_create_plan():
 def super_admin_edit_plan(plan_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         # Fetch existing plan
@@ -7215,7 +7215,7 @@ def super_admin_edit_plan(plan_id):
 def super_admin_subscription_history():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         search = request.args.get("search", "").strip()
@@ -7332,7 +7332,7 @@ def super_admin_subscription_history():
 @role_required("Developer")
 def super_admin_broadcasts():
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         if request.method == "POST":

@@ -111,7 +111,7 @@ def dashboard():
     ensure_tables()
     lab_id = session["lab_id"]
     db = get_db()
-    cur = db.cursor(dictionary=True)
+    cur = db.cursor(pymysql.cursors.DictCursor)
     try:
         cur.execute("SELECT COUNT(*) AS total, SUM(enabled=1) AS enabled_count FROM analyzer_devices WHERE lab_id=%s", (lab_id,))
         stats = cur.fetchone() or {}
@@ -200,7 +200,7 @@ def add_analyzer():
 def edit_analyzer(analyzer_id):
     ensure_tables()
     db = get_db()
-    cur = db.cursor(dictionary=True)
+    cur = db.cursor(pymysql.cursors.DictCursor)
     try:
         cur.execute("SELECT * FROM analyzer_devices WHERE id=%s AND lab_id=%s", (analyzer_id, session["lab_id"]))
         device = cur.fetchone()
@@ -268,7 +268,7 @@ def toggle_analyzer(analyzer_id):
 def communication_logs():
     ensure_tables()
     db = get_db()
-    cur = db.cursor(dictionary=True)
+    cur = db.cursor(pymysql.cursors.DictCursor)
     packets = []
     unavailable = False
     try:
@@ -295,7 +295,7 @@ def test_mappings():
 
     lab_id = session["lab_id"]
     db = get_db()
-    cur = db.cursor(dictionary=True)
+    cur = db.cursor(pymysql.cursors.DictCursor)
 
     try:
         if request.method == "POST":

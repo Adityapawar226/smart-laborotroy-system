@@ -1244,9 +1244,8 @@ def dashboard():
                 payments = future_payments.result()
                 
                 patient_stats = future_p_stats.result()
-                total_patients = patient_stats[0]
-                patient_count = patient_stats[1]
-
+                total_patients = patient_stats["total_patients"]
+                patient_count = patient_stats["patient_count"]
                 transaction_stats = future_t_stats.result()
                 total_income = transaction_stats[0]
                 cash_total = transaction_stats[1]

@@ -592,7 +592,7 @@ def forgot_password():
         username = request.form["username"].strip().lower()
 
         db = get_db()
-        cursor = db.cursor(dictionary=True, buffered=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
 
         try:
 
@@ -822,7 +822,7 @@ def register_lab():
     if request.method == "POST":
 
         db = get_db()
-        cursor = db.cursor(buffered=True)
+        cursor = db.cursor()
 
         try:
 
@@ -1382,7 +1382,7 @@ def patient_registration():
     # ==================================================
     if request.method == "POST":
         db = get_db()
-        cursor = db.cursor(buffered=True)
+        cursor = db.cursor()
 
         try:
             # -----------------------------------------------
@@ -1943,7 +1943,7 @@ def patient_registration():
 def generate_upi_qr():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -2079,7 +2079,7 @@ def pending_payments():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -2120,7 +2120,7 @@ def mark_paid(id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -2270,7 +2270,7 @@ def collect_payment(payment_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 
@@ -2652,7 +2652,7 @@ def enter_results(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # ==================================================
@@ -3045,7 +3045,7 @@ def view_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # ====================================================
@@ -3313,7 +3313,7 @@ def public_report(token):
         return "Invalid or expired report QR code.", 403
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3439,7 +3439,7 @@ def edit_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # =========================================
@@ -3628,7 +3628,7 @@ def delete_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # Verify that this patient belongs to the current laboratory.
@@ -3673,7 +3673,7 @@ def analytics():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3894,7 +3894,7 @@ def billing():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3938,7 +3938,7 @@ def view_bill(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # -------- Bill Details --------
@@ -4054,7 +4054,7 @@ def view_bill(patient_id):
 @role_required("Developer", "Admin", "Technician")
 def patient_search():
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     lab_id = session["lab_id"]
 
@@ -4768,7 +4768,7 @@ def expenses():
 def doctor_patients(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -4934,7 +4934,7 @@ def doctor_patients(doctor_id):
 def toggle_doctor_status(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -4987,7 +4987,7 @@ def toggle_doctor_status(doctor_id):
 def edit_doctor(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -5047,7 +5047,7 @@ def edit_doctor(doctor_id):
 def payment_entries():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     lab_id = session["lab_id"]
 
     try:
@@ -5141,7 +5141,7 @@ def payment_entries():
 def payment_details(receipt_no):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
     lab_id = session["lab_id"]
 
     try:
@@ -5265,7 +5265,7 @@ def settings():
             return redirect(url_for("login"))
 
         db = get_db()
-        cursor = db.cursor(dictionary=True, buffered=True)
+        cursor = db.cursor(pymysql.cursors.DictCursor)
 
         # --------------------------------------------------
         # 2. Get internal integer laboratory ID
@@ -5723,7 +5723,7 @@ def update_user_access():
 def delete_patient(patient_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     lab_id = session["lab_id"]
     print("Delete route called")

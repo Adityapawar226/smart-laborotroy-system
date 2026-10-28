@@ -437,7 +437,7 @@ def setup_developer():
 def login():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor(pymysql.cursors.DictCursor)
 
     try:
 

@@ -1158,8 +1158,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
                                         THEN amount ELSE 0
                                     END
                                 ), 0
@@ -1168,8 +1168,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
                                         THEN amount ELSE 0
                                     END
                                 ), 0
@@ -1178,8 +1178,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
                                         THEN 1 ELSE 0
                                     END
                                 ), 0
@@ -1188,8 +1188,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
                                         THEN 1 ELSE 0
                                     END
                                 ), 0
@@ -1205,7 +1205,7 @@ def dashboard():
 
             def fetch_pending_payments():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()  # Standard tuple cursor
                 try:
                     cur.execute("""
                         SELECT COALESCE(SUM(remaining_amount), 0)
@@ -1220,7 +1220,7 @@ def dashboard():
 
             def fetch_test_report_stats():
                 conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                cur = conn.cursor()  # Use standard tuple cursor
                 try:
                     cur.execute("""
                         SELECT

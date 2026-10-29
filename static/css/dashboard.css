@@ -56,15 +56,15 @@ body{
     margin-left:240px;
 }
 
-.topbar{
-    background:#2e6cf6;
-    color:white;
-    padding:18px 25px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+.topbar {
+    background: #2e6cf6;
+    color: white;
+    padding: 10px 20px; /* Reduced height */
+    min-height: 64px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-
 .left{
     display:flex;
     align-items:center;

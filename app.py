@@ -424,16 +424,20 @@ for upload_dir in (
 # ------------------------------------
 
 
-@app.route("/setup-developer", methods=["GET", "POST"])
-def setup_developer():
-    """Disabled: provision the initial Developer account out-of-band.
+# ==========================================
+# DIAGNORA PUBLIC LANDING PAGE
+# ==========================================
 
-    Do not create privileged accounts through a public, unauthenticated route.
-    Use a one-time administrative script or a protected deployment procedure.
-    """
-    return "Not Found", 404
+@app.route("/", methods=["GET"])
+def landing():
 
-@app.route("/", methods=["GET", "POST"])
+    # Redirect authenticated users to their dashboard
+    if "lab_id" in session:
+        return redirect(url_for("dashboard"))
+
+    return render_template("landing.html")
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
 
     db = get_db()

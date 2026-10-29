@@ -8,11 +8,15 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>Register New Laboratory</title>
+    <title>Register Your Laboratory | Diagnora</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static',
           filename='css/register_lab.css') }}">
+    <style>
+      .diagnora-register-brand{display:flex;align-items:center;gap:11px;color:#fff;margin-bottom:28px;font:800 28px 'Manrope',Arial,sans-serif;letter-spacing:-.8px}
+      .diagnora-register-brand span{width:43px;height:43px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(140deg,#1687e5,#24c4df);font-size:20px}
+    </style>
 
     <link rel="stylesheet"
 href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
@@ -25,22 +29,13 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 
     <div class="register-left">
 
-        <img src="{{ url_for('static',
-        filename='images/System_logo.png') }}"
-        class="logo">
+        <div class="diagnora-register-brand"><span><i class="fa-solid fa-heart-pulse"></i></span><strong>Diagnora</strong></div>
 
-        <h1>Smart Laboratory</h1>
+        <h1>Laboratory management, made clearer.</h1>
 
-        <h3>Management System</h3>
+        <h3>One workspace for everyday operations</h3>
 
-        <p>
-
-            Register your laboratory and start
-            managing Patients, Reports,
-            Billing and Laboratory Operations
-            securely.
-
-        </p>
+        <p>Bring patient registration, test workflows, billing and reports together with Diagnora.</p>
 
     </div>
 
@@ -49,9 +44,9 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
 
         <div class="register-card">
 
-            <h2>Register New Laboratory</h2>
+            <h2>Create your laboratory account</h2>
 
-            <p>Create your laboratory account.</p>
+            <p>Enter your laboratory details to get started with Diagnora.</p>
            
 
             <form method="POST">

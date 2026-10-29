@@ -1,232 +1,142 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5faff">
+    <meta name="description" content="Sign in to Diagnora Laboratory Management.">
+    <title>Login | Diagnora</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Smart Laboratory Management System</title>
-
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='css/login.css') }}"
-    >
-
-    <link
-        rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
-    >
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 </head>
-
 <body>
+    <main class="login-shell">
+        <section class="brand-panel" aria-label="About Diagnora">
+            <a class="brand" href="/" aria-label="Diagnora home">
+                <span class="brand-icon"><i class="fa-solid fa-heart-pulse"></i></span>
+                <span class="brand-name">Diagnora<small>LABORATORY MANAGEMENT</small></span>
+            </a>
 
-<div class="login-container">
+            <div class="brand-content">
+                <span class="eyebrow"><span class="eyebrow-dot"></span> ONE CONNECTED WORKSPACE</span>
+                <h1>Laboratory work,<br><span>in better order.</span></h1>
+                <p>Bring patient records, test workflows, billing and reports together in one clear, easy-to-use workspace.</p>
 
-    <!-- LEFT SIDE -->
-
-    <div class="login-left">
-
-        <img
-            src="{{ url_for('static', filename='images/System_logo.png') }}"
-            class="logo"
-            alt="Smart Laboratory Logo"
-        >
-
-        <h1>Smart Laboratory</h1>
-
-        <h3>Management System</h3>
-
-        <p>
-            Secure Laboratory Information System for
-            Patient Registration, Billing,
-            Reports & Laboratory Management.
-        </p>
-
-    </div>
-
-
-    <!-- RIGHT SIDE -->
-
-    <div class="login-right">
-
-        <div class="login-card">
-
-            <h2>Welcome Back</h2>
-
-            <p>Please login to continue.</p>
-
-
-            <!-- FLASH MESSAGES -->
-
-            {% with messages = get_flashed_messages(
-                with_categories=true
-            ) %}
-
-                {% if messages %}
-
-                    {% for category, message in messages %}
-
-                        <div class="alert {{ category }}">
-                            {{ message }}
-                        </div>
-
-                    {% endfor %}
-
-                {% endif %}
-
-            {% endwith %}
-
-
-            <!-- LOGIN FORM -->
-
-            <form
-                method="POST"
-                action="{{ url_for('login') }}"
-            >
-
-                <!-- LAB ID -->
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-building"></i>
-
-                    <input
-                        type="text"
-                        name="lab_id"
-                        placeholder="Laboratory ID (LAB0001)"
-                        required
-                        autocomplete="organization"
-                    >
-
+                <div class="brand-benefits">
+                    <div class="benefit">
+                        <span class="benefit-icon"><i class="fa-solid fa-user-check"></i></span>
+                        <span><strong>Organized patient records</strong><small>Find the information your team needs.</small></span>
+                    </div>
+                    <div class="benefit">
+                        <span class="benefit-icon mint"><i class="fa-solid fa-vials"></i></span>
+                        <span><strong>Connected workflows</strong><small>Keep tests, billing and reports together.</small></span>
+                    </div>
+                    <div class="benefit">
+                        <span class="benefit-icon lilac"><i class="fa-solid fa-shield-halved"></i></span>
+                        <span><strong>Access-controlled workspace</strong><small>Support role-aware access to your system.</small></span>
+                    </div>
                 </div>
-
-
-                <!-- USERNAME -->
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-user"></i>
-
-                    <input
-                        type="text"
-                        name="username"
-                        placeholder="Username"
-                        required
-                        autocomplete="username"
-                    >
-
-                </div>
-
-
-                <!-- PASSWORD -->
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-lock"></i>
-
-                    <input
-                        id="password"
-                        type="password"
-                        name="password"
-                        placeholder="Password"
-                        required
-                        autocomplete="current-password"
-                    >
-
-                    <span id="togglePassword">
-
-                        <i class="fa-solid fa-eye"></i>
-
-                    </span>
-
-                </div>
-
-
-                <!-- LOGIN OPTIONS -->
-
-                <div class="login-options">
-
-                    <label>
-
-                        <input
-                            type="checkbox"
-                            name="remember_me"
-                            value="1"
-                        >
-
-                        Remember Me
-
-                    </label>
-
-
-                    <a
-                        href="{{ url_for('forgot_password') }}"
-                    >
-                        Forgot Password?
-                    </a>
-
-                </div>
-
-
-                <!-- LOGIN BUTTON -->
-
-                <button type="submit">
-
-                    <i class="fa-solid fa-right-to-bracket"></i>
-
-                    Login
-
-                </button>
-
-
-                <!-- DIVIDER -->
-
-                <div class="divider">
-
-                    <span>OR</span>
-
-                </div>
-
-
-                <!-- REGISTER -->
-
-                <a
-                    href="{{ url_for('register_lab') }}"
-                    class="register-btn"
-                >
-
-                    <i class="fa-solid fa-hospital-user"></i>
-
-                    Register New Laboratory
-
-                </a>
-
-            </form>
-
-
-            <!-- FOOTER -->
-
-            <div class="footer">
-
-                Version 1.0 • © 2026
-
             </div>
 
-        </div>
+            <div class="brand-bottom">
+                <span class="status-dot"></span>
+                Built to simplify everyday laboratory operations
+            </div>
+            <span class="decor decor-one"></span>
+            <span class="decor decor-two"></span>
+        </section>
 
-    </div>
+        <section class="form-panel">
+            <div class="form-topline">
+                <span class="mobile-brand"><span class="brand-icon"><i class="fa-solid fa-heart-pulse"></i></span> Diagnora</span>
+                <a class="back-link" href="/"><i class="fa-solid fa-arrow-left"></i> Back to website</a>
+            </div>
 
-</div>
+            <div class="login-card">
+                <div class="welcome-icon"><i class="fa-solid fa-lock"></i></div>
+                <div class="form-heading">
+                    <span class="section-kicker">YOUR WORKSPACE AWAITS</span>
+                    <h2>Welcome back</h2>
+                    <p>Sign in to continue to your laboratory workspace.</p>
+                </div>
 
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert {{ category }}" role="alert">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
 
-<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+                <form method="POST" action="{{ url_for('login') }}">
+                    <div class="field-group">
+                        <label for="lab_id">Laboratory ID</label>
+                        <div class="input-box">
+                            <i class="fa-regular fa-building field-icon"></i>
+                            <input id="lab_id" type="text" name="lab_id" placeholder="e.g. LAB0001" required autocomplete="organization">
+                        </div>
+                    </div>
 
+                    <div class="field-group">
+                        <label for="username">Username</label>
+                        <div class="input-box">
+                            <i class="fa-regular fa-user field-icon"></i>
+                            <input id="username" type="text" name="username" placeholder="Enter your username" required autocomplete="username">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="password">Password</label>
+                        <div class="input-box">
+                            <i class="fa-solid fa-lock field-icon"></i>
+                            <input id="password" type="password" name="password" placeholder="Enter your password" required autocomplete="current-password">
+                            <button class="password-toggle" id="togglePassword" type="button" aria-label="Show password" aria-pressed="false">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="login-options">
+                        <label class="remember-label">
+                            <input type="checkbox" name="remember_me" value="1">
+                            <span class="custom-checkbox"></span>
+                            Remember me
+                        </label>
+                        <a href="{{ url_for('forgot_password') }}">Forgot password?</a>
+                    </div>
+
+                    <button class="login-button" type="submit">
+                        <span>Sign in securely</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </form>
+
+                <div class="divider"><span>NEW TO DIAGNORA?</span></div>
+
+                <a href="{{ url_for('register_lab') }}" class="register-btn">
+                    <i class="fa-solid fa-hospital"></i>
+                    <span>Register your laboratory</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square external-icon"></i>
+                </a>
+
+                <p class="security-note"><i class="fa-solid fa-shield-halved"></i> Your workspace is protected by secure sign-in.</p>
+            </div>
+
+            <footer class="page-footer">
+                <span>© 2026 Diagnora</span>
+                <span class="footer-separator">•</span>
+                <span>Laboratory Management</span>
+            </footer>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 </body>
-
 </html>

@@ -1,191 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>Register Your Laboratory | Diagnora</title>
-
-    <link rel="stylesheet"
-          href="{{ url_for('static',
-          filename='css/register_lab.css') }}">
-    <style>
-      .diagnora-register-brand{display:flex;align-items:center;gap:11px;color:#fff;margin-bottom:28px;font:800 28px 'Manrope',Arial,sans-serif;letter-spacing:-.8px}
-      .diagnora-register-brand span{width:43px;height:43px;display:grid;place-items:center;border-radius:13px;background:linear-gradient(140deg,#1687e5,#24c4df);font-size:20px}
-    </style>
-
-    <link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f9ff">
+  <title>Create Laboratory Account | Diagnora</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/register_lab.css') }}">
 </head>
-
 <body>
-
-<div class="register-container">
-
-    <div class="register-left">
-
-        <div class="diagnora-register-brand"><span><i class="fa-solid fa-heart-pulse"></i></span><strong>Diagnora</strong></div>
-
-        <h1>Laboratory management, made clearer.</h1>
-
-        <h3>One workspace for everyday operations</h3>
-
-        <p>Bring patient registration, test workflows, billing and reports together with Diagnora.</p>
-
-    </div>
-
-
-    <div class="register-right">
-
-        <div class="register-card">
-
-            <h2>Create your laboratory account</h2>
-
-            <p>Enter your laboratory details to get started with Diagnora.</p>
-           
-
-            <form method="POST">
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-hospital"></i>
-
-                    <input
-                    type="text"
-                    name="lab_name"
-                    placeholder="Laboratory Name"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-user"></i>
-
-                    <input
-                    type="text"
-                    name="owner_name"
-                    placeholder="Owner Name"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-phone"></i>
-
-                    <input
-                    type="text"
-                    name="mobile"
-                    placeholder="Mobile Number"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-envelope"></i>
-
-                    <input
-                    type="email"
-                    name="email"
-                    placeholder="Email Address"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-location-dot"></i>
-
-                   <input type="text"
-       name="address"
-       class="form-control"
-       placeholder="Address"
-       required>
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-user-shield"></i>
-
-                    <input
-                    type="text"
-                    name="username"
-                    placeholder="Admin Username"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-lock"></i>
-
-                    <input
-                    id="password"
-                    type="password"
-                    name="password"
-                    placeholder="Password"
-                    required>
-
-                </div>
-
-                <div class="input-box">
-
-                    <i class="fa-solid fa-lock"></i>
-
-                    <input
-                    type="password"
-                    name="confirm_password"
-                    placeholder="Confirm Password"
-                    required>
-
-                </div>
-
-                <button type="submit">
-
-                    <i class="fa-solid fa-building-circle-check"></i>
-
-                    Register Laboratory
-
-                </button>
-
-            </form>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="flash-container">
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
+  <main class="register-page">
+    <section class="register-container">
+      <aside class="register-left">
+        <a class="brand" href="/" aria-label="Diagnora home">
+          <span class="brand-mark"><i class="fa-solid fa-heart-pulse"></i></span>
+          <span><strong>Diagnora</strong><small>Laboratory Management</small></span>
+        </a>
+        <div class="left-content">
+          <span class="eyebrow"><span class="eyebrow-dot"></span> YOUR LAB, CONNECTED</span>
+          <h1>Bring your laboratory workflow <span>into focus.</span></h1>
+          <p>Set up your laboratory workspace to organize patient records, test workflows, billing, and reports in one place.</p>
+          <div class="trust-points">
+            <div><span class="point-icon"><i class="fa-solid fa-user-shield"></i></span><span><b>Controlled access</b><small>Workspace access for your team</small></span></div>
+            <div><span class="point-icon mint"><i class="fa-solid fa-layer-group"></i></span><span><b>Connected operations</b><small>Core laboratory tasks in one system</small></span></div>
+            <div><span class="point-icon lilac"><i class="fa-solid fa-chart-line"></i></span><span><b>Clear daily overview</b><small>Keep essential work organized</small></span></div>
+          </div>
+          <div class="help-note"><i class="fa-regular fa-circle-question"></i><span>Already have a laboratory account? <a href="{{ url_for('login') }}">Sign in</a></span></div>
         </div>
-    {% endif %}
-{% endwith %}
+        <div class="left-footer"><span><i class="fa-solid fa-shield-halved"></i> Designed for clearer workflows</span><span>© <span id="year">2026</span> Diagnora</span></div>
+      </aside>
 
-            <div class="login-link">
+      <section class="register-right">
+        <div class="form-heading">
+          <div class="mobile-brand"><span class="brand-mark"><i class="fa-solid fa-heart-pulse"></i></span><strong>Diagnora</strong></div>
+          <span class="step-label">GET STARTED <span>•</span> LABORATORY SETUP</span>
+          <h2>Create your laboratory account</h2>
+          <p>Enter your details below to create your Diagnora workspace.</p>
+        </div>
 
-                Already Registered?
-
-                <a href="{{ url_for('login') }}">
-
-                    Login
-
-                </a>
-
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flash-container" role="status" aria-live="polite">
+              {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+              {% endfor %}
             </div>
+          {% endif %}
+        {% endwith %}
 
-        </div>
-
-    </div>
-
-</div>
-
+        <form method="POST" action="{{ url_for('register_lab') }}" class="register-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="lab_name">Laboratory name</label>
+              <div class="input-box"><i class="fa-solid fa-hospital"></i><input id="lab_name" type="text" name="lab_name" placeholder="e.g. Sunrise Diagnostics" autocomplete="organization" required></div>
+            </div>
+            <div class="field">
+              <label for="owner_name">Owner name</label>
+              <div class="input-box"><i class="fa-solid fa-user"></i><input id="owner_name" type="text" name="owner_name" placeholder="Full name" autocomplete="name" required></div>
+            </div>
+            <div class="field">
+              <label for="mobile">Mobile number</label>
+              <div class="input-box"><i class="fa-solid fa-phone"></i><input id="mobile" type="tel" name="mobile" placeholder="10-digit mobile number" autocomplete="tel" required></div>
+            </div>
+            <div class="field">
+              <label for="email">Email address</label>
+              <div class="input-box"><i class="fa-solid fa-envelope"></i><input id="email" type="email" name="email" placeholder="you@laboratory.com" autocomplete="email" required></div>
+            </div>
+            <div class="field field-full">
+              <label for="address">Laboratory address</label>
+              <div class="input-box"><i class="fa-solid fa-location-dot"></i><input id="address" type="text" name="address" placeholder="Street, area, city" autocomplete="street-address" required></div>
+            </div>
+            <div class="field field-full">
+              <label for="username">Admin username</label>
+              <div class="input-box"><i class="fa-solid fa-user-shield"></i><input id="username" type="text" name="username" placeholder="Choose an admin username" autocomplete="username" required></div>
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <div class="input-box"><i class="fa-solid fa-lock"></i><input id="password" type="password" name="password" placeholder="Create a password" autocomplete="new-password" required><button class="password-toggle" type="button" data-toggle-password="password" aria-label="Show password"><i class="fa-regular fa-eye"></i></button></div>
+            </div>
+            <div class="field">
+              <label for="confirm_password">Confirm password</label>
+              <div class="input-box"><i class="fa-solid fa-lock"></i><input id="confirm_password" type="password" name="confirm_password" placeholder="Enter password again" autocomplete="new-password" required></div>
+            </div>
+          </div>
+          <button class="submit-button" type="submit">Create laboratory account <i class="fa-solid fa-arrow-right"></i></button>
+          <p class="form-terms">By registering, you confirm that the information provided is accurate.</p>
+        </form>
+        <div class="bottom-login">Already registered? <a href="{{ url_for('login') }}">Login to Diagnora</a></div>
+      </section>
+    </section>
+    
+  </main>
+  <script>
+    document.querySelectorAll('[data-toggle-password]').forEach(function(button) {
+      button.addEventListener('click', function() {
+        const input = document.getElementById(button.dataset.togglePassword);
+        if (!input) return;
+        const show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        button.innerHTML = show ? '<i class="fa-regular fa-eye-slash"></i>' : '<i class="fa-regular fa-eye"></i>';
+      });
+    });
+    const year = document.getElementById('year');
+    if (year) year.textContent = new Date().getFullYear();
+  </script>
 </body>
-
 </html>

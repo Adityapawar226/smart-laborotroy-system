@@ -20,3 +20,4 @@ qrcode[pil]
 redis
 cloudinary
 Flask-Compress==1.17.0
+python-dotenv

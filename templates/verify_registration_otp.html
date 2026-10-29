@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Verify Email | Diagnora</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f2f7fc;
+            color: #17324d;
+        }
+
+        .verification-card {
+            width: 100%;
+            max-width: 430px;
+            padding: 36px;
+            background: #ffffff;
+            border: 1px solid #e0eaf4;
+            border-radius: 20px;
+            box-shadow: 0 12px 40px rgba(30, 64, 100, 0.08);
+            text-align: center;
+        }
+
+        .brand {
+            margin-bottom: 28px;
+            color: #1765a8;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .icon {
+            display: inline-flex;
+            width: 64px;
+            height: 64px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            border-radius: 50%;
+            background: #eaf4ff;
+            color: #1765a8;
+            font-size: 28px;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 25px;
+        }
+
+        .description {
+            margin: 0 0 24px;
+            color: #64778b;
+            font-size: 14px;
+            line-height: 1.7;
+            overflow-wrap: anywhere;
+        }
+
+        .alert {
+            margin-bottom: 18px;
+            padding: 12px;
+            border-radius: 9px;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .alert-danger {
+            background: #fff0f0;
+            color: #a62929;
+        }
+
+        .alert-warning {
+            background: #fff7e5;
+            color: #805b00;
+        }
+
+        .alert-success {
+            background: #eaf9f0;
+            color: #176b3a;
+        }
+
+        .otp-input {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 18px;
+            border: 1px solid #cfdae7;
+            border-radius: 10px;
+            outline: none;
+            font-size: 25px;
+            letter-spacing: 9px;
+            text-align: center;
+        }
+
+        .otp-input:focus {
+            border-color: #267ac0;
+            box-shadow: 0 0 0 3px rgba(38, 122, 192, 0.12);
+        }
+
+        .verify-button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: #1765a8;
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .verify-button:hover {
+            background: #10548e;
+        }
+
+        .footer {
+            margin-top: 22px;
+            color: #718096;
+            font-size: 13px;
+        }
+
+        .footer a {
+            color: #1765a8;
+            text-decoration: none;
+        }
+
+        @media (max-width: 480px) {
+            .verification-card {
+                padding: 26px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <main class="verification-card">
+
+        <div class="brand">Diagnora</div>
+
+        <div class="icon" aria-hidden="true">&#9993;</div>
+
+        <h1>Verify your email</h1>
+
+        <p class="description">
+            We've sent a six-digit verification code to
+            <strong>{{ email }}</strong>.
+            Enter the code below to continue your laboratory registration.
+        </p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST"
+              action="{{ url_for('verify_registration_otp') }}">
+
+            <label for="otp">Six-digit verification code</label>
+
+            <input
+                class="otp-input"
+                id="otp"
+                type="text"
+                name="otp"
+                inputmode="numeric"
+                pattern="[0-9]{6}"
+                minlength="6"
+                maxlength="6"
+                autocomplete="one-time-code"
+                placeholder="000000"
+                aria-label="Six-digit verification code"
+                required
+            >
+
+            <button class="verify-button" type="submit">
+                Verify email and create account
+            </button>
+
+        </form>
+
+        <div class="footer">
+            Need help?
+            <a href="{{ url_for('register_lab') }}">
+                Return to registration
+            </a>
+        </div>
+
+    </main>
+
+</body>
+</html>

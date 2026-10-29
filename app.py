@@ -14,13 +14,18 @@ import math
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from pymysql.err import IntegrityError
+from datetime import datetime, timedelta, timezone
 from database import get_db
+import secrets
+import hashlib
 from modules.patient_loader import load_patient
 from modules.reference_loader import apply_reference_status
 from modules.report_merger import merge_results
 import qrcode
 import io
-
+from email.message import EmailMessage
+from dotenv import load_dotenv
 import base64
 import os
 from pathlib import Path
@@ -820,122 +825,588 @@ def logout():
     session.clear()
 
     return redirect(url_for("login"))
+import os
+import smtplib
+import secrets
+from email.message import EmailMessage
+
+
+def send_registration_otp(recipient_email, otp):
+    """
+    Send a registration verification OTP using Brevo SMTP.
+
+    Args:
+        recipient_email (str): Recipient's email address.
+        otp (str): Six-digit verification OTP.
+
+    Returns:
+        bool: True if the email was sent successfully.
+
+    Raises:
+        RuntimeError: If SMTP configuration is missing.
+        smtplib.SMTPException: If SMTP delivery fails.
+        OSError: If a network connection error occurs.
+    """
+
+    # -----------------------------------------
+    # Load Brevo SMTP configuration
+    # -----------------------------------------
+    smtp_host = os.getenv("BREVO_SMTP_HOST", "smtp-relay.brevo.com")
+    smtp_port = int(os.getenv("BREVO_SMTP_PORT", "587"))
+    smtp_login = os.getenv("BREVO_SMTP_LOGIN")
+    smtp_key = os.getenv("BREVO_SMTP_KEY")
+    sender_email = os.getenv("BREVO_SENDER_EMAIL")
+
+    # -----------------------------------------
+    # Validate configuration
+    # -----------------------------------------
+    if not all([
+        smtp_host,
+        smtp_login,
+        smtp_key,
+        sender_email
+    ]):
+        raise RuntimeError(
+            "Brevo SMTP configuration is incomplete. "
+            "Check your environment variables."
+        )
+
+    # -----------------------------------------
+    # Validate OTP
+    # -----------------------------------------
+    otp = str(otp)
+
+    if len(otp) != 6 or not otp.isdigit():
+        raise ValueError("OTP must contain exactly six digits.")
+
+    # -----------------------------------------
+    # Create email
+    # -----------------------------------------
+    message = EmailMessage()
+
+    message["Subject"] = "Verify your Diagnora registration"
+    message["From"] = sender_email
+    message["To"] = recipient_email
+
+    message.set_content(
+        f"""Hello,
+
+Welcome to Diagnora!
+
+Your email verification code is:
+
+    {otp}
+
+This code expires in 5 minutes.
+
+For your security, do not share this code with anyone.
+
+If you did not request this verification, you can ignore this email.
+
+Regards,
+Diagnora Team
+"""
+    )
+
+    # -----------------------------------------
+    # Send email through Brevo SMTP
+    # -----------------------------------------
+    try:
+        with smtplib.SMTP(
+            smtp_host,
+            smtp_port,
+            timeout=20
+        ) as server:
+
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+
+            server.login(
+                smtp_login,
+                smtp_key
+            )
+
+            server.send_message(message)
+
+        return True
+
+    except (smtplib.SMTPException, OSError):
+        # Do not log OTPs, SMTP credentials, or email contents.
+        raise
 @app.route("/register-lab", methods=["GET", "POST"])
 def register_lab():
 
-    if request.method == "POST":
+    if request.method == "GET":
+        return render_template("register_lab.html")
 
+    db = None
+    cursor = None
+
+    try:
+        # -----------------------------------------
+        # 1. Read registration form
+        # -----------------------------------------
+        lab_name = request.form.get("lab_name", "").strip()
+        owner_name = request.form.get("owner_name", "").strip()
+        mobile = request.form.get("mobile", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        address = request.form.get("address", "").strip()
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if not all([
+            lab_name,
+            owner_name,
+            mobile,
+            email,
+            address,
+            username,
+            password,
+            confirm_password
+        ]):
+            flash("Please fill in all required fields.", "danger")
+            return redirect(url_for("register_lab"))
+
+        # -----------------------------------------
+        # 2. Validate password
+        # -----------------------------------------
+        if password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            return redirect(url_for("register_lab"))
+
+        if len(password) < 8:
+            flash(
+                "Password must be at least 8 characters.",
+                "danger"
+            )
+            return redirect(url_for("register_lab"))
+
+        # -----------------------------------------
+        # 3. Database connection
+        # -----------------------------------------
         db = get_db()
         cursor = db.cursor()
 
+        # -----------------------------------------
+        # 4. Check registered username
+        # -----------------------------------------
+        cursor.execute(
+            """
+            SELECT id
+            FROM laboratories
+            WHERE LOWER(username) = LOWER(%s)
+
+            UNION
+
+            SELECT id
+            FROM users
+            WHERE LOWER(username) = LOWER(%s)
+            LIMIT 1
+            """,
+            (username, username)
+        )
+
+        if cursor.fetchone():
+            flash("Username already exists.", "danger")
+            return redirect(url_for("register_lab"))
+
+
+
+
+
+        # -----------------------------------------
+        # 7. Remove expired pending registrations
+        # -----------------------------------------
+        cursor.execute(
+            """
+            DELETE FROM pending_registrations
+            WHERE otp_expires_at <= UTC_TIMESTAMP()
+            """
+        )
+
+        # -----------------------------------------
+        # 8. Prevent duplicate pending registration
+        # -----------------------------------------
+        cursor.execute(
+            """
+            SELECT id
+            FROM pending_registrations
+            WHERE LOWER(username) = LOWER(%s)
+               OR LOWER(email) = LOWER(%s)
+               OR mobile = %s
+            LIMIT 1
+            """,
+            (username, email, mobile)
+        )
+
+        if cursor.fetchone():
+            flash(
+                "A registration with these details is already pending. "
+                "Please use the existing verification process.",
+                "warning"
+            )
+            return redirect(url_for("register_lab"))
+
+        # -----------------------------------------
+        # 9. Generate OTP and password hash
+        # -----------------------------------------
+        otp = f"{secrets.randbelow(1_000_000):06d}"
+
+        otp_hash = hashlib.sha256(
+            otp.encode("utf-8")
+        ).hexdigest()
+
+        hashed_password = bcrypt.generate_password_hash(
+            password
+        ).decode("utf-8")
+
+        # Store UTC as a naive datetime for MySQL DATETIME.
+        otp_expires_at = (
+            datetime.now(timezone.utc).replace(tzinfo=None)
+            + timedelta(minutes=5)
+        )
+
+        # -----------------------------------------
+        # 10. Store pending registration ONLY
+        # -----------------------------------------
+        cursor.execute(
+            """
+            INSERT INTO pending_registrations
+            (
+                lab_name,
+                owner_name,
+                mobile,
+                email,
+                address,
+                username,
+                password_hash,
+                otp_hash,
+                otp_expires_at,
+                attempts,
+                resend_count
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0)
+            """,
+            (
+                lab_name,
+                owner_name,
+                mobile,
+                email,
+                address,
+                username,
+                hashed_password,
+                otp_hash,
+                otp_expires_at
+            )
+        )
+
+        pending_id = cursor.lastrowid
+
+        db.commit()
+
+        # -----------------------------------------
+        # 11. Send OTP using Brevo
+        # -----------------------------------------
         try:
+            send_registration_otp(email, otp)
 
-            lab_name = request.form["lab_name"].strip()
-            owner_name = request.form["owner_name"].strip()
-            mobile = request.form["mobile"].strip()
-            email = request.form["email"].strip().lower()
-            address = request.form["address"].strip()
-            username = request.form["username"].strip()
-            password = request.form["password"]
-            confirm_password = request.form["confirm_password"]
+        except Exception:
+            # Email failed; remove pending registration.
+            cursor.execute(
+                """
+                DELETE FROM pending_registrations
+                WHERE id = %s
+                """,
+                (pending_id,)
+            )
 
-            # -----------------------------
-            # Password Validation
-            # -----------------------------
+            db.commit()
 
-            if password != confirm_password:
-                flash("Passwords do not match.", "danger")
-                return redirect(url_for("register_lab"))
+            session.pop("pending_registration_id", None)
 
-            if len(password) < 8:
-                flash("Password must be at least 8 characters.", "danger")
-                return redirect(url_for("register_lab"))
+            app.logger.exception(
+                "Registration OTP email delivery failed."
+            )
 
-            hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+            flash(
+                "We could not send the verification email. "
+                "Please try again later.",
+                "danger"
+            )
 
-            # -----------------------------
-            # Username Exists?
-            # -----------------------------
+            return redirect(url_for("register_lab"))
 
-            cursor.execute("""
-                SELECT id
-                FROM laboratories
-                WHERE username=%s
-            """, (username,))
+        # -----------------------------------------
+        # 12. Associate pending request with session
+        # -----------------------------------------
+        session["pending_registration_id"] = pending_id
 
-            if cursor.fetchone():
-                flash("Username already exists.", "danger")
-                return redirect(url_for("register_lab"))
+        flash(
+            "A verification code has been sent to your email.",
+            "success"
+        )
 
-            # -----------------------------
-            # Email Exists?
-            # -----------------------------
+        return redirect(
+            url_for("verify_registration_otp")
+        )
 
-            cursor.execute("""
+    except Exception:
+        if db:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        app.logger.exception(
+            "Registration request failed."
+        )
+
+        flash(
+            "Registration could not be started. Please try again.",
+            "danger"
+        )
+
+        return redirect(url_for("register_lab"))
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if db:
+            db.close()
+@app.route("/verify-registration-otp", methods=["GET", "POST"])
+def verify_registration_otp():
+
+    pending_id = session.get("pending_registration_id")
+
+    if not pending_id:
+        flash(
+            "Please start your registration again.",
+            "warning"
+        )
+        return redirect(url_for("register_lab"))
+
+    db = None
+    cursor = None
+
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        # -----------------------------------------
+        # 1. Fetch pending registration
+        # -----------------------------------------
+        cursor.execute(
+            """
+            SELECT *
+            FROM pending_registrations
+            WHERE id = %s
+            """,
+            (pending_id,)
+        )
+
+        row = cursor.fetchone()
+
+        if not row:
+            session.pop("pending_registration_id", None)
+
+            flash(
+                "Your pending registration was not found. "
+                "Please register again.",
+                "warning"
+            )
+
+            return redirect(url_for("register_lab"))
+
+        # Support tuple and dictionary cursors.
+        if isinstance(row, dict):
+            pending = row
+        else:
+            columns = [column[0] for column in cursor.description]
+            pending = dict(zip(columns, row))
+
+        if request.method == "GET":
+            return render_template(
+                "verify_registration_otp.html",
+                email=pending["email"]
+            )
+
+        # -----------------------------------------
+        # 2. Validate OTP input
+        # -----------------------------------------
+        entered_otp = request.form.get("otp", "").strip()
+
+        if not entered_otp.isdigit() or len(entered_otp) != 6:
+            flash(
+                "Enter a valid six-digit OTP.",
+                "danger"
+            )
+            return redirect(url_for("verify_registration_otp"))
+
+        # -----------------------------------------
+        # 3. Lock pending record during verification
+        # -----------------------------------------
+        cursor.execute(
+            """
+            SELECT *
+            FROM pending_registrations
+            WHERE id = %s
+            FOR UPDATE
+            """,
+            (pending_id,)
+        )
+
+        row = cursor.fetchone()
+
+        if not row:
+            db.rollback()
+            session.pop("pending_registration_id", None)
+
+            flash(
+                "Registration not found. Please register again.",
+                "warning"
+            )
+            return redirect(url_for("register_lab"))
+
+        if isinstance(row, dict):
+            pending = row
+        else:
+            columns = [column[0] for column in cursor.description]
+            pending = dict(zip(columns, row))
+
+        # -----------------------------------------
+        # 4. Check OTP expiry
+        # -----------------------------------------
+        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        if pending["otp_expires_at"] <= now_utc:
+            cursor.execute(
+                """
+                DELETE FROM pending_registrations
+                WHERE id = %s
+                """,
+                (pending_id,)
+            )
+
+            db.commit()
+            session.pop("pending_registration_id", None)
+
+            flash(
+                "OTP expired. Please register again.",
+                "warning"
+            )
+            return redirect(url_for("register_lab"))
+
+        # -----------------------------------------
+        # 5. Limit OTP attempts
+        # -----------------------------------------
+        if pending["attempts"] >= 5:
+            cursor.execute(
+                """
+                DELETE FROM pending_registrations
+                WHERE id = %s
+                """,
+                (pending_id,)
+            )
+
+            db.commit()
+            session.pop("pending_registration_id", None)
+
+            flash(
+                "Too many incorrect attempts. Please register again.",
+                "danger"
+            )
+            return redirect(url_for("register_lab"))
+
+        # -----------------------------------------
+        # 6. Verify OTP hash
+        # -----------------------------------------
+        entered_hash = hashlib.sha256(
+            entered_otp.encode("utf-8")
+        ).hexdigest()
+
+        if not secrets.compare_digest(
+            entered_hash,
+            pending["otp_hash"]
+        ):
+            cursor.execute(
+                """
+                UPDATE pending_registrations
+                SET attempts = attempts + 1
+                WHERE id = %s
+                """,
+                (pending_id,)
+            )
+
+            db.commit()
+
+            flash(
+                "Incorrect OTP. Please try again.",
+                "danger"
+            )
+
+            return redirect(url_for("verify_registration_otp"))
+
+        # -----------------------------------------
+        # 7. Recheck registered account details
+        # -----------------------------------------
+        cursor.execute(
+    """
     SELECT id
     FROM laboratories
-    WHERE email = %s
-    AND lab_name = %s
-""", (email, lab_name))
+    WHERE LOWER(username) = LOWER(%s)
+    LIMIT 1
+    """,
+    (pending["username"],)
+)
 
-            if cursor.fetchone():
-             flash("This laboratory is already registered with this email.", "danger")
-             return redirect(url_for("register_lab"))
+        if cursor.fetchone():
+          db.rollback()
 
-            # -----------------------------
-            # Mobile Exists?
-            # -----------------------------
+          flash(
+        "This username is already registered. "
+        "Please start registration with a different username.",
+        "danger"
+    )
 
-            cursor.execute("""
-    SELECT id
-    FROM laboratories
-    WHERE mobile = %s
-    AND lab_name = %s
-""", (mobile, lab_name))
+          return redirect(url_for("register_lab"))
 
-            if cursor.fetchone():
-             flash("This laboratory is already registered with this mobile number.", "danger")
-             return redirect(url_for("register_lab"))
+        # -----------------------------------------
+        # 8. Generate next Lab ID
+        # -----------------------------------------
+        cursor.execute(
+            """
+            SELECT lab_id
+            FROM laboratories
+            ORDER BY id DESC
+            LIMIT 1
+            FOR UPDATE
+            """
+        )
 
-            # -----------------------------
-            # Generate Lab ID
-            # -----------------------------
+        row = cursor.fetchone()
 
-            cursor.execute("""
-                SELECT lab_id
-                FROM laboratories
-                ORDER BY id DESC
-                LIMIT 1
-            """)
-
-            row = cursor.fetchone()
-
-            if row:
-                next_no = int(row[0].replace("LAB", "")) + 1
+        if row:
+            if isinstance(row, dict):
+                last_lab_id = row["lab_id"]
             else:
-                next_no = 1
+                last_lab_id = row[0]
 
-            lab_id = f"LAB{next_no:04d}"
+            next_no = int(last_lab_id.replace("LAB", "")) + 1
+        else:
+            next_no = 1
 
-            # -----------------------------
-            # Insert Laboratory
-            # -----------------------------
+        lab_id = f"LAB{next_no:04d}"
 
-            cursor.execute("""
-                INSERT INTO laboratories
-                (
-                    lab_id,
-                    lab_name,
-                    owner_name,
-                    mobile,
-                    email,
-                    address,
-                    username,
-                    password
-                )
-                VALUES
-                (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
+        # -----------------------------------------
+        # 9. Create laboratory account
+        # -----------------------------------------
+        cursor.execute(
+            """
+            INSERT INTO laboratories
+            (
                 lab_id,
                 lab_name,
                 owner_name,
@@ -943,89 +1414,207 @@ def register_lab():
                 email,
                 address,
                 username,
-                hashed_password
-            ))
-            
-            cursor.execute("""
-    INSERT INTO users
-    (
-        lab_id,
-        username,
-        password,
-        email,
-        mobile,
-        role,
-        status
-    )
-    VALUES (%s,%s,%s,%s,%s,%s,%s)
-""", (
-    lab_id,
-    username.lower(),
-    hashed_password,
-    email,
-    mobile,
-    "Admin",
-    "Active"
-))
+                password
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                lab_id,
+                pending["lab_name"],
+                pending["owner_name"],
+                pending["mobile"],
+                pending["email"],
+                pending["address"],
+                pending["username"],
+                pending["password_hash"]
+            )
+        )
 
+        # -----------------------------------------
+        # 10. Create Admin user
+        # -----------------------------------------
+        cursor.execute(
+            """
+            INSERT INTO users
+            (
+                lab_id,
+                username,
+                password,
+                email,
+                mobile,
+                role,
+                status
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                lab_id,
+                pending["username"].lower(),
+                pending["password_hash"],
+                pending["email"],
+                pending["mobile"],
+                "Admin",
+                "Active"
+            )
+        )
 
-            # -----------------------------
-            # Default Settings
-            # -----------------------------
-
-            cursor.execute("""
-                INSERT INTO lab_settings
-                (
-                    lab_id,
-                    lab_name,
-                    owner_name,
-                    mobile,
-                    email,
-                    address,
-                    patient_prefix,
-                    receipt_prefix
-                )
-                VALUES
-                (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
+        # -----------------------------------------
+        # 11. Create default lab settings
+        # -----------------------------------------
+        cursor.execute(
+            """
+            INSERT INTO lab_settings
+            (
                 lab_id,
                 lab_name,
                 owner_name,
                 mobile,
                 email,
                 address,
+                patient_prefix,
+                receipt_prefix
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                lab_id,
+                pending["lab_name"],
+                pending["owner_name"],
+                pending["mobile"],
+                pending["email"],
+                pending["address"],
                 "PAT",
                 "RCPT"
-            ))
-
-            db.commit()
-
-            return render_template(
-                "registration_success.html",
-                lab_id=lab_id,
-                username=username
             )
+        )
 
-        except Exception as e:
+        # -----------------------------------------
+        # 12. Remove pending registration
+        # -----------------------------------------
+        cursor.execute(
+            """
+            DELETE FROM pending_registrations
+            WHERE id = %s
+            """,
+            (pending_id,)
+        )
 
+        # Commit all account inserts together.
+        db.commit()
+
+        session.pop("pending_registration_id", None)
+
+        # -----------------------------------------
+        # 13. Show registration success
+        # -----------------------------------------
+        return render_template(
+            "registration_success.html",
+            lab_id=lab_id,
+            username=pending["username"]
+        )
+
+    except IntegrityError:
+        if db:
             db.rollback()
-            raise e
 
-        finally:
+        app.logger.exception(
+            "Registration integrity constraint failed."
+        )
 
+        flash(
+            "These registration details may already be in use. "
+            "Please check and try again.",
+            "danger"
+        )
+
+        return redirect(url_for("register_lab"))
+
+    except Exception:
+        if db:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+        app.logger.exception(
+            "Registration OTP verification failed."
+        )
+
+        flash(
+            "We could not complete verification. Please try again.",
+            "danger"
+        )
+
+        return redirect(url_for("verify_registration_otp"))
+
+    finally:
+        if cursor:
             cursor.close()
+
+        if db:
             db.close()
+@app.route("/cancel-pending-registration", methods=["POST"])
+def cancel_pending_registration():
 
-    return render_template("register_lab.html")
+    pending_id = session.get("pending_registration_id")
 
+    if not pending_id:
+        flash("No pending registration was found.", "warning")
+        return redirect(url_for("register_lab"))
 
-from concurrent.futures import ThreadPoolExecutor
+    db = None
+    cursor = None
 
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute(
+            """
+            DELETE FROM pending_registrations
+            WHERE id = %s
+            """,
+            (pending_id,)
+        )
+
+        db.commit()
+
+        session.pop("pending_registration_id", None)
+
+        flash(
+            "Your pending registration has been cancelled. "
+            "You can register again.",
+            "success"
+        )
+
+        return redirect(url_for("register_lab"))
+
+    except Exception:
+        if db:
+            db.rollback()
+
+        app.logger.exception(
+            "Failed to cancel pending registration."
+        )
+
+        flash(
+            "Unable to cancel registration. Please try again.",
+            "danger"
+        )
+
+        return redirect(url_for("register_lab"))
+
+    finally:
+        if cursor:
+            cursor.close()
+
+        if db:
+            db.close()
 @app.route("/dashboard")
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def dashboard():
-    """Render the dashboard using Redis cache for stats and ThreadPoolExecutor for fresh data."""
+    """Render the dashboard using Redis cache and a single optimized database connection."""
     route_start = time.perf_counter()
 
     if session.get("role") == "Developer":
@@ -1040,7 +1629,6 @@ def dashboard():
         cached_stats = r.get(cache_key)
         
         if cached_stats and not search:
-            # If cached and no active search filter is applied, load data from cache
             stats_data = json.loads(cached_stats)
             patients = stats_data["patients"]
             payments = stats_data["payments"]
@@ -1056,13 +1644,14 @@ def dashboard():
             total_tests = stats_data["total_tests"]
             total_reports = stats_data["total_reports"]
         else:
-            # 2. Fallback to parallel execution if cache misses or a search query is active
-            def fetch_patients():
-                conn = get_db()
-                cur = conn.cursor()
+            # 2. Use ONE single connection for all queries to avoid multiple network handshakes
+            conn = get_db()
+            try:
+                # A. Fetch Patients
+                cur_patients = conn.cursor()
                 try:
                     if not search:
-                        cur.execute("""
+                        cur_patients.execute("""
                             SELECT
                                 p.patient_id, p.name, p.age,
                                 GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
@@ -1079,7 +1668,7 @@ def dashboard():
                             LIMIT 10
                         """, (lab_id,))
                     else:
-                        cur.execute("""
+                        cur_patients.execute("""
                             SELECT
                                 p.patient_id, p.name, p.age,
                                 GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
@@ -1097,16 +1686,14 @@ def dashboard():
                             GROUP BY p.id, p.patient_id, p.name, p.age, pay.total_amount, pay.payment_mode, pay.payment_status, p.created_at
                             ORDER BY p.created_at DESC
                         """, (lab_id, f"%{search}%", f"%{search}%", f"%{search}%"))
-                    return cur.fetchall()
+                    patients = cur_patients.fetchall()
                 finally:
-                    cur.close()
-                    conn.close()
+                    cur_patients.close()
 
-            def fetch_payments():
-                conn = get_db()
-                cur = conn.cursor()  # Standard tuple cursor for index compatibility
+                # B. Fetch Payments
+                cur_payments = conn.cursor(pymysql.cursors.DictCursor)
                 try:
-                    cur.execute("""
+                    cur_payments.execute("""
                         SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
                         FROM payments p
                         JOIN patients pa ON pa.patient_id = p.patient_id AND pa.lab_id = p.lab_id
@@ -1114,40 +1701,38 @@ def dashboard():
                         ORDER BY p.id DESC
                         LIMIT 10
                     """, (lab_id,))
-                    return cur.fetchall()
+                    payments = cur_payments.fetchall()
                 finally:
-                    cur.close()
-                    conn.close()
+                    cur_payments.close()
 
-            def fetch_patient_stats():
-               conn = get_db()
-               cur = conn.cursor(pymysql.cursors.DictCursor)  # Must be DictCursor
-               try:
-                cur.execute("""
-            SELECT
-                COUNT(*) AS total_patients,
-                COALESCE(
-                    SUM(
-                        CASE
-                            WHEN created_at >= CURDATE()
-                             AND created_at < CURDATE() + INTERVAL 1 DAY
-                            THEN 1 ELSE 0
-                        END
-                    ), 0
-                ) AS patient_count
-            FROM patients
-            WHERE lab_id = %s
-        """, (lab_id,))
-                return cur.fetchone()
-               finally:
-                cur.close()
-                conn.close()
-
-            def fetch_transaction_stats():
-                conn = get_db()
-                cur = conn.cursor(pymysql.cursors.DictCursor)
+                # C. Fetch Patient Stats
+                cur_p_stats = conn.cursor(pymysql.cursors.DictCursor)
                 try:
-                    cur.execute("""
+                    cur_p_stats.execute("""
+                        SELECT
+                            COUNT(*) AS total_patients,
+                            COALESCE(
+                                SUM(
+                                    CASE
+                                        WHEN created_at >= CURDATE()
+                                         AND created_at < CURDATE() + INTERVAL 1 DAY
+                                        THEN 1 ELSE 0
+                                    END
+                                ), 0
+                            ) AS patient_count
+                        FROM patients
+                        WHERE lab_id = %s
+                    """, (lab_id,))
+                    patient_stats = cur_p_stats.fetchone()
+                    total_patients = patient_stats["total_patients"]
+                    patient_count = patient_stats["patient_count"]
+                finally:
+                    cur_p_stats.close()
+
+                # D. Fetch Transaction Stats
+                cur_t_stats = conn.cursor(pymysql.cursors.DictCursor)
+                try:
+                    cur_t_stats.execute("""
                         SELECT
                             COALESCE(
                                 SUM(
@@ -1202,67 +1787,45 @@ def dashboard():
                         FROM payment_transactions
                         WHERE lab_id = %s
                     """, (lab_id,))
-                    return cur.fetchone()
+                    transaction_stats = cur_t_stats.fetchone()
+                    total_income = transaction_stats["total_income"]
+                    cash_total = transaction_stats["cash_total"]
+                    upi_total = transaction_stats["upi_total"]
+                    cash_count = transaction_stats["cash_count"]
+                    upi_count = transaction_stats["upi_count"]
+                    grand_total_income = transaction_stats["grand_total_income"]
                 finally:
-                    cur.close()
-                    conn.close()
+                    cur_t_stats.close()
 
-            def fetch_pending_payments():
-                conn = get_db()
-                cur = conn.cursor()  # Standard tuple cursor
+                # E. Fetch Pending Payments
+                cur_pending = conn.cursor()
                 try:
-                    cur.execute("""
+                    cur_pending.execute("""
                         SELECT COALESCE(SUM(remaining_amount), 0)
                         FROM payments
                         WHERE payment_status = 'Pending' AND lab_id = %s
                     """, (lab_id,))
-                    res = cur.fetchone()
-                    return res[0] if res else 0
+                    res_pending = cur_pending.fetchone()
+                    pending_amount = res_pending[0] if res_pending else 0
                 finally:
-                    cur.close()
-                    conn.close()
+                    cur_pending.close()
 
-            def fetch_test_report_stats():
-                conn = get_db()
-                cur = conn.cursor()  # Use standard tuple cursor
+                # F. Fetch Test & Report Stats
+                cur_test_stats = conn.cursor()
                 try:
-                    cur.execute("""
+                    cur_test_stats.execute("""
                         SELECT
                             (SELECT COUNT(*) FROM patient_tests WHERE lab_id = %s) AS total_tests,
                             (SELECT COUNT(DISTINCT patient_id) FROM test_results WHERE lab_id = %s) AS total_reports
                     """, (lab_id, lab_id))
-                    return cur.fetchone()
+                    test_stats = cur_test_stats.fetchone()
+                    total_tests = test_stats[0]
+                    total_reports = test_stats[1]
                 finally:
-                    cur.close()
-                    conn.close()
+                    cur_test_stats.close()
 
-            with ThreadPoolExecutor(max_workers=6) as executor:
-                future_patients = executor.submit(fetch_patients)
-                future_payments = executor.submit(fetch_payments)
-                future_p_stats = executor.submit(fetch_patient_stats)
-                future_t_stats = executor.submit(fetch_transaction_stats)
-                future_pending = executor.submit(fetch_pending_payments)
-                future_test_stats = executor.submit(fetch_test_report_stats)
-
-                patients = future_patients.result()
-                payments = future_payments.result()
-                
-                patient_stats = future_p_stats.result()
-                total_patients = patient_stats["total_patients"]
-                patient_count = patient_stats["patient_count"]
-                transaction_stats = future_t_stats.result()
-                total_income = transaction_stats["total_income"]
-                cash_total = transaction_stats["cash_total"]
-                upi_total = transaction_stats["upi_total"]
-                cash_count = transaction_stats["cash_count"]
-                upi_count = transaction_stats["upi_count"]
-                grand_total_income = transaction_stats["grand_total_income"]
-
-                pending_amount = future_pending.result()
-
-                test_stats = future_test_stats.result()
-                total_tests = test_stats[0]
-                total_reports = test_stats[1]
+            finally:
+                conn.close()
 
             # Save to Redis cache for 60 seconds if no search query was passed
             if not search:
@@ -2137,7 +2700,25 @@ def mark_paid(id):
             AND lab_id=%s
         """, (id, lab_id))
 
-        pending = cursor.fetchone()
+        row = cursor.fetchone()
+
+        if not row:
+         db.rollback()
+
+         session.pop("pending_registration_id", None)
+
+         flash(
+        "Registration not found. Please register again.",
+        "warning"
+    )
+
+         return redirect(url_for("register_lab"))
+
+        if isinstance(row, dict):
+         pending = row
+        else:
+         columns = [column[0] for column in cursor.description]
+         pending = dict(zip(columns, row))
 
         if not pending:
             return "Pending payment not found"

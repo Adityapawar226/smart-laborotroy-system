@@ -68,7 +68,7 @@
 </a>
 
     </div>
-    <div class="middle-section">
+    <div class="middle-section {% if session.get('role') == 'Technician' %}technician-dashboard{% endif %}">
 
      <div class="registrations-box">
 
@@ -148,34 +148,39 @@
 
     </div>
 
-    <div class="payment-box">
+    {% if session.get('role') == 'Admin' %}
 
-        <div class="box-header">
-            <h4>Payment Summary</h4>
+<div class="payment-box">
+
+    <div class="box-header">
+        <h4>Payment Summary</h4>
+    </div>
+
+    <div class="payment-cards">
+
+        <div class="payment-card">
+            <h4>Cash</h4>
+            <h2>₹{{ cash_total }}</h2>
+            <p>{{ cash_count }} Transactions</p>
         </div>
 
-        <div class="payment-cards">
-<div class="payment-card">
-    <h4>Cash</h4>
-    <h2>₹{{ cash_total }}</h2>
-    <p>{{ cash_count }} Transactions</p>
-</div>
+        <div class="payment-card">
+            <h4>UPI</h4>
+            <h2>₹{{ upi_total }}</h2>
+            <p>{{ upi_count }} Transactions</p>
+        </div>
 
-<div class="payment-card">
-    <h4>UPI</h4>
-    <h2>₹{{ upi_total }}</h2>
-    <p>{{ upi_count }} Transactions</p>
-</div>
-
-            <div class="payment-card">
-               <p>Pending Payments</p>
-               <h2>₹{{ pending_amount }}</h2>
-                <p>6 Transactions</p>
-            </div>
-
+        <div class="payment-card">
+            <p>Pending Payments</p>
+            <h2>₹{{ pending_amount }}</h2>
+            <p>6 Transactions</p>
         </div>
 
     </div>
+
+</div>
+
+{% endif %}
 
 </div>
 <div class="middle-section">
@@ -203,17 +208,29 @@
 
                <tbody>
 
-{% for payment in payments %}
+    {% for payment in payments %}
 
-<tr>
-    <td>{{ payment[0] }}</td>
-    <td>{{ payment[1] }}</td>
-    <td>₹{{ payment[2] }}</td>
-    <td>{{ payment[3] }}</td>
-    <td>{{ payment[4] }}</td>
-</tr>
+    <tr>
+        <td>{{ payment['receipt_no'] or '-' }}</td>
 
-{% endfor %}
+        <td>{{ payment['name'] or '-' }}</td>
+
+        <td>₹{{ "%.2f"|format(payment['total_amount']|float) }}</td>
+
+        <td>{{ payment['payment_mode'] or '-' }}</td>
+
+        <td>{{ payment['payment_status'] or '-' }}</td>
+    </tr>
+
+    {% else %}
+
+    <tr>
+        <td colspan="5" style="text-align:center;padding:25px;color:#777;">
+            No payments found
+        </td>
+    </tr>
+
+    {% endfor %}
 
 </tbody>
         

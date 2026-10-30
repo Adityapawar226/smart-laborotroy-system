@@ -222,19 +222,25 @@
                     </a>
                 </li>
 
-                <li>
-                    <a href="{{ url_for('analytics') }}">
-                        <i class="bi bi-graph-up"></i>
-                        <span>Analytics</span>
-                    </a>
-                </li>
+                {% if session.get("role") == "Admin" %}
 
-                <li>
-                    <a href="{{ url_for('expenses') }}">
-                        <i class="fas fa-wallet"></i>
-                        <span>Expenses</span>
-                    </a>
-                </li>
+    <!-- Analytics -->
+    <li>
+        <a href="{{ url_for('analytics') }}">
+            <i class="bi bi-graph-up"></i>
+            <span>Analytics</span>
+        </a>
+    </li>
+
+    <!-- Expenses -->
+    <li>
+        <a href="{{ url_for('expenses') }}">
+            <i class="fas fa-wallet"></i>
+            <span>Expenses</span>
+        </a>
+    </li>
+
+{% endif %}
 
                 {% if session.get("role") == "Admin" %}
 

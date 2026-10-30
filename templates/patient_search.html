@@ -268,38 +268,63 @@
                     </tr>
                 </thead>
                 <tbody id="patientTableBody">
-                {% for patient in patients %}
-                    <tr>
-                        <td><span class="patient-id">{{ patient[0] or '-' }}</span></td>
-                        <td><span class="patient-name">{{ patient[1] or '-' }}</span></td>
-                        <td>{{ patient[2] if patient[2] is not none else '-' }}</td>
-                        <td><span class="gender-badge">{{ patient[3] or '-' }}</span></td>
-                        <td>{{ patient[4] or '-' }}</td>
-                        <td>{{ patient[5] or '-' }}</td>
-                        <td>
-                            <div class="actions">
-                                <a class="btn btn-bill"
-                                   href="{{ url_for('billing', patient_id=patient[0]) }}">▤ Bill</a>
-                                <a class="btn btn-report"
-                                   href="/view-report/{{ patient[0]|urlencode }}">▣ Report</a>
-                                <button class="btn btn-delete" type="button"
-                                        data-patient-id="{{ patient[0] }}"
-                                        onclick="showDeleteNotice(this)">▤ Delete</button>
-                            </div>
-                        </td>
-                    </tr>
-                {% else %}
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <span class="empty-icon">♙</span>
-                                <strong>No patient records found</strong>
-                                <p>Patient records will appear here when available.</p>
-                            </div>
-                        </td>
-                    </tr>
-                {% endfor %}
-                </tbody>
+
+    {% for patient in patients %}
+
+    <tr>
+        <td><span class="patient-id">{{ patient[0] or '-' }}</span></td>
+
+        <td><span class="patient-name">{{ patient[1] or '-' }}</span></td>
+
+        <td>{{ patient[2] if patient[2] is not none else '-' }}</td>
+
+        <td><span class="gender-badge">{{ patient[3] or '-' }}</span></td>
+
+        <td>{{ patient[4] or '-' }}</td>
+
+        <td>{{ patient[5] or '-' }}</td>
+
+        <td>
+            <div class="actions">
+
+                <a class="btn btn-bill"
+                   href="{{ url_for('billing', patient_id=patient[0]) }}">
+                    ▤ Bill
+                </a>
+
+                <a class="btn btn-report"
+                   href="/view-report/{{ patient[0]|urlencode }}">
+                    ▣ Report
+                </a>
+
+                {% if session.get('role') == 'Admin' %}
+                <button class="btn btn-delete"
+                        type="button"
+                        data-patient-id="{{ patient[0] }}"
+                        onclick="showDeleteNotice(this)">
+                    ▤ Delete
+                </button>
+                {% endif %}
+
+            </div>
+        </td>
+    </tr>
+
+    {% else %}
+
+    <tr>
+        <td colspan="7">
+            <div class="empty-state">
+                <span class="empty-icon">♙</span>
+                <strong>No patient records found</strong>
+                <p>Patient records will appear here when available.</p>
+            </div>
+        </td>
+    </tr>
+
+    {% endfor %}
+
+</tbody>
             </table>
         </div>
 
@@ -317,6 +342,8 @@
     const searchInput = document.getElementById("patientSearch");
     const clearButton = document.getElementById("clearSearch");
     const tableBody = document.getElementById("patientTableBody");
+    const canDeletePatients =
+    document.body.dataset.userRole === "Admin";
     const patientCount = document.getElementById("patientCount");
     const searchMessage = document.getElementById("searchMessage");
     const tableFooter = document.getElementById("tableFooter");
@@ -375,9 +402,13 @@
                     <td><div class="actions">
                         <a class="btn btn-bill" href="{{ url_for('billing') }}?patient_id=${safeId}">▤ Bill</a>
                         <a class="btn btn-report" href="/view-report/${safeId}">▣ Report</a>
-                        <button class="btn btn-delete" type="button"
-                                data-patient-id="${escapeHTML(id)}"
-                                onclick="showDeleteNotice(this)">▤ Delete</button>
+                        ${canDeletePatients ? `
+    <button class="btn btn-delete" type="button"
+            data-patient-id="${escapeHTML(id)}"
+            onclick="showDeleteNotice(this)">
+        ▤ Delete
+    </button>
+` : ''}
                     </div></td>
                 </tr>`;
         }).join("");

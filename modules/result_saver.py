@@ -164,16 +164,15 @@ def save_manual_results(
 
     for p in parameters:
 
-        parameter_id = p[0]
-        parameter_code = p[1]
-        display_name = p[2]
-        short_name = p[3]
-        unit = p[4]
-        formula_id = p[5]
-        component_id = p[6]
-        section_id = p[8]
-        test_name = p[11]
-
+        parameter_id = p["parameter_id"]
+        parameter_code = p["parameter_code"]
+        display_name = p["display_name"]
+        short_name = p["short_name"]
+        unit = p["unit"]
+        formula_id = p["formula_id"]
+        component_id = p["component_id"]
+        section_id = p["section_id"]
+        test_name = p["test_name"]
         # Formula parameters must be calculated separately.
         if formula_id is not None:
             continue
@@ -299,9 +298,9 @@ def save_formula_results(
     rows = cursor.fetchall()
 
     formula_parameters = {
-        row[0]: row[1]
-        for row in rows
-    }
+    row["id"]: row["formula_id"]
+    for row in rows
+}
 
     print("=" * 60)
     print("[FORMULA PROCESSING]")

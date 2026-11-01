@@ -48,17 +48,19 @@ def load_saved_results(cursor, patient_id, lab_id):
     results = {}
 
     for row in rows:
-        parameter_id = row[0]
+        for row in rows:
 
-        results[parameter_id] = {
-            "parameter_name": row[3],
-            "result": row[4],
-            "unit": row[5],
-            "reference_range": row[6],
-            "entry_mode": row[7],
-            "component_id": row[1],
-            "section_id": row[2]
-        }
+         parameter_id = row["parameter_id"]
+
+         results[parameter_id] = {
+        "parameter_name": row["parameter_name"],
+        "result": row["result_value"],
+        "unit": row["unit"],
+        "reference_range": row["reference_range"],
+        "entry_mode": row["entry_mode"],
+        "component_id": row["component_id"],
+        "section_id": row["section_id"]
+    }
 
     print("[DEBUG] SAVED RESULTS DICTIONARY:")
     print(results)
@@ -101,8 +103,10 @@ def load_component_results(cursor, patient_id, lab_id):
     results = {}
 
     for row in rows:
-        component_id = row[0]
-        results[component_id] = row[1]
+
+      component_id = row["component_id"]
+
+      results[component_id] = row["result_value"]
 
     print("[DEBUG] COMPONENT RESULTS DICTIONARY:")
     print(results)

@@ -33,33 +33,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_SSL_CA = PROJECT_ROOT / "aiven-ca.pem"
 
 
-def get_db():
-    if not DB_SSL_CA.is_file():
-        raise FileNotFoundError(
-            f"MySQL CA certificate not found: {DB_SSL_CA}"
-        )
 
-    started = time.perf_counter()
 
-    import pymysql
-
-    db = pymysql.connect(
-    host=os.environ["DB_HOST"],
-    port=int(os.environ.get("DB_PORT", "15054")),
-    user=os.environ["DB_USER"],
-    password=os.environ["DB_PASSWORD"],
-    database=os.environ["DB_NAME"],
-    ssl={"ca": str(DB_SSL_CA)},
-    connect_timeout=15,
-    cursorclass=pymysql.cursors.DictCursor
-)
-
-    current_app.logger.info(
-        "MySQL connection took %.3f seconds",
-        time.perf_counter() - started
-    )
-
-    return db
+    
 
 
     

@@ -68,18 +68,18 @@
                 <tbody id="pendingPaymentsBody">
                     {% for row in data %}
                     <tr class="pending-payment-row">
-                        <td class="pending-receipt">{{ row[1] }}</td>
-                        <td class="pending-patient-id">{{ row[2] }}</td>
-                        <td class="pending-patient-name">{{ row[3] }}</td>
-                        <td>{{ row[4] }}</td>
-                        <td class="money-cell">₹{{ row[5] }}</td>
-                        <td class="money-cell">₹{{ row[6] }}</td>
-                        <td class="money-cell pending-amount-cell" data-amount="{{ row[7] }}">₹{{ row[7] }}</td>
-                        <td>{{ row[8] }}</td>
-                        <td>{{ row[9] }}</td>
-                        <td><span class="pending-status">{{ row[10] }}</span></td>
+                        <td class="pending-receipt">{{ row['receipt_no'] }}</td>
+                        <td class="pending-patient-id">{{ row['patient_id'] }}</td>
+                        <td class="pending-patient-name">{{ row['patient_name'] }}</td>
+                        <td>{{ row['mobile'] }}</td>
+                        <td class="money-cell">₹{{ row['total_amount'] }}</td>
+                        <td class="money-cell">₹{{ row['paid_amount'] }}</td>
+                        <td class="money-cell pending-amount-cell" data-amount="{{ row['pending_amount'] }}">₹{{ row['pending_amount'] }}</td>
+                        <td>{{ row['report_date'] }}</td>
+                        <td>{{ row['due_date'] }}</td>
+                        <td><span class="pending-status">{{ row['status'] }}</span></td>
                         <td class="pending-action-column">
-                            <a href="{{ url_for('collect_payment', payment_id=row[0]) }}" class="pending-mark-paid-btn">
+                            <a href="{{ url_for('collect_payment', payment_id=row['id']) }}" class="pending-mark-paid-btn">
                                 <i class="bi bi-check2-circle"></i> Mark Paid
                             </a>
                         </td>

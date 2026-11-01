@@ -30,12 +30,12 @@ def load_patient(cursor, patient_id, lab_id):
         return None
 
     return {
-        "patient_id": row[0],
-        "name": row[1],
-        "age": row[2],
-        "gender": row[3],
-        "doctor_name": row[4],
-        "collection_date": row[5],
-        "report_date": row[6],
-        "sample_id": row[7]
-    }
+    "patient_id": row["patient_id"],
+    "name": row["name"],
+    "age": row["age"],
+    "gender": row["gender"],
+    "doctor_name": row["doctor_name"],
+    "collection_date": row["collected_on"],
+    "report_date": row["report_generated_on"],
+    "sample_id": row["sample_id"]
+}

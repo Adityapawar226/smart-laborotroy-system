@@ -254,6 +254,19 @@
 
 {% block content %}
 <section class="analytics-page">
+    <!-- Flask-rendered chart data is kept in HTML attributes so the JavaScript
+         editor does not try to parse Jinja expressions as JavaScript. -->
+    <div id="analyticsData"
+         hidden
+         data-cash-income="{{ cash_income|default(0, true)|float }}"
+         data-upi-income="{{ upi_income|default(0, true)|float }}"
+         data-dates='{{ dates|default([], true)|tojson|forceescape }}'
+         data-amounts='{{ amounts|default([], true)|tojson|forceescape }}'
+         data-test-names='{{ test_names|default([], true)|tojson|forceescape }}'
+         data-test-revenue='{{ test_revenue|default([], true)|tojson|forceescape }}'
+         data-patient-dates='{{ patient_dates|default([], true)|tojson|forceescape }}'
+         data-patient-counts='{{ patient_counts|default([], true)|tojson|forceescape }}'>
+    </div>
     <div class="analytics-print-toolbar">
         <button type="button"
                 class="analytics-print-button"
@@ -342,9 +355,9 @@
         <div class="analytics-month-report">
             {% for month in monthly_income|default([], true) %}
             <div class="analytics-month-card">
-                <div class="analytics-month-name">{{ month[0] }}</div>
+                <div class="analytics-month-name">{{ month['month_label'] }}</div>
                 <div class="analytics-month-income">
-                    ₹{{ "%.2f"|format(month[1]|default(0, true)|float) }}
+                    ₹{{ "%.2f"|format(month['month_income']|default(0, true)|float) }}
                 </div>
             </div>
             {% else %}
@@ -370,15 +383,35 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    const cashIncome = Number({{ cash_income|default(0, true)|float|tojson }});
-    const upiIncome = Number({{ upi_income|default(0, true)|float|tojson }});
+    const analyticsDataElement = document.getElementById("analyticsData");
 
-    const dates = {{ dates|default([], true)|tojson }};
-    const amounts = {{ amounts|default([], true)|tojson }};
-    const testNames = {{ test_names|default([], true)|tojson }};
-    const testRevenue = {{ test_revenue|default([], true)|tojson }};
-    const patientDates = {{ patient_dates|default([], true)|tojson }};
-    const patientCounts = {{ patient_counts|default([], true)|tojson }};
+    function readAnalyticsNumber(attributeName) {
+        const rawValue = analyticsDataElement?.dataset[attributeName] ?? "0";
+        const value = Number(rawValue);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function readAnalyticsArray(attributeName) {
+        const rawValue = analyticsDataElement?.dataset[attributeName] ?? "[]";
+
+        try {
+            const parsedValue = JSON.parse(rawValue);
+            return Array.isArray(parsedValue) ? parsedValue : [];
+        } catch (error) {
+            console.error(`Invalid analytics data in ${attributeName}:`, error);
+            return [];
+        }
+    }
+
+    const cashIncome = readAnalyticsNumber("cashIncome");
+    const upiIncome = readAnalyticsNumber("upiIncome");
+
+    const dates = readAnalyticsArray("dates");
+    const dailyAmounts = readAnalyticsArray("amounts");
+    const testNames = readAnalyticsArray("testNames");
+    const testRevenue = readAnalyticsArray("testRevenue");
+    const patientDates = readAnalyticsArray("patientDates");
+    const patientCounts = readAnalyticsArray("patientCounts");
 
     const commonOptions = {
         responsive: true,
@@ -407,7 +440,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 labels: dates,
                 datasets: [{
                     label: "Daily Income",
-                    data: amounts,
+                    data: dailyAmounts,
                     borderWidth: 1
                 }]
             },

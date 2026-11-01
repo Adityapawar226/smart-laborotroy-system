@@ -272,35 +272,35 @@
     {% for patient in patients %}
 
     <tr>
-        <td><span class="patient-id">{{ patient[0] or '-' }}</span></td>
+        <td><span class="patient-id">{{ patient['patient_id'] or '-' }}</span></td>
 
-        <td><span class="patient-name">{{ patient[1] or '-' }}</span></td>
+        <td><span class="patient-name">{{ patient['name'] or '-' }}</span></td>
 
-        <td>{{ patient[2] if patient[2] is not none else '-' }}</td>
+        <td>{{ patient['age'] if patient['age'] is not none else '-' }}</td>
 
-        <td><span class="gender-badge">{{ patient[3] or '-' }}</span></td>
+        <td><span class="gender-badge">{{ patient['gender'] or '-' }}</span></td>
 
-        <td>{{ patient[4] or '-' }}</td>
+        <td>{{ patient['mobile'] or '-' }}</td>
 
-        <td>{{ patient[5] or '-' }}</td>
+        <td>{{ patient['doctor_name'] or '-' }}</td>
 
         <td>
             <div class="actions">
 
                 <a class="btn btn-bill"
-                   href="{{ url_for('billing', patient_id=patient[0]) }}">
+                   href="{{ url_for('billing', patient_id=patient['patient_id']) }}">
                     ▤ Bill
                 </a>
 
                 <a class="btn btn-report"
-                   href="/view-report/{{ patient[0]|urlencode }}">
+                   href="/view-report/{{ patient['patient_id']|urlencode }}">
                     ▣ Report
                 </a>
 
                 {% if session.get('role') == 'Admin' %}
                 <button class="btn btn-delete"
                         type="button"
-                        data-patient-id="{{ patient[0] }}"
+                        data-patient-id="{{ patient['patient_id'] }}"
                         onclick="showDeleteNotice(this)">
                     ▤ Delete
                 </button>

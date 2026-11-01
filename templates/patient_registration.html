@@ -150,8 +150,8 @@ Patient Registration
 
                         {% for doctor in doctors %}
 
-                        <option value="{{ doctor[0] }}">
-                            {{ doctor[1] }}
+                        <option value="{{ doctor.get("id") }}">
+                            {{ doctor.get("doctor_name", "Unnamed doctor") }}
                         </option>
 
                         {% endfor %}
@@ -233,13 +233,13 @@ Patient Registration
 
                             <h6 class="mb-1">
 
-                                {{ test[1] }}
+                                {{ test.get("test_name", "Unnamed test") }}
 
                             </h6>
 
                             <small class="text-muted">
 
-                                ₹{{ test[2] }}
+                                ₹{{ "%.2f"|format(test.get("price", 0)|float) }}
 
                             </small>
 
@@ -248,9 +248,9 @@ Patient Registration
                         <button
     type="button"
     class="btn btn-primary btn-sm add-test-btn"
-    data-id="{{ test[0] }}"
-    data-name="{{ test[1] }}"
-    data-price="{{ test[2] }}">
+    data-id="{{ test.get("id") }}"
+    data-name="{{ test.get("test_name", "Unnamed test") }}"
+    data-price="{{ "%.2f"|format(test.get("price", 0)|float) }}">
     Add
 </button>
 

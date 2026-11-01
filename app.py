@@ -1,7 +1,13 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+import time
+import json
 
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+
+from flask import abort
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from decimal import Decimal
@@ -992,18 +998,18 @@ def register_lab():
 
 from concurrent.futures import ThreadPoolExecutor
 
+
 @app.route("/dashboard")
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def dashboard():
 
     """
-    Dashboard:
+    Diagnora Dashboard
     - PyMySQL DictCursor compatible
     - Redis caching
     - Multi-tenant lab isolation
     - Parallel database queries
-    - Search support
     """
 
     route_start = time.perf_counter()
@@ -1053,7 +1059,6 @@ def dashboard():
         # ==================================================
 
         cache_key = f"lab_{lab_id}_dashboard_stats"
-
         cache_hit = False
 
         if not search:
@@ -1141,7 +1146,7 @@ def dashboard():
 
                 try:
 
-                    patient_query = """
+                    query = """
                         SELECT
                             p.patient_id AS patient_id,
                             p.name AS name,
@@ -1201,21 +1206,21 @@ def dashboard():
                             )
 
                         WHERE p.lab_id = %s
-
                     """
 
                     params = [lab_id, lab_id]
 
                     if not search:
 
-                        patient_query += """
+                        query += """
                             AND p.created_at >= CURDATE()
-                            AND p.created_at < CURDATE() + INTERVAL 1 DAY
+                            AND p.created_at <
+                                CURDATE() + INTERVAL 1 DAY
                         """
 
                     else:
 
-                        patient_query += """
+                        query += """
                             AND (
                                 p.patient_id LIKE %s
                                 OR p.name LIKE %s
@@ -1231,17 +1236,14 @@ def dashboard():
                             search_value
                         ])
 
-                    patient_query += """
+                    query += """
                         ORDER BY p.created_at DESC
                     """
 
                     if not search:
-                        patient_query += " LIMIT 10"
+                        query += " LIMIT 10"
 
-                    cur.execute(
-                        patient_query,
-                        tuple(params)
-                    )
+                    cur.execute(query, tuple(params))
 
                     return cur.fetchall()
 
@@ -1310,8 +1312,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN created_at >= CURDATE()
-                                        AND created_at < CURDATE()
-                                            + INTERVAL 1 DAY
+                                        AND created_at <
+                                            CURDATE() + INTERVAL 1 DAY
                                         THEN 1
                                         ELSE 0
                                     END
@@ -1361,19 +1363,28 @@ def dashboard():
                                 0
                             ) AS total_income,
 
+
                             /* MONTHLY CASH TOTAL */
 
                             COALESCE(
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                        AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%%Y-%%m-01'
-                                        )
-                                        AND payment_date < DATE_FORMAT(
-                                            CURDATE() + INTERVAL 1 MONTH,
-                                            '%%Y-%%m-01'
-                                        )
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
                                         THEN amount
                                         ELSE 0
                                     END
@@ -1381,19 +1392,28 @@ def dashboard():
                                 0
                             ) AS cash_total,
 
+
                             /* MONTHLY UPI TOTAL */
 
                             COALESCE(
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                        AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%%Y-%%m-01'
-                                        )
-                                        AND payment_date < DATE_FORMAT(
-                                            CURDATE() + INTERVAL 1 MONTH,
-                                            '%%Y-%%m-01'
-                                        )
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
                                         THEN amount
                                         ELSE 0
                                     END
@@ -1401,19 +1421,28 @@ def dashboard():
                                 0
                             ) AS upi_total,
 
+
                             /* MONTHLY CASH COUNT */
 
                             COALESCE(
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                        AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%%Y-%%m-01'
-                                        )
-                                        AND payment_date < DATE_FORMAT(
-                                            CURDATE() + INTERVAL 1 MONTH,
-                                            '%%Y-%%m-01'
-                                        )
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
                                         THEN 1
                                         ELSE 0
                                     END
@@ -1421,25 +1450,35 @@ def dashboard():
                                 0
                             ) AS cash_count,
 
+
                             /* MONTHLY UPI COUNT */
 
                             COALESCE(
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                        AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%%Y-%%m-01'
-                                        )
-                                        AND payment_date < DATE_FORMAT(
-                                            CURDATE() + INTERVAL 1 MONTH,
-                                            '%%Y-%%m-01'
-                                        )
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
                                         THEN 1
                                         ELSE 0
                                     END
                                 ),
                                 0
                             ) AS upi_count,
+
 
                             /* OVERALL INCOME */
 
@@ -1546,29 +1585,17 @@ def dashboard():
 
             with ThreadPoolExecutor(max_workers=6) as executor:
 
-                future_patients = executor.submit(
-                    fetch_patients
-                )
+                future_patients = executor.submit(fetch_patients)
 
-                future_payments = executor.submit(
-                    fetch_payments
-                )
+                future_payments = executor.submit(fetch_payments)
 
-                future_p_stats = executor.submit(
-                    fetch_patient_stats
-                )
+                future_p_stats = executor.submit(fetch_patient_stats)
 
-                future_t_stats = executor.submit(
-                    fetch_transaction_stats
-                )
+                future_t_stats = executor.submit(fetch_transaction_stats)
 
-                future_pending = executor.submit(
-                    fetch_pending_payments
-                )
+                future_pending = executor.submit(fetch_pending_payments)
 
-                future_test_stats = executor.submit(
-                    fetch_test_report_stats
-                )
+                future_test_stats = executor.submit(fetch_test_report_stats)
 
                 # ==================================================
                 # COLLECT RESULTS
@@ -1673,10 +1700,7 @@ def dashboard():
                     r.setex(
                         cache_key,
                         60,
-                        json.dumps(
-                            payload,
-                            default=str
-                        )
+                        json.dumps(payload, default=str)
                     )
 
                 except Exception as cache_error:
@@ -1741,6 +1765,7 @@ def dashboard():
             "PERF | Dashboard total route processing | %.2f ms",
             (time.perf_counter() - route_start) * 1000
         )
+
 
 # Add this import with the other imports at the top of your Flask application:
 # import uuid

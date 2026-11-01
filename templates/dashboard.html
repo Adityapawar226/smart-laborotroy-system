@@ -207,31 +207,37 @@
             
 
                <tbody>
+    {% if patients %}
 
-    {% for payment in payments %}
+        {% for patient in patients %}
+        <tr>
+            <td>{{ patient.get('patient_id', '-') or '-' }}</td>
 
-    <tr>
-        <td>{{ payment['receipt_no'] or '-' }}</td>
+            <td>{{ patient.get('name', '-') or '-' }}</td>
 
-        <td>{{ payment['name'] or '-' }}</td>
+            <td>{{ patient.get('age', '-') or '-' }}</td>
 
-        <td>₹{{ "%.2f"|format(payment['total_amount']|float) }}</td>
+            <td>{{ patient.get('tests', '-') or '-' }}</td>
 
-        <td>{{ payment['payment_mode'] or '-' }}</td>
+            <td>
+                ₹{{ "%.2f"|format(patient.get('total_amount', 0)|float) }}
+            </td>
 
-        <td>{{ payment['payment_status'] or '-' }}</td>
-    </tr>
+            <td>{{ patient.get('payment_mode', '-') or '-' }}</td>
+
+            <td>{{ patient.get('payment_status', '-') or '-' }}</td>
+        </tr>
+        {% endfor %}
 
     {% else %}
 
-    <tr>
-        <td colspan="5" style="text-align:center;padding:25px;color:#777;">
-            No payments found
-        </td>
-    </tr>
+        <tr>
+            <td colspan="7" style="text-align:center; padding:30px; color:#777;">
+                No registrations today
+            </td>
+        </tr>
 
-    {% endfor %}
-
+    {% endif %}
 </tbody>
         
 

@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-import pymysql
+import mysql.connector
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from decimal import Decimal
@@ -14,18 +14,13 @@ import math
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-from pymysql.err import IntegrityError
-from datetime import datetime, timedelta, timezone
 from database import get_db
-import secrets
-import hashlib
 from modules.patient_loader import load_patient
 from modules.reference_loader import apply_reference_status
 from modules.report_merger import merge_results
 import qrcode
 import io
-from email.message import EmailMessage
-from dotenv import load_dotenv
+from mysql.connector.pooling import MySQLConnectionPool
 import base64
 import os
 from pathlib import Path
@@ -61,13 +56,37 @@ from modules.formula_handler import (
     calculate_formula_results,
 )
 import os
+import redis
 from dotenv import load_dotenv
 
 load_dotenv()
 
+redis_client = redis.Redis(
+    host=os.environ["REDIS_HOST"],
+    port=int(os.environ["REDIS_PORT"]),
+    username=os.getenv("REDIS_USERNAME", "default"),
+    password=os.environ["REDIS_PASSWORD"],
+    decode_responses=True,
+    socket_connect_timeout=3,
+    socket_timeout=3,
+)
 
-
-
+r = redis.Redis.from_url('redis://default:AnonAOegzaHSdcohnXnYvC2svtyy6FdU@plot-flattering-pull-10400.db.redis.io:13756')
+import json
+def get_cached_dashboard_data(lab_id):
+    cache_key = f"lab_{lab_id}_stats"
+    
+    # Check if cached data exists
+    cached = r.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
+    # Replace this with your actual database query logic or thread/fetch execution
+    data = {"lab_id": lab_id, "status": "fetched_from_db"} 
+    
+    # Store in Redis with a 60-second expiration
+    r.setex(cache_key, 60, json.dumps(data))
+    return data
 from flask import (
     Flask,
     render_template,
@@ -79,10 +98,7 @@ from flask import (
 )
 
 
-from flask_compress import Compress
 
-app = Flask(__name__)
-compress = Compress(app)  # Enables automatic gzip/brotli compression for routes
 from datetime import timedelta
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import time
@@ -102,7 +118,7 @@ load_dotenv()
 
 logger.info("DIAGNOSTIC: Creating Flask application")
 
-
+app = Flask(__name__)
 
 logger.info("DIAGNOSTIC: Flask application created")
 app.register_blueprint(analyzer_management_bp)
@@ -140,7 +156,7 @@ cloudinary.config(
     secure=True
 )
 
-
+# Email configuration
 # ============================================================
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
@@ -148,13 +164,7 @@ cloudinary.config(
 
 
 
-
   
-def cache_get(key):
-    """Caching is disabled. Dashboard data is fetched directly from MySQL."""
-    return None
-
-
 def execute_timed(cursor, query_name, sql, params=None):
     """Execute an SQL query and log its execution time."""
     start_time = time.perf_counter()
@@ -327,9 +337,14 @@ def read_report_qr_token(token):
         return None, None
     
 def get_component_settings(cursor, component_id):
+    """
+    Return component settings as a dictionary.
+    """
 
     cursor.execute("""
-        SELECT setting_key, setting_value
+        SELECT
+            setting_key,
+            setting_value
         FROM report_component_settings
         WHERE component_id = %s
     """, (component_id,))
@@ -339,9 +354,9 @@ def get_component_settings(cursor, component_id):
     settings = {}
 
     for row in rows:
-        settings[row["setting_key"]] = row["setting_value"]
+        settings[row[0]] = row[1]
 
-    return settings
+    return settings 
 
 
 
@@ -383,297 +398,165 @@ for upload_dir in (
 # ------------------------------------
 
 
-# ==========================================
-# DIAGNORA PUBLIC LANDING PAGE
-# ==========================================
+@app.route("/setup-developer", methods=["GET", "POST"])
+def setup_developer():
+    """Disabled: provision the initial Developer account out-of-band.
 
-@app.route("/", methods=["GET"])
-def landing():
+    Do not create privileged accounts through a public, unauthenticated route.
+    Use a one-time administrative script or a protected deployment procedure.
+    """
+    return "Not Found", 404
 
-    # Redirect authenticated users to their dashboard
-    if "lab_id" in session:
-        return redirect(url_for("dashboard"))
-
-    return render_template("landing.html")
-
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/", methods=["GET", "POST"])
 def login():
 
-    route_start = time.perf_counter()
-
-    db = None
-    cursor = None
-    timings = {}
-
-    def log_login_perf(outcome):
-
-        total_ms = (
-            time.perf_counter() - route_start
-        ) * 1000
-
-        app.logger.info(
-            "PERF | Login | outcome=%s | "
-            "db_checkout=%.2f ms | "
-            "user_lab_lookup=%.2f ms | "
-            "password_verify=%.2f ms | "
-            "lab_settings=%.2f ms | "
-            "total=%.2f ms",
-
-            outcome,
-            timings.get("db_checkout", 0),
-            timings.get("user_lab_lookup", 0),
-            timings.get("password_verify", 0),
-            timings.get("lab_settings", 0),
-            total_ms
-        )
+    db = get_db()
+    cursor = db.cursor(dictionary=True, buffered=True)
 
     try:
 
-        # ==========================================
-        # 1. GET REQUEST
-        # ==========================================
+        if request.method == "POST":
 
-        if request.method == "GET":
+            lab_id = request.form["lab_id"].strip().upper()
+            username = request.form["username"].strip().lower()
+            password = request.form["password"]
 
-            response = render_template("login.html")
+            # ------------------------------------------------
+            # Remember Me
+            # ------------------------------------------------
 
-            log_login_perf("page_view")
-
-            return response
-
-        # ==========================================
-        # 2. READ FORM DATA
-        # ==========================================
-
-        lab_id = (
-            request.form.get("lab_id") or ""
-        ).strip().upper()
-
-        username = (
-            request.form.get("username") or ""
-        ).strip().lower()
-
-        password = request.form.get("password") or ""
-
-        remember_me = (
-            request.form.get("remember_me") == "1"
-        )
-
-        if not lab_id or not username or not password:
-
-            log_login_perf("invalid_input")
-
-            flash(
-                "Please enter Lab ID, Username and Password.",
-                "danger"
+            remember_me = (
+                request.form.get("remember_me") == "1"
             )
 
-            return redirect(url_for("login"))
-
-        # ==========================================
-        # 3. DATABASE CONNECTION
-        # ==========================================
-
-        connection_start = time.perf_counter()
-
-        db = get_db()
-
-        timings["db_checkout"] = (
-            time.perf_counter() - connection_start
-        ) * 1000
-
-        cursor = db.cursor(pymysql.cursors.DictCursor)
-
-        # ==========================================
-        # 4. USER + ACTIVE LAB LOOKUP
-        # ==========================================
-
-        user_query_start = time.perf_counter()
-
-        cursor.execute("""
-            SELECT
-                u.id,
-                u.username,
-                u.role,
-                u.lab_id,
-                u.password,
-
-                l.lab_id AS active_lab_id,
-                l.lab_name,
-                l.owner_name
-
-            FROM users AS u
-
-            LEFT JOIN laboratories AS l
-                ON l.lab_id = u.lab_id
-                AND l.status = 'Active'
-
-            WHERE u.lab_id = %s
-              AND u.username = %s
-              AND u.status = 'Active'
-
-            LIMIT 1
-
-        """, (lab_id, username))
-
-        user = cursor.fetchone()
-
-        timings["user_lab_lookup"] = (
-            time.perf_counter() - user_query_start
-        ) * 1000
-
-        if not user:
-
-            log_login_perf("user_not_found")
-
-            flash(
-                "Invalid Lab ID, Username or Password",
-                "danger"
-            )
-
-            return redirect(url_for("login"))
-
-        # ==========================================
-        # 5. FETCH LAB SETTINGS
-        # ==========================================
-
-        lab_settings = None
-
-        if user["role"] != "Developer":
-
-            settings_start = time.perf_counter()
+            # ------------------------------------------------
+            # STEP 1 : Verify User
+            # ------------------------------------------------
 
             cursor.execute("""
                 SELECT *
-                FROM lab_settings
+                FROM users
                 WHERE lab_id = %s
-                LIMIT 1
-            """, (lab_id,))
+                  AND username = %s
+                  AND status = 'Active'
+            """, (
+                lab_id,
+                username
+            ))
 
-            lab_settings = cursor.fetchone()
+            user = cursor.fetchone()
 
-            timings["lab_settings"] = (
-                time.perf_counter() - settings_start
-            ) * 1000
-
-        # ==========================================
-        # 6. RELEASE DATABASE CONNECTION
-        # ==========================================
-
-        if cursor is not None:
-            cursor.close()
-            cursor = None
-
-        if db is not None:
-            db.close()
-            db = None
-
-        # ==========================================
-        # 7. PASSWORD VERIFICATION
-        # ==========================================
-
-        password_start = time.perf_counter()
-
-        password_valid = bcrypt.check_password_hash(
-            user["password"],
-            password
-        )
-
-        timings["password_verify"] = (
-            time.perf_counter() - password_start
-        ) * 1000
-
-        if not password_valid:
-
-            log_login_perf("invalid_password")
-
-            flash(
-                "Invalid Lab ID, Username or Password",
-                "danger"
-            )
-
-            return redirect(url_for("login"))
-
-        # ==========================================
-        # 8. VALIDATE LABORATORY
-        # ==========================================
-
-        if user["role"] != "Developer":
-
-            if not user.get("active_lab_id"):
-
-                log_login_perf("lab_not_found")
+            if not user:
 
                 flash(
-                    "Laboratory not found.",
+                    "Invalid Lab ID, Username or Password",
                     "danger"
                 )
 
                 return redirect(url_for("login"))
 
-        # ==========================================
-        # 9. CREATE SESSION
-        # ==========================================
+            # ------------------------------------------------
+            # STEP 2 : Verify Password
+            # ------------------------------------------------
 
-        session.clear()
+            if not bcrypt.check_password_hash(
+                user["password"],
+                password
+            ):
 
-        session.permanent = remember_me
+                flash(
+                    "Invalid Lab ID, Username or Password",
+                    "danger"
+                )
 
-        session["user_id"] = user["id"]
-        session["username"] = user["username"]
-        session["role"] = user["role"]
-        session["lab_id"] = user["lab_id"]
+                return redirect(url_for("login"))
 
-        # ==========================================
-        # 10. DEVELOPER ACCOUNT
-        # ==========================================
+            # ------------------------------------------------
+            # STEP 3 : Create Session
+            # ------------------------------------------------
 
-        if user["role"] == "Developer":
+            session.clear()
 
-            session["lab_name"] = "System Administrator"
-            session["owner_name"] = "Master Account"
-            session["lab_settings"] = None
+            # Remember Me
+            session.permanent = remember_me
 
-        # ==========================================
-        # 11. NORMAL LABORATORY USER
-        # ==========================================
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["role"] = user["role"]
+            session["lab_id"] = user["lab_id"]
 
-        else:
+            # ------------------------------------------------
+            # STEP 4 : Developer
+            # ------------------------------------------------
 
-            session["lab_id"] = user["active_lab_id"]
-            session["lab_name"] = user["lab_name"]
-            session["owner_name"] = user["owner_name"]
+            if user["role"] == "Developer":
 
-            session["lab_settings"] = lab_settings
+                session["lab_name"] = "System Administrator"
+                session["owner_name"] = "Master Account"
+                session["lab_settings"] = None  # Developers don't require lab settings
 
-        # ==========================================
-        # 12. SUCCESSFUL LOGIN
-        # ==========================================
+            # ------------------------------------------------
+            # STEP 5 : Normal Laboratory User
+            # ------------------------------------------------
 
-        app.logger.info(
-            "Successful login; role=%s",
-            session.get("role")
-        )
+            else:
 
-        log_login_perf("success")
+                cursor.execute("""
+                    SELECT *
+                    FROM laboratories
+                    WHERE lab_id = %s
+                      AND status = 'Active'
+                """, (
+                    lab_id,
+                ))
 
-        return redirect(url_for("dashboard"))
+                lab = cursor.fetchone()
+
+                if not lab:
+
+                    session.clear()
+
+                    flash(
+                        "Laboratory not found.",
+                        "danger"
+                    )
+
+                    return redirect(url_for("login"))
+
+                session["lab_id"] = lab["lab_id"]
+                session["lab_name"] = lab["lab_name"]
+                session["owner_name"] = lab["owner_name"]
+
+                # OPTIMIZATION: Fetch lab settings once upon login and save to session
+                cursor.execute("""
+                    SELECT *
+                    FROM lab_settings
+                    WHERE lab_id = %s
+                    LIMIT 1
+                """, (lab_id,))
+                session["lab_settings"] = cursor.fetchone()
+
+            # ------------------------------------------------
+            # DEBUG
+            # ------------------------------------------------
+
+            app.logger.info("Successful login; role=%s", session.get("role"))
+
+            return redirect(
+                url_for("dashboard")
+            )
+
+        return render_template("login.html")
 
     except Exception:
 
-        log_login_perf("error")
-
-        app.logger.exception("Login route failed")
-
+        db.rollback()
         raise
 
     finally:
 
-        if cursor is not None:
-            cursor.close()
-
-        if db is not None:
-            db.close()
+        cursor.close()
+        db.close()
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
 
@@ -683,7 +566,7 @@ def forgot_password():
         username = request.form["username"].strip().lower()
 
         db = get_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
+        cursor = db.cursor(dictionary=True, buffered=True)
 
         try:
 
@@ -907,588 +790,122 @@ def logout():
     session.clear()
 
     return redirect(url_for("login"))
-import os
-import smtplib
-import secrets
-from email.message import EmailMessage
-
-
-def send_registration_otp(recipient_email, otp):
-    """
-    Send a registration verification OTP using Brevo SMTP.
-
-    Args:
-        recipient_email (str): Recipient's email address.
-        otp (str): Six-digit verification OTP.
-
-    Returns:
-        bool: True if the email was sent successfully.
-
-    Raises:
-        RuntimeError: If SMTP configuration is missing.
-        smtplib.SMTPException: If SMTP delivery fails.
-        OSError: If a network connection error occurs.
-    """
-
-    # -----------------------------------------
-    # Load Brevo SMTP configuration
-    # -----------------------------------------
-    smtp_host = os.getenv("BREVO_SMTP_HOST", "smtp-relay.brevo.com")
-    smtp_port = int(os.getenv("BREVO_SMTP_PORT", "587"))
-    smtp_login = os.getenv("BREVO_SMTP_LOGIN")
-    smtp_key = os.getenv("BREVO_SMTP_KEY")
-    sender_email = os.getenv("BREVO_SENDER_EMAIL")
-
-    # -----------------------------------------
-    # Validate configuration
-    # -----------------------------------------
-    if not all([
-        smtp_host,
-        smtp_login,
-        smtp_key,
-        sender_email
-    ]):
-        raise RuntimeError(
-            "Brevo SMTP configuration is incomplete. "
-            "Check your environment variables."
-        )
-
-    # -----------------------------------------
-    # Validate OTP
-    # -----------------------------------------
-    otp = str(otp)
-
-    if len(otp) != 6 or not otp.isdigit():
-        raise ValueError("OTP must contain exactly six digits.")
-
-    # -----------------------------------------
-    # Create email
-    # -----------------------------------------
-    message = EmailMessage()
-
-    message["Subject"] = "Verify your Diagnora registration"
-    message["From"] = sender_email
-    message["To"] = recipient_email
-
-    message.set_content(
-        f"""Hello,
-
-Welcome to Diagnora!
-
-Your email verification code is:
-
-    {otp}
-
-This code expires in 5 minutes.
-
-For your security, do not share this code with anyone.
-
-If you did not request this verification, you can ignore this email.
-
-Regards,
-Diagnora Team
-"""
-    )
-
-    # -----------------------------------------
-    # Send email through Brevo SMTP
-    # -----------------------------------------
-    try:
-        with smtplib.SMTP(
-            smtp_host,
-            smtp_port,
-            timeout=20
-        ) as server:
-
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-
-            server.login(
-                smtp_login,
-                smtp_key
-            )
-
-            server.send_message(message)
-
-        return True
-
-    except (smtplib.SMTPException, OSError):
-        # Do not log OTPs, SMTP credentials, or email contents.
-        raise
 @app.route("/register-lab", methods=["GET", "POST"])
 def register_lab():
 
-    if request.method == "GET":
-        return render_template("register_lab.html")
+    if request.method == "POST":
 
-    db = None
-    cursor = None
-
-    try:
-        # -----------------------------------------
-        # 1. Read registration form
-        # -----------------------------------------
-        lab_name = request.form.get("lab_name", "").strip()
-        owner_name = request.form.get("owner_name", "").strip()
-        mobile = request.form.get("mobile", "").strip()
-        email = request.form.get("email", "").strip().lower()
-        address = request.form.get("address", "").strip()
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        confirm_password = request.form.get("confirm_password", "")
-
-        if not all([
-            lab_name,
-            owner_name,
-            mobile,
-            email,
-            address,
-            username,
-            password,
-            confirm_password
-        ]):
-            flash("Please fill in all required fields.", "danger")
-            return redirect(url_for("register_lab"))
-
-        # -----------------------------------------
-        # 2. Validate password
-        # -----------------------------------------
-        if password != confirm_password:
-            flash("Passwords do not match.", "danger")
-            return redirect(url_for("register_lab"))
-
-        if len(password) < 8:
-            flash(
-                "Password must be at least 8 characters.",
-                "danger"
-            )
-            return redirect(url_for("register_lab"))
-
-        # -----------------------------------------
-        # 3. Database connection
-        # -----------------------------------------
         db = get_db()
-        cursor = db.cursor()
+        cursor = db.cursor(buffered=True)
 
-        # -----------------------------------------
-        # 4. Check registered username
-        # -----------------------------------------
-        cursor.execute(
-            """
-            SELECT id
-            FROM laboratories
-            WHERE LOWER(username) = LOWER(%s)
-
-            UNION
-
-            SELECT id
-            FROM users
-            WHERE LOWER(username) = LOWER(%s)
-            LIMIT 1
-            """,
-            (username, username)
-        )
-
-        if cursor.fetchone():
-            flash("Username already exists.", "danger")
-            return redirect(url_for("register_lab"))
-
-
-
-
-
-        # -----------------------------------------
-        # 7. Remove expired pending registrations
-        # -----------------------------------------
-        cursor.execute(
-            """
-            DELETE FROM pending_registrations
-            WHERE otp_expires_at <= UTC_TIMESTAMP()
-            """
-        )
-
-        # -----------------------------------------
-        # 8. Prevent duplicate pending registration
-        # -----------------------------------------
-        cursor.execute(
-            """
-            SELECT id
-            FROM pending_registrations
-            WHERE LOWER(username) = LOWER(%s)
-               OR LOWER(email) = LOWER(%s)
-               OR mobile = %s
-            LIMIT 1
-            """,
-            (username, email, mobile)
-        )
-
-        if cursor.fetchone():
-            flash(
-                "A registration with these details is already pending. "
-                "Please use the existing verification process.",
-                "warning"
-            )
-            return redirect(url_for("register_lab"))
-
-        # -----------------------------------------
-        # 9. Generate OTP and password hash
-        # -----------------------------------------
-        otp = f"{secrets.randbelow(1_000_000):06d}"
-
-        otp_hash = hashlib.sha256(
-            otp.encode("utf-8")
-        ).hexdigest()
-
-        hashed_password = bcrypt.generate_password_hash(
-            password
-        ).decode("utf-8")
-
-        # Store UTC as a naive datetime for MySQL DATETIME.
-        otp_expires_at = (
-            datetime.now(timezone.utc).replace(tzinfo=None)
-            + timedelta(minutes=5)
-        )
-
-        # -----------------------------------------
-        # 10. Store pending registration ONLY
-        # -----------------------------------------
-        cursor.execute(
-            """
-            INSERT INTO pending_registrations
-            (
-                lab_name,
-                owner_name,
-                mobile,
-                email,
-                address,
-                username,
-                password_hash,
-                otp_hash,
-                otp_expires_at,
-                attempts,
-                resend_count
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 0, 0)
-            """,
-            (
-                lab_name,
-                owner_name,
-                mobile,
-                email,
-                address,
-                username,
-                hashed_password,
-                otp_hash,
-                otp_expires_at
-            )
-        )
-
-        pending_id = cursor.lastrowid
-
-        db.commit()
-
-        # -----------------------------------------
-        # 11. Send OTP using Brevo
-        # -----------------------------------------
         try:
-            send_registration_otp(email, otp)
 
-        except Exception:
-            # Email failed; remove pending registration.
-            cursor.execute(
-                """
-                DELETE FROM pending_registrations
-                WHERE id = %s
-                """,
-                (pending_id,)
-            )
+            lab_name = request.form["lab_name"].strip()
+            owner_name = request.form["owner_name"].strip()
+            mobile = request.form["mobile"].strip()
+            email = request.form["email"].strip().lower()
+            address = request.form["address"].strip()
+            username = request.form["username"].strip()
+            password = request.form["password"]
+            confirm_password = request.form["confirm_password"]
 
-            db.commit()
+            # -----------------------------
+            # Password Validation
+            # -----------------------------
 
-            session.pop("pending_registration_id", None)
+            if password != confirm_password:
+                flash("Passwords do not match.", "danger")
+                return redirect(url_for("register_lab"))
 
-            app.logger.exception(
-                "Registration OTP email delivery failed."
-            )
+            if len(password) < 8:
+                flash("Password must be at least 8 characters.", "danger")
+                return redirect(url_for("register_lab"))
 
-            flash(
-                "We could not send the verification email. "
-                "Please try again later.",
-                "danger"
-            )
+            hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
-            return redirect(url_for("register_lab"))
+            # -----------------------------
+            # Username Exists?
+            # -----------------------------
 
-        # -----------------------------------------
-        # 12. Associate pending request with session
-        # -----------------------------------------
-        session["pending_registration_id"] = pending_id
+            cursor.execute("""
+                SELECT id
+                FROM laboratories
+                WHERE username=%s
+            """, (username,))
 
-        flash(
-            "A verification code has been sent to your email.",
-            "success"
-        )
+            if cursor.fetchone():
+                flash("Username already exists.", "danger")
+                return redirect(url_for("register_lab"))
 
-        return redirect(
-            url_for("verify_registration_otp")
-        )
+            # -----------------------------
+            # Email Exists?
+            # -----------------------------
 
-    except Exception:
-        if db:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-
-        app.logger.exception(
-            "Registration request failed."
-        )
-
-        flash(
-            "Registration could not be started. Please try again.",
-            "danger"
-        )
-
-        return redirect(url_for("register_lab"))
-
-    finally:
-        if cursor:
-            cursor.close()
-
-        if db:
-            db.close()
-@app.route("/verify-registration-otp", methods=["GET", "POST"])
-def verify_registration_otp():
-
-    pending_id = session.get("pending_registration_id")
-
-    if not pending_id:
-        flash(
-            "Please start your registration again.",
-            "warning"
-        )
-        return redirect(url_for("register_lab"))
-
-    db = None
-    cursor = None
-
-    try:
-        db = get_db()
-        cursor = db.cursor()
-
-        # -----------------------------------------
-        # 1. Fetch pending registration
-        # -----------------------------------------
-        cursor.execute(
-            """
-            SELECT *
-            FROM pending_registrations
-            WHERE id = %s
-            """,
-            (pending_id,)
-        )
-
-        row = cursor.fetchone()
-
-        if not row:
-            session.pop("pending_registration_id", None)
-
-            flash(
-                "Your pending registration was not found. "
-                "Please register again.",
-                "warning"
-            )
-
-            return redirect(url_for("register_lab"))
-
-        # Support tuple and dictionary cursors.
-        if isinstance(row, dict):
-            pending = row
-        else:
-            columns = [column[0] for column in cursor.description]
-            pending = dict(zip(columns, row))
-
-        if request.method == "GET":
-            return render_template(
-                "verify_registration_otp.html",
-                email=pending["email"]
-            )
-
-        # -----------------------------------------
-        # 2. Validate OTP input
-        # -----------------------------------------
-        entered_otp = request.form.get("otp", "").strip()
-
-        if not entered_otp.isdigit() or len(entered_otp) != 6:
-            flash(
-                "Enter a valid six-digit OTP.",
-                "danger"
-            )
-            return redirect(url_for("verify_registration_otp"))
-
-        # -----------------------------------------
-        # 3. Lock pending record during verification
-        # -----------------------------------------
-        cursor.execute(
-            """
-            SELECT *
-            FROM pending_registrations
-            WHERE id = %s
-            FOR UPDATE
-            """,
-            (pending_id,)
-        )
-
-        row = cursor.fetchone()
-
-        if not row:
-            db.rollback()
-            session.pop("pending_registration_id", None)
-
-            flash(
-                "Registration not found. Please register again.",
-                "warning"
-            )
-            return redirect(url_for("register_lab"))
-
-        if isinstance(row, dict):
-            pending = row
-        else:
-            columns = [column[0] for column in cursor.description]
-            pending = dict(zip(columns, row))
-
-        # -----------------------------------------
-        # 4. Check OTP expiry
-        # -----------------------------------------
-        now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-
-        if pending["otp_expires_at"] <= now_utc:
-            cursor.execute(
-                """
-                DELETE FROM pending_registrations
-                WHERE id = %s
-                """,
-                (pending_id,)
-            )
-
-            db.commit()
-            session.pop("pending_registration_id", None)
-
-            flash(
-                "OTP expired. Please register again.",
-                "warning"
-            )
-            return redirect(url_for("register_lab"))
-
-        # -----------------------------------------
-        # 5. Limit OTP attempts
-        # -----------------------------------------
-        if pending["attempts"] >= 5:
-            cursor.execute(
-                """
-                DELETE FROM pending_registrations
-                WHERE id = %s
-                """,
-                (pending_id,)
-            )
-
-            db.commit()
-            session.pop("pending_registration_id", None)
-
-            flash(
-                "Too many incorrect attempts. Please register again.",
-                "danger"
-            )
-            return redirect(url_for("register_lab"))
-
-        # -----------------------------------------
-        # 6. Verify OTP hash
-        # -----------------------------------------
-        entered_hash = hashlib.sha256(
-            entered_otp.encode("utf-8")
-        ).hexdigest()
-
-        if not secrets.compare_digest(
-            entered_hash,
-            pending["otp_hash"]
-        ):
-            cursor.execute(
-                """
-                UPDATE pending_registrations
-                SET attempts = attempts + 1
-                WHERE id = %s
-                """,
-                (pending_id,)
-            )
-
-            db.commit()
-
-            flash(
-                "Incorrect OTP. Please try again.",
-                "danger"
-            )
-
-            return redirect(url_for("verify_registration_otp"))
-
-        # -----------------------------------------
-        # 7. Recheck registered account details
-        # -----------------------------------------
-        cursor.execute(
-    """
+            cursor.execute("""
     SELECT id
     FROM laboratories
-    WHERE LOWER(username) = LOWER(%s)
-    LIMIT 1
-    """,
-    (pending["username"],)
-)
+    WHERE email = %s
+    AND lab_name = %s
+""", (email, lab_name))
 
-        if cursor.fetchone():
-          db.rollback()
+            if cursor.fetchone():
+             flash("This laboratory is already registered with this email.", "danger")
+             return redirect(url_for("register_lab"))
 
-          flash(
-        "This username is already registered. "
-        "Please start registration with a different username.",
-        "danger"
-    )
+            # -----------------------------
+            # Mobile Exists?
+            # -----------------------------
 
-          return redirect(url_for("register_lab"))
+            cursor.execute("""
+    SELECT id
+    FROM laboratories
+    WHERE mobile = %s
+    AND lab_name = %s
+""", (mobile, lab_name))
 
-        # -----------------------------------------
-        # 8. Generate next Lab ID
-        # -----------------------------------------
-        cursor.execute(
-            """
-            SELECT lab_id
-            FROM laboratories
-            ORDER BY id DESC
-            LIMIT 1
-            FOR UPDATE
-            """
-        )
+            if cursor.fetchone():
+             flash("This laboratory is already registered with this mobile number.", "danger")
+             return redirect(url_for("register_lab"))
 
-        row = cursor.fetchone()
+            # -----------------------------
+            # Generate Lab ID
+            # -----------------------------
 
-        if row:
-            if isinstance(row, dict):
-                last_lab_id = row["lab_id"]
+            cursor.execute("""
+                SELECT lab_id
+                FROM laboratories
+                ORDER BY id DESC
+                LIMIT 1
+            """)
+
+            row = cursor.fetchone()
+
+            if row:
+                next_no = int(row[0].replace("LAB", "")) + 1
             else:
-                last_lab_id = row[0]
+                next_no = 1
 
-            next_no = int(last_lab_id.replace("LAB", "")) + 1
-        else:
-            next_no = 1
+            lab_id = f"LAB{next_no:04d}"
 
-        lab_id = f"LAB{next_no:04d}"
+            # -----------------------------
+            # Insert Laboratory
+            # -----------------------------
 
-        # -----------------------------------------
-        # 9. Create laboratory account
-        # -----------------------------------------
-        cursor.execute(
-            """
-            INSERT INTO laboratories
-            (
+            cursor.execute("""
+                INSERT INTO laboratories
+                (
+                    lab_id,
+                    lab_name,
+                    owner_name,
+                    mobile,
+                    email,
+                    address,
+                    username,
+                    password
+                )
+                VALUES
+                (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
                 lab_id,
                 lab_name,
                 owner_name,
@@ -1496,207 +913,89 @@ def verify_registration_otp():
                 email,
                 address,
                 username,
-                password
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                lab_id,
-                pending["lab_name"],
-                pending["owner_name"],
-                pending["mobile"],
-                pending["email"],
-                pending["address"],
-                pending["username"],
-                pending["password_hash"]
-            )
-        )
+                hashed_password
+            ))
+            
+            cursor.execute("""
+    INSERT INTO users
+    (
+        lab_id,
+        username,
+        password,
+        email,
+        mobile,
+        role,
+        status
+    )
+    VALUES (%s,%s,%s,%s,%s,%s,%s)
+""", (
+    lab_id,
+    username.lower(),
+    hashed_password,
+    email,
+    mobile,
+    "Admin",
+    "Active"
+))
 
-        # -----------------------------------------
-        # 10. Create Admin user
-        # -----------------------------------------
-        cursor.execute(
-            """
-            INSERT INTO users
-            (
-                lab_id,
-                username,
-                password,
-                email,
-                mobile,
-                role,
-                status
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                lab_id,
-                pending["username"].lower(),
-                pending["password_hash"],
-                pending["email"],
-                pending["mobile"],
-                "Admin",
-                "Active"
-            )
-        )
 
-        # -----------------------------------------
-        # 11. Create default lab settings
-        # -----------------------------------------
-        cursor.execute(
-            """
-            INSERT INTO lab_settings
-            (
+            # -----------------------------
+            # Default Settings
+            # -----------------------------
+
+            cursor.execute("""
+                INSERT INTO lab_settings
+                (
+                    lab_id,
+                    lab_name,
+                    owner_name,
+                    mobile,
+                    email,
+                    address,
+                    patient_prefix,
+                    receipt_prefix
+                )
+                VALUES
+                (%s,%s,%s,%s,%s,%s,%s,%s)
+            """, (
                 lab_id,
                 lab_name,
                 owner_name,
                 mobile,
                 email,
                 address,
-                patient_prefix,
-                receipt_prefix
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                lab_id,
-                pending["lab_name"],
-                pending["owner_name"],
-                pending["mobile"],
-                pending["email"],
-                pending["address"],
                 "PAT",
                 "RCPT"
+            ))
+
+            db.commit()
+
+            return render_template(
+                "registration_success.html",
+                lab_id=lab_id,
+                username=username
             )
-        )
 
-        # -----------------------------------------
-        # 12. Remove pending registration
-        # -----------------------------------------
-        cursor.execute(
-            """
-            DELETE FROM pending_registrations
-            WHERE id = %s
-            """,
-            (pending_id,)
-        )
+        except Exception as e:
 
-        # Commit all account inserts together.
-        db.commit()
-
-        session.pop("pending_registration_id", None)
-
-        # -----------------------------------------
-        # 13. Show registration success
-        # -----------------------------------------
-        return render_template(
-            "registration_success.html",
-            lab_id=lab_id,
-            username=pending["username"]
-        )
-
-    except IntegrityError:
-        if db:
             db.rollback()
+            raise e
 
-        app.logger.exception(
-            "Registration integrity constraint failed."
-        )
+        finally:
 
-        flash(
-            "These registration details may already be in use. "
-            "Please check and try again.",
-            "danger"
-        )
-
-        return redirect(url_for("register_lab"))
-
-    except Exception:
-        if db:
-            try:
-                db.rollback()
-            except Exception:
-                pass
-
-        app.logger.exception(
-            "Registration OTP verification failed."
-        )
-
-        flash(
-            "We could not complete verification. Please try again.",
-            "danger"
-        )
-
-        return redirect(url_for("verify_registration_otp"))
-
-    finally:
-        if cursor:
             cursor.close()
-
-        if db:
             db.close()
-@app.route("/cancel-pending-registration", methods=["POST"])
-def cancel_pending_registration():
 
-    pending_id = session.get("pending_registration_id")
+    return render_template("register_lab.html")
 
-    if not pending_id:
-        flash("No pending registration was found.", "warning")
-        return redirect(url_for("register_lab"))
 
-    db = None
-    cursor = None
+from concurrent.futures import ThreadPoolExecutor
 
-    try:
-        db = get_db()
-        cursor = db.cursor()
-
-        cursor.execute(
-            """
-            DELETE FROM pending_registrations
-            WHERE id = %s
-            """,
-            (pending_id,)
-        )
-
-        db.commit()
-
-        session.pop("pending_registration_id", None)
-
-        flash(
-            "Your pending registration has been cancelled. "
-            "You can register again.",
-            "success"
-        )
-
-        return redirect(url_for("register_lab"))
-
-    except Exception:
-        if db:
-            db.rollback()
-
-        app.logger.exception(
-            "Failed to cancel pending registration."
-        )
-
-        flash(
-            "Unable to cancel registration. Please try again.",
-            "danger"
-        )
-
-        return redirect(url_for("register_lab"))
-
-    finally:
-        if cursor:
-            cursor.close()
-
-        if db:
-            db.close()
 @app.route("/dashboard")
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def dashboard():
-    """Render dashboard data directly from MySQL using one database connection."""
+    """Render the dashboard using Redis cache for stats and ThreadPoolExecutor for fresh data."""
     route_start = time.perf_counter()
 
     if session.get("role") == "Developer":
@@ -1706,11 +1005,12 @@ def dashboard():
         lab_id = session["lab_id"]
         search = request.args.get("search", "").strip()
 
-        # Caching is disabled; cache_get() returns None, so MySQL is queried.
+        # 1. Try to fetch summary stats from Redis cache (skips heavy queries if cached)
         cache_key = f"lab_{lab_id}_dashboard_stats"
-        cached_stats = cache_get(cache_key)
+        cached_stats = r.get(cache_key)
         
         if cached_stats and not search:
+            # If cached and no active search filter is applied, load data from cache
             stats_data = json.loads(cached_stats)
             patients = stats_data["patients"]
             payments = stats_data["payments"]
@@ -1726,14 +1026,13 @@ def dashboard():
             total_tests = stats_data["total_tests"]
             total_reports = stats_data["total_reports"]
         else:
-            # 2. Use ONE single connection for all queries to avoid multiple network handshakes
-            conn = get_db()
-            try:
-                # A. Fetch Patients
-                cur_patients = conn.cursor()
+            # 2. Fallback to parallel execution if cache misses or a search query is active
+            def fetch_patients():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
                     if not search:
-                        cur_patients.execute("""
+                        cur.execute("""
                             SELECT
                                 p.patient_id, p.name, p.age,
                                 GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
@@ -1750,7 +1049,7 @@ def dashboard():
                             LIMIT 10
                         """, (lab_id,))
                     else:
-                        cur_patients.execute("""
+                        cur.execute("""
                             SELECT
                                 p.patient_id, p.name, p.age,
                                 GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
@@ -1768,14 +1067,16 @@ def dashboard():
                             GROUP BY p.id, p.patient_id, p.name, p.age, pay.total_amount, pay.payment_mode, pay.payment_status, p.created_at
                             ORDER BY p.created_at DESC
                         """, (lab_id, f"%{search}%", f"%{search}%", f"%{search}%"))
-                    patients = cur_patients.fetchall()
+                    return cur.fetchall()
                 finally:
-                    cur_patients.close()
+                    cur.close()
+                    conn.close()
 
-                # B. Fetch Payments
-                cur_payments = conn.cursor(pymysql.cursors.DictCursor)
+            def fetch_payments():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
-                    cur_payments.execute("""
+                    cur.execute("""
                         SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
                         FROM payments p
                         JOIN patients pa ON pa.patient_id = p.patient_id AND pa.lab_id = p.lab_id
@@ -1783,14 +1084,16 @@ def dashboard():
                         ORDER BY p.id DESC
                         LIMIT 10
                     """, (lab_id,))
-                    payments = cur_payments.fetchall()
+                    return cur.fetchall()
                 finally:
-                    cur_payments.close()
+                    cur.close()
+                    conn.close()
 
-                # C. Fetch Patient Stats
-                cur_p_stats = conn.cursor(pymysql.cursors.DictCursor)
+            def fetch_patient_stats():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
-                    cur_p_stats.execute("""
+                    cur.execute("""
                         SELECT
                             COUNT(*) AS total_patients,
                             COALESCE(
@@ -1805,16 +1108,16 @@ def dashboard():
                         FROM patients
                         WHERE lab_id = %s
                     """, (lab_id,))
-                    patient_stats = cur_p_stats.fetchone()
-                    total_patients = patient_stats["total_patients"]
-                    patient_count = patient_stats["patient_count"]
+                    return cur.fetchone()
                 finally:
-                    cur_p_stats.close()
+                    cur.close()
+                    conn.close()
 
-                # D. Fetch Transaction Stats
-                cur_t_stats = conn.cursor(pymysql.cursors.DictCursor)
+            def fetch_transaction_stats():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
-                    cur_t_stats.execute("""
+                    cur.execute("""
                         SELECT
                             COALESCE(
                                 SUM(
@@ -1829,8 +1132,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
                                         THEN amount ELSE 0
                                     END
                                 ), 0
@@ -1839,8 +1142,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
                                         THEN amount ELSE 0
                                     END
                                 ), 0
@@ -1849,8 +1152,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
                                         THEN 1 ELSE 0
                                     END
                                 ), 0
@@ -1859,8 +1162,8 @@ def dashboard():
                                 SUM(
                                     CASE
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%%Y-%%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%%Y-%%m-01')
+                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
                                         THEN 1 ELSE 0
                                     END
                                 ), 0
@@ -1869,47 +1172,70 @@ def dashboard():
                         FROM payment_transactions
                         WHERE lab_id = %s
                     """, (lab_id,))
-                    transaction_stats = cur_t_stats.fetchone()
-                    total_income = transaction_stats["total_income"]
-                    cash_total = transaction_stats["cash_total"]
-                    upi_total = transaction_stats["upi_total"]
-                    cash_count = transaction_stats["cash_count"]
-                    upi_count = transaction_stats["upi_count"]
-                    grand_total_income = transaction_stats["grand_total_income"]
+                    return cur.fetchone()
                 finally:
-                    cur_t_stats.close()
+                    cur.close()
+                    conn.close()
 
-                # E. Fetch Pending Payments
-                cur_pending = conn.cursor()
+            def fetch_pending_payments():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
-                    cur_pending.execute("""
-                        SELECT COALESCE(SUM(remaining_amount), 0) AS pending_amount
+                    cur.execute("""
+                        SELECT COALESCE(SUM(remaining_amount), 0)
                         FROM payments
                         WHERE payment_status = 'Pending' AND lab_id = %s
                     """, (lab_id,))
-                    res_pending = cur_pending.fetchone()
-                    pending_amount = res_pending["pending_amount"] if res_pending else 0
+                    res = cur.fetchone()
+                    return res[0] if res else 0
                 finally:
-                    cur_pending.close()
+                    cur.close()
+                    conn.close()
 
-                # F. Fetch Test & Report Stats
-                cur_test_stats = conn.cursor()
+            def fetch_test_report_stats():
+                conn = get_db()
+                cur = conn.cursor(buffered=True)
                 try:
-                    cur_test_stats.execute("""
+                    cur.execute("""
                         SELECT
                             (SELECT COUNT(*) FROM patient_tests WHERE lab_id = %s) AS total_tests,
                             (SELECT COUNT(DISTINCT patient_id) FROM test_results WHERE lab_id = %s) AS total_reports
                     """, (lab_id, lab_id))
-                    test_stats = cur_test_stats.fetchone()
-                    total_tests = test_stats["total_tests"]
-                    total_reports = test_stats["total_reports"]
+                    return cur.fetchone()
                 finally:
-                    cur_test_stats.close()
+                    cur.close()
+                    conn.close()
 
-            finally:
-                conn.close()
+            with ThreadPoolExecutor(max_workers=6) as executor:
+                future_patients = executor.submit(fetch_patients)
+                future_payments = executor.submit(fetch_payments)
+                future_p_stats = executor.submit(fetch_patient_stats)
+                future_t_stats = executor.submit(fetch_transaction_stats)
+                future_pending = executor.submit(fetch_pending_payments)
+                future_test_stats = executor.submit(fetch_test_report_stats)
 
-            # No cache write: dashboard statistics are fetched from MySQL on each request.
+                patients = future_patients.result()
+                payments = future_payments.result()
+                
+                patient_stats = future_p_stats.result()
+                total_patients = patient_stats[0]
+                patient_count = patient_stats[1]
+
+                transaction_stats = future_t_stats.result()
+                total_income = transaction_stats[0]
+                cash_total = transaction_stats[1]
+                upi_total = transaction_stats[2]
+                cash_count = transaction_stats[3]
+                upi_count = transaction_stats[4]
+                grand_total_income = transaction_stats[5]
+
+                pending_amount = future_pending.result()
+
+                test_stats = future_test_stats.result()
+                total_tests = test_stats[0]
+                total_reports = test_stats[1]
+
+            # Save to Redis cache for 60 seconds if no search query was passed
             if not search:
                 payload = {
                     "patients": patients,
@@ -1926,7 +1252,7 @@ def dashboard():
                     "total_tests": total_tests,
                     "total_reports": total_reports
                 }
-                
+                r.setex(cache_key, 60, json.dumps(payload, default=str))
 
         current_time = datetime.now().strftime("%d %B %Y | %I:%M %p")
         return render_template(
@@ -1954,8 +1280,6 @@ def dashboard():
             (time.perf_counter() - route_start) * 1000
         )
 
-
-
 # Add this import with the other imports at the top of your Flask application:
 # import uuid
 
@@ -1963,91 +1287,67 @@ def dashboard():
     "/patient-registration",
     methods=["GET", "POST"]
 )
-
-@app.route("/patient-registration", methods=["GET", "POST"])
 @login_required
-@role_required("Developer", "Admin", "Technician")
+@role_required(
+    "Developer",
+    "Admin",
+    "Technician"
+)
 def patient_registration():
-
-    lab_id = session.get("lab_id")
-
-    if not lab_id:
-        return redirect(url_for("login"))
+    lab_id = session["lab_id"]
 
     # ==================================================
-    # POST: PATIENT REGISTRATION
+    # GET NUMERIC LAB ID FOR lab_test_overrides (Initial Check)
     # ==================================================
+    db_init = get_db()
+    cursor_init = db_init.cursor(buffered=True)
+    try:
+        cursor_init.execute("""
+            SELECT id
+            FROM laboratories
+            WHERE lab_id = %s
+            LIMIT 1
+        """, (lab_id,))
+        lab_row = cursor_init.fetchone()
+        if not lab_row:
+            raise ValueError(f"Laboratory not found: {lab_id}")
+        numeric_lab_id = lab_row[0]
+    finally:
+        cursor_init.close()
+        db_init.close()
 
+    # ==================================================
+    # POST REQUEST (Patient Registration Handling)
+    # ==================================================
     if request.method == "POST":
-
-        db = None
-        cursor = None
+        db = get_db()
+        cursor = db.cursor(buffered=True)
 
         try:
-            db = get_db()
-
-            # Explicit tuple cursor: all POST row accesses use indexes.
-            cursor = db.cursor(pymysql.cursors.Cursor)
-
-            # Start transaction explicitly.
-            db.begin()
-
-            # --------------------------------------------------
-            # 1. LOCK LABORATORY ROW
-            # --------------------------------------------------
-            # Serializes patient ID generation for this laboratory.
-            # Different laboratories can still register concurrently.
-
-            cursor.execute("""
-                SELECT id
-                FROM laboratories
-                WHERE lab_id = %s
-                LIMIT 1
-                FOR UPDATE
-            """, (lab_id,))
-
-            lab_row = cursor.fetchone()
-
-            if not lab_row:
-                raise ValueError("Laboratory not found.")
-
-            numeric_lab_id = lab_row[0]
-
-            # --------------------------------------------------
-            # 2. PATIENT DETAILS
-            # --------------------------------------------------
-
-            name = request.form.get("name", "").strip()
+            # -----------------------------------------------
+            # Patient Details
+            # -----------------------------------------------
+            name = request.form["name"].strip()
 
             age_raw = request.form.get("age", "").strip()
             age = int(age_raw) if age_raw else None
 
-            gender = request.form.get("gender", "").strip()
-            mobile = request.form.get("mobile", "").strip()
+            gender = request.form["gender"]
+            mobile = request.form["mobile"].strip()
             address = request.form.get("address", "").strip()
-
             doctor_id = request.form.get("doctor_id") or None
 
-            if not name or not gender or not mobile:
-                raise ValueError(
-                    "Name, gender and mobile number are required."
-                )
-
-            # --------------------------------------------------
-            # 3. DOCTOR DETAILS
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Get Doctor
+            # -----------------------------------------------
             doctor_name = "Self"
 
             if doctor_id:
-
                 cursor.execute("""
                     SELECT doctor_name
                     FROM doctors
                     WHERE id = %s
                       AND lab_id = %s
-                      AND status = 'Active'
-                    LIMIT 1
                 """, (doctor_id, lab_id))
 
                 doctor = cursor.fetchone()
@@ -2057,51 +1357,32 @@ def patient_registration():
                 else:
                     doctor_id = None
 
-            # --------------------------------------------------
-            # 4. PAYMENT DETAILS
-            # --------------------------------------------------
-
-            payment_mode = request.form.get(
-                "payment_mode", ""
-            ).strip()
+            # -----------------------------------------------
+            # Payment Details
+            # -----------------------------------------------
+            payment_mode = request.form["payment_mode"]
 
             try:
                 paid_amount = Decimal(
                     request.form.get("paid_amount") or "0"
                 )
-
                 if not paid_amount.is_finite():
-                    raise ValueError("Invalid payment amount.")
-
+                    paid_amount = Decimal("0")
             except Exception:
-                raise ValueError("Invalid payment amount.")
+                paid_amount = Decimal("0")
 
             if paid_amount < 0:
-                raise ValueError(
-                    "Payment amount cannot be negative."
-                )
+                paid_amount = Decimal("0")
 
             selected_test_ids = request.form.getlist("tests")
 
             if not selected_test_ids:
-                raise ValueError(
-                    "Please select at least one test."
-                )
+                flash("Please select at least one test.", "warning")
+                return redirect(url_for("patient_registration"))
 
-            submitted_prices = request.form.getlist(
-                "patient_price"
-            )
-
-            if len(selected_test_ids) != len(submitted_prices):
-                raise ValueError(
-                    "Selected tests and prices do not match. "
-                    "Please refresh and try again."
-                )
-
-            # --------------------------------------------------
-            # 5. PATIENT PREFIX
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Patient ID Prefix
+            # -----------------------------------------------
             cursor.execute("""
                 SELECT patient_prefix
                 FROM lab_settings
@@ -2117,12 +1398,9 @@ def patient_registration():
                 else "PAT"
             )
 
-            # --------------------------------------------------
-            # 6. GENERATE PATIENT ID
-            # --------------------------------------------------
-
-            year = datetime.now().year
-
+            # -----------------------------------------------
+            # Generate Patient ID
+            # -----------------------------------------------
             cursor.execute("""
                 SELECT patient_id
                 FROM patients
@@ -2133,23 +1411,17 @@ def patient_registration():
 
             last_patient = cursor.fetchone()
 
-            last_no = 0
-
-            if last_patient and last_patient[0]:
-
-                try:
-                    last_parts = last_patient[0].split("-")
-
-                    if (
-                        len(last_parts) >= 3
-                        and last_parts[-2] == str(year)
-                    ):
-                        last_no = int(last_parts[-1])
-
-                except (ValueError, IndexError):
-                    last_no = 0
+            try:
+                last_no = (
+                    int(last_patient[0].split("-")[-1])
+                    if last_patient and last_patient[0]
+                    else 0
+                )
+            except (ValueError, IndexError):
+                last_no = 0
 
             next_no = last_no + 1
+            year = datetime.now().year
 
             patient_id = (
                 f"{patient_prefix}-{year}-{next_no:04d}"
@@ -2157,10 +1429,9 @@ def patient_registration():
 
             collected_on = datetime.now()
 
-            # --------------------------------------------------
-            # 7. SAVE PATIENT
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Save Patient
+            # -----------------------------------------------
             cursor.execute("""
                 INSERT INTO patients (
                     lab_id,
@@ -2174,10 +1445,7 @@ def patient_registration():
                     doctor_id,
                     collected_on
                 )
-                VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
-                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 lab_id,
                 patient_id,
@@ -2191,18 +1459,24 @@ def patient_registration():
                 collected_on
             ))
 
-            # --------------------------------------------------
-            # 8. SAVE SELECTED TESTS
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Save Selected Tests With Patient-Specific Prices
+            # -----------------------------------------------
             total_amount = Decimal("0.00")
             sample_ids_by_type = {}
+
+            submitted_prices = request.form.getlist("patient_price")
+
+            if len(selected_test_ids) != len(submitted_prices):
+                raise ValueError(
+                    "Selected tests and prices do not match. "
+                    "Please refresh the page and try again."
+                )
 
             for selected_id, submitted_price in zip(
                 selected_test_ids,
                 submitted_prices
             ):
-
                 try:
                     test_id = int(selected_id)
                 except (ValueError, TypeError):
@@ -2212,7 +1486,6 @@ def patient_registration():
                     patient_price = Decimal(
                         str(submitted_price).strip()
                     )
-
                 except Exception:
                     raise ValueError(
                         "Invalid patient price submitted."
@@ -2224,25 +1497,20 @@ def patient_registration():
                     or patient_price > Decimal("99999999.99")
                 ):
                     raise ValueError(
-                        "Patient price must be a valid "
-                        "non-negative amount."
+                        "Patient price must be a valid non-negative amount."
                     )
 
                 patient_price = patient_price.quantize(
                     Decimal("0.01")
                 )
 
-                # ------------------------------------------
-                # Verify test belongs to this lab or is global
-                # ------------------------------------------
-
+                # Fetch Original Price and verify test availability
                 cursor.execute("""
                     SELECT
                         t.id,
                         t.test_name,
-                        t.price,
+                        t.price AS original_price,
                         t.sample_type
-
                     FROM tests t
 
                     LEFT JOIN lab_test_settings lts
@@ -2274,46 +1542,34 @@ def patient_registration():
 
                 if not test:
                     raise ValueError(
-                        f"Selected test ID {test_id} "
-                        "is unavailable for this laboratory."
+                        f"Selected test ID {test_id} is unavailable "
+                        "for this laboratory."
                     )
 
                 test_id = test[0]
-
-                test_sample_type = (
-                    (test[3] or "Unknown").strip()
-                    or "Unknown"
-                )
-
-                # ------------------------------------------
-                # Generate sample ID
-                # ------------------------------------------
+                test_name = test[1]
+                test_sample_type = (test[3] or "Unknown").strip()
+                if not test_sample_type:
+                    test_sample_type = "Unknown"
 
                 if test_sample_type not in sample_ids_by_type:
-
                     sample_id = None
 
                     for _ in range(5):
-
                         candidate_sample_id = (
-                            f"SMP-{year}-"
-                            f"{uuid.uuid4().hex[:8].upper()}"
+                            f"SMP-{year}-{uuid.uuid4().hex[:8].upper()}"
                         )
-
-                        cursor.execute("""
-                            SELECT 1
-                            FROM samples
-                            WHERE sample_id = %s
-                            LIMIT 1
-                        """, (candidate_sample_id,))
-
+                        cursor.execute(
+                            "SELECT 1 FROM samples WHERE sample_id = %s LIMIT 1",
+                            (candidate_sample_id,)
+                        )
                         if not cursor.fetchone():
                             sample_id = candidate_sample_id
                             break
 
                     if not sample_id:
                         raise RuntimeError(
-                            "Could not generate a unique Sample ID."
+                            "Could not generate a unique Sample ID. Please retry."
                         )
 
                     cursor.execute("""
@@ -2336,15 +1592,8 @@ def patient_registration():
                     ))
 
                     sample_ids_by_type[test_sample_type] = sample_id
-
                 else:
-                    sample_id = sample_ids_by_type[
-                        test_sample_type
-                    ]
-
-                # ------------------------------------------
-                # Save patient test
-                # ------------------------------------------
+                    sample_id = sample_ids_by_type[test_sample_type]
 
                 total_amount += patient_price
 
@@ -2371,14 +1620,9 @@ def patient_registration():
                     "Pending"
                 ))
 
-            # --------------------------------------------------
-            # 9. CALCULATE PAYMENT
-            # --------------------------------------------------
-
             total_amount = total_amount.quantize(
                 Decimal("0.01")
             )
-
             remaining_amount = max(
                 Decimal("0.00"),
                 total_amount - paid_amount
@@ -2390,10 +1634,9 @@ def patient_registration():
                 else "Pending"
             )
 
-            # --------------------------------------------------
-            # 10. SAVE PAYMENT
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Save Payment
+            # -----------------------------------------------
             cursor.execute("""
                 INSERT INTO payments (
                     lab_id,
@@ -2419,10 +1662,9 @@ def patient_registration():
 
             payment_id = cursor.lastrowid
 
-            # --------------------------------------------------
-            # 11. GENERATE RECEIPT NUMBER
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Generate Receipt Number
+            # -----------------------------------------------
             cursor.execute("""
                 SELECT receipt_prefix
                 FROM lab_settings
@@ -2453,12 +1695,10 @@ def patient_registration():
                 lab_id
             ))
 
-            # --------------------------------------------------
-            # 12. SAVE PAYMENT TRANSACTION
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Save Payment Transaction
+            # -----------------------------------------------
             if paid_amount > 0:
-
                 cursor.execute("""
                     INSERT INTO payment_transactions (
                         lab_id,
@@ -2478,12 +1718,10 @@ def patient_registration():
                     "Registration Payment"
                 ))
 
-            # --------------------------------------------------
-            # 13. SAVE PENDING PAYMENT
-            # --------------------------------------------------
-
+            # -----------------------------------------------
+            # Save Pending Payment
+            # -----------------------------------------------
             if payment_status == "Pending":
-
                 cursor.execute("""
                     INSERT INTO pending_payments (
                         lab_id,
@@ -2516,10 +1754,6 @@ def patient_registration():
                     total_amount
                 ))
 
-            # --------------------------------------------------
-            # 14. COMMIT TRANSACTION
-            # --------------------------------------------------
-
             db.commit()
 
             flash(
@@ -2528,170 +1762,111 @@ def patient_registration():
                 "success"
             )
 
-            return redirect(url_for("dashboard"))
+            return redirect("/dashboard")
 
         except Exception:
-
-            if db:
-                db.rollback()
-
-            app.logger.exception(
-                "Patient registration POST failed | lab_id=%s",
-                lab_id
-            )
-
+            db.rollback()
             raise
-
         finally:
-
-            if cursor:
-                cursor.close()
-
-            if db:
-                db.close()
+            cursor.close()
+            db.close()
 
     # ==================================================
-    # GET: PATIENT REGISTRATION PAGE
-    # ONE CONNECTION, SEQUENTIAL QUERIES
+    # GET REQUEST: PARALLEL FETCHING (Tests, Doctors, Settings)
     # ==================================================
+    def fetch_tests():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT
+                    t.id,
+                    t.test_name,
+                    COALESCE(
+                        lto.price,
+                        lts.price,
+                        t.price
+                    ) AS price,
+                    CASE
+                        WHEN t.lab_id IS NULL
+                        THEN 'Global Master'
+                        ELSE 'Custom Lab Test'
+                    END AS test_type
+                FROM tests t
 
-    db = None
-    cursor = None
+                LEFT JOIN lab_test_overrides lto
+                    ON lto.test_id = t.id
+                   AND lto.lab_id = %s
+                   AND t.lab_id IS NULL
+
+                LEFT JOIN lab_test_settings lts
+                    ON lts.test_id = t.id
+                   AND lts.lab_id = %s
+
+                WHERE (
+                        t.lab_id IS NULL
+                        OR t.lab_id = %s
+                      )
+                  AND COALESCE(
+                        lts.is_deleted,
+                        FALSE
+                      ) = FALSE
+                  AND COALESCE(
+                        lts.status,
+                        t.status
+                      ) = 'Active'
+
+                ORDER BY t.test_name
+            """, (
+                numeric_lab_id,
+                lab_id,
+                lab_id
+            ))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
+
+    def fetch_doctors():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT id, doctor_name
+                FROM doctors
+                WHERE status = 'Active'
+                  AND lab_id = %s
+                ORDER BY doctor_name
+            """, (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
+
+    def fetch_lab_settings():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT lab_name, upi_id
+                FROM lab_settings
+                WHERE lab_id = %s
+                LIMIT 1
+            """, (lab_id,))
+            return cur.fetchone()
+        finally:
+            cur.close()
+            conn.close()
 
     try:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            f_tests = executor.submit(fetch_tests)
+            f_doctors = executor.submit(fetch_doctors)
+            f_settings = executor.submit(fetch_lab_settings)
 
-        db = get_db()
-
-        # Explicit tuple cursor.
-        cursor = db.cursor(pymysql.cursors.Cursor)
-
-        # --------------------------------------------------
-        # 1. GET NUMERIC LAB ID
-        # --------------------------------------------------
-
-        cursor.execute("""
-            SELECT id
-            FROM laboratories
-            WHERE lab_id = %s
-            LIMIT 1
-        """, (lab_id,))
-
-        lab_row = cursor.fetchone()
-
-        if not lab_row:
-            raise ValueError(
-                f"Laboratory not found: {lab_id}"
-            )
-
-        numeric_lab_id = lab_row[0]
-
-        # --------------------------------------------------
-        # 2. FETCH TESTS
-        # --------------------------------------------------
-
-        cursor.execute("""
-            SELECT
-                t.id,
-                t.test_name,
-
-                COALESCE(
-                    lto.price,
-                    lts.price,
-                    t.price
-                ) AS price,
-
-                CASE
-                    WHEN t.lab_id IS NULL
-                    THEN 'Global Master'
-                    ELSE 'Custom Lab Test'
-                END AS test_type
-
-            FROM tests t
-
-            LEFT JOIN lab_test_overrides lto
-                ON lto.test_id = t.id
-               AND lto.lab_id = %s
-               AND t.lab_id IS NULL
-
-            LEFT JOIN lab_test_settings lts
-                ON lts.test_id = t.id
-               AND lts.lab_id = %s
-
-            WHERE (
-                    t.lab_id IS NULL
-                    OR t.lab_id = %s
-                  )
-
-              AND COALESCE(
-                    lts.is_deleted,
-                    FALSE
-                  ) = FALSE
-
-              AND COALESCE(
-                    lts.status,
-                    t.status
-                  ) = 'Active'
-
-            ORDER BY t.test_name
-
-        """, (
-            numeric_lab_id,
-            lab_id,
-            lab_id
-        ))
-
-        tests = cursor.fetchall()
-
-        # --------------------------------------------------
-        # 3. FETCH DOCTORS
-        # --------------------------------------------------
-
-        cursor.execute("""
-            SELECT
-                id,
-                doctor_name
-
-            FROM doctors
-
-            WHERE status = 'Active'
-              AND lab_id = %s
-
-            ORDER BY doctor_name
-
-        """, (lab_id,))
-
-        doctors = cursor.fetchall()
-
-        # --------------------------------------------------
-        # 4. FETCH LAB SETTINGS
-        # --------------------------------------------------
-
-        cursor.execute("""
-            SELECT
-                lab_name,
-                upi_id
-
-            FROM lab_settings
-
-            WHERE lab_id = %s
-
-            LIMIT 1
-
-        """, (lab_id,))
-
-        settings_row = cursor.fetchone()
-
-        lab_settings = (
-            {
-                "lab_name": settings_row[0],
-                "upi_id": settings_row[1]
-            }
-            if settings_row else None
-        )
-
-        # --------------------------------------------------
-        # 5. RENDER PAGE
-        # --------------------------------------------------
+            tests = f_tests.result()
+            doctors = f_doctors.result()
+            lab_settings = f_settings.result()
 
         return render_template(
             "patient_registration.html",
@@ -2699,32 +1874,15 @@ def patient_registration():
             doctors=doctors,
             lab_settings=lab_settings
         )
-
     except Exception:
-
-        app.logger.exception(
-            "Patient registration GET failed | lab_id=%s",
-            lab_id
-        )
-
         raise
-
-    finally:
-
-        if cursor:
-            cursor.close()
-
-        if db:
-            db.close()
-
-
 @app.route("/generate-upi-qr")
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def generate_upi_qr():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True, buffered=True)
 
     try:
 
@@ -2860,7 +2018,7 @@ def pending_payments():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
 
@@ -2901,7 +2059,7 @@ def mark_paid(id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True, buffered=True)
 
     try:
 
@@ -2915,25 +2073,7 @@ def mark_paid(id):
             AND lab_id=%s
         """, (id, lab_id))
 
-        row = cursor.fetchone()
-
-        if not row:
-         db.rollback()
-
-         session.pop("pending_registration_id", None)
-
-         flash(
-        "Registration not found. Please register again.",
-        "warning"
-    )
-
-         return redirect(url_for("register_lab"))
-
-        if isinstance(row, dict):
-         pending = row
-        else:
-         columns = [column[0] for column in cursor.description]
-         pending = dict(zip(columns, row))
+        pending = cursor.fetchone()
 
         if not pending:
             return "Pending payment not found"
@@ -3069,7 +2209,7 @@ def collect_payment(payment_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True, buffered=True)
 
     try:
 
@@ -3334,160 +2474,99 @@ def collect_payment(payment_id):
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def reports_management():
-
     lab_id = session["lab_id"]
 
-    conn = None
-    cur = None
+    def fetch_reports():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT
+                    p.patient_id,
+                    p.name,
+                    GROUP_CONCAT(
+                        DISTINCT t.test_name
+                        ORDER BY t.test_name
+                        SEPARATOR ', '
+                    ) AS tests,
 
-    route_start = time.perf_counter()
+                    CASE
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM test_results tr
+                            WHERE tr.patient_id = p.patient_id
+                              AND tr.lab_id = p.lab_id
+                        )
+                        THEN 'Completed'
+                        ELSE 'Pending'
+                    END AS report_status
+
+                FROM patients p
+
+                LEFT JOIN patient_tests pt
+                    ON p.patient_id = pt.patient_id
+                    AND p.lab_id = pt.lab_id
+
+                LEFT JOIN tests t
+                    ON pt.test_id = t.id
+                    AND (
+                        t.lab_id IS NULL
+                        OR t.lab_id = pt.lab_id
+                    )
+
+                WHERE p.lab_id = %s
+
+                GROUP BY
+                    p.id,
+                    p.patient_id,
+                    p.name,
+                    p.lab_id
+
+                ORDER BY p.id DESC
+            """, (lab_id,))
+            return cur.fetchall()
+        finally:
+            cur.close()
+            conn.close()
+
+    def fetch_today_reports():
+        conn = get_db()
+        cur = conn.cursor(buffered=True)
+        try:
+            cur.execute("""
+                SELECT COUNT(*)
+                FROM patients p
+                WHERE p.lab_id = %s
+                  AND p.report_generated_on >= CURDATE()
+                  AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
+            """, (lab_id,))
+            res = cur.fetchone()
+            return res[0] if res else 0
+        finally:
+            cur.close()
+            conn.close()
 
     try:
+        # Run both independent database tasks concurrently
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_reports = executor.submit(fetch_reports)
+            future_today = executor.submit(fetch_today_reports)
 
-        # ==================================================
-        # 1. CREATE ONLY ONE DATABASE CONNECTION
-        # ==================================================
+            reports = future_reports.result()
+            today_reports = future_today.result()
 
-        conn = get_db()
-        cur = conn.cursor()
-
-        # ==================================================
-        # 2. FETCH ALL REPORTS
-        # ==================================================
-
-        query_start = time.perf_counter()
-
-        cur.execute("""
-            SELECT
-                p.patient_id,
-                p.name,
-
-                GROUP_CONCAT(
-                    DISTINCT t.test_name
-                    ORDER BY t.test_name
-                    SEPARATOR ', '
-                ) AS tests,
-
-                CASE
-                    WHEN EXISTS (
-                        SELECT 1
-                        FROM test_results tr
-                        WHERE tr.patient_id = p.patient_id
-                          AND tr.lab_id = p.lab_id
-                    )
-                    THEN 'Completed'
-                    ELSE 'Pending'
-                END AS report_status
-
-            FROM patients p
-
-            LEFT JOIN patient_tests pt
-                ON p.patient_id = pt.patient_id
-                AND p.lab_id = pt.lab_id
-
-            LEFT JOIN tests t
-                ON pt.test_id = t.id
-                AND (
-                    t.lab_id IS NULL
-                    OR t.lab_id = pt.lab_id
-                )
-
-            WHERE p.lab_id = %s
-
-            GROUP BY
-                p.id,
-                p.patient_id,
-                p.name,
-                p.lab_id
-
-            ORDER BY p.id DESC
-
-        """, (lab_id,))
-
-        reports = cur.fetchall()
-
-        reports_query_ms = (
-            time.perf_counter() - query_start
-        ) * 1000
-
-        app.logger.info(
-            "PERF | Reports fetch query | %.2f ms | Rows=%d",
-            reports_query_ms,
-            len(reports)
-        )
-
-        # ==================================================
-        # 3. FETCH TODAY'S REPORT COUNT
-        # ==================================================
-
-        today_query_start = time.perf_counter()
-
-        cur.execute("""
-            SELECT
-                COUNT(*) AS today_reports
-
-            FROM patients p
-
-            WHERE p.lab_id = %s
-
-              AND p.report_generated_on >= CURDATE()
-
-              AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
-
-        """, (lab_id,))
-
-        today_row = cur.fetchone()
-
-        today_reports = int(
-            (today_row or {}).get("today_reports") or 0
-        )
-
-        today_query_ms = (
-            time.perf_counter() - today_query_start
-        ) * 1000
-
-        app.logger.info(
-            "PERF | Today's reports query | %.2f ms",
-            today_query_ms
-        )
-
-        # ==================================================
-        # 4. CALCULATE REPORT STATISTICS
-        # ==================================================
-
+        # Calculate statistics in memory from fetched reports data
         total_reports = len(reports)
 
         completed_reports = sum(
-            1
-            for report in reports
-            if (
-                (report.get("report_status") or "")
-                .strip()
-                .lower()
-                == "completed"
-            )
+            1 for report in reports
+            if report[3] == "Completed"
         )
 
-        pending_reports = (
-            total_reports - completed_reports
+        pending_reports = sum(
+            1 for report in reports
+            if report[3] != "Completed"
         )
-
-        # ==================================================
-        # 5. TOTAL ROUTE PERFORMANCE
-        # ==================================================
-
-        total_ms = (
-            time.perf_counter() - route_start
-        ) * 1000
-
-        app.logger.info(
-            "PERF | Reports management total | %.2f ms",
-            total_ms
-        )
-
-        # ==================================================
-        # 6. RENDER TEMPLATE
-        # ==================================================
 
         return render_template(
             "reports_management.html",
@@ -3498,21 +2577,12 @@ def reports_management():
             today_reports=today_reports
         )
 
-    except Exception:
-
-        app.logger.exception(
-            "Error loading reports management"
-        )
-
+    except Exception as e:
+        print("=" * 60)
+        print("[ERROR] reports_management()")
+        print(str(e))
+        print("=" * 60)
         raise
-
-    finally:
-
-        if cur:
-            cur.close()
-
-        if conn:
-            conn.close()
 @app.route("/enter-results/<patient_id>", methods=["GET", "POST"])
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -3521,7 +2591,7 @@ def enter_results(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
         # ==================================================
@@ -3731,6 +2801,12 @@ def enter_results(patient_id):
             # Save dictionary/dropdown results
             # ----------------------------------------------
 
+            save_dictionary_results(
+                cursor,
+                patient_id,
+                lab_id,
+                request.form
+            )
 
             # ----------------------------------------------
             # Update report generation date
@@ -3908,7 +2984,7 @@ def view_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
         # ====================================================
@@ -3963,7 +3039,10 @@ def view_report(patient_id):
         # 3. LOAD LAB SETTINGS
         # ====================================================
 
-        settings_cursor = db.cursor(pymysql.cursors.DictCursor)
+        settings_cursor = db.cursor(
+            dictionary=True,
+            buffered=True
+        )
 
         try:
             settings_cursor.execute(
@@ -4173,7 +3252,7 @@ def public_report(token):
         return "Invalid or expired report QR code.", 403
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
 
@@ -4299,7 +3378,7 @@ def edit_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
         # =========================================
@@ -4488,7 +3567,7 @@ def delete_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
         # Verify that this patient belongs to the current laboratory.
@@ -4533,7 +3612,7 @@ def analytics():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
 
@@ -4545,7 +3624,7 @@ def analytics():
         if from_date and to_date:
 
          cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         AND DATE(payment_date) BETWEEN %s AND %s
@@ -4558,13 +3637,12 @@ def analytics():
         else:
 
            cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         """, (lab_id,))
 
-        income_row = cursor.fetchone()
-        total_income = income_row["income"] if income_row else 0
+        total_income = cursor.fetchone()[0]
 
     # -----------------------------
     # Cash Income
@@ -4572,7 +3650,7 @@ def analytics():
         if from_date and to_date:
 
          cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         AND payment_mode='Cash'
@@ -4587,15 +3665,14 @@ def analytics():
         else:
 
          cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         AND payment_mode='Cash'
         
         """, (lab_id,))
 
-        income_row = cursor.fetchone()
-        cash_income = income_row["income"] if income_row else 0
+        cash_income = cursor.fetchone()[0]
 
     # -----------------------------
     # UPI Income
@@ -4603,7 +3680,7 @@ def analytics():
         if from_date and to_date:
 
          cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         AND payment_mode='UPI'
@@ -4618,15 +3695,14 @@ def analytics():
         else:
 
          cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0) AS income
+        SELECT IFNULL(SUM(paid_amount),0)
         FROM payments
         WHERE lab_id=%s
         AND payment_mode='UPI'
         
         """, (lab_id,))
 
-        income_row = cursor.fetchone()
-        upi_income = income_row["income"] if income_row else 0
+        upi_income = cursor.fetchone()[0]
 
     # Daily Income Graph
        # -----------------------------
@@ -4636,8 +3712,8 @@ def analytics():
 
           cursor.execute("""
         SELECT
-            DATE(payment_date) AS payment_day,
-            SUM(paid_amount) AS daily_income
+            DATE(payment_date),
+            SUM(paid_amount)
         FROM payments
         WHERE lab_id=%s
         AND DATE(payment_date) BETWEEN %s AND %s
@@ -4653,8 +3729,8 @@ def analytics():
 
          cursor.execute("""
         SELECT
-            DATE(payment_date) AS payment_day,
-            SUM(paid_amount) AS daily_income
+            DATE(payment_date),
+            SUM(paid_amount)
         FROM payments
         WHERE lab_id=%s
         GROUP BY DATE(payment_date)
@@ -4663,21 +3739,22 @@ def analytics():
 
         daily_data = cursor.fetchall()
 
-        dates = [str(row["payment_day"]) for row in daily_data]
-        amounts = [float(row["daily_income"] or 0) for row in daily_data]
+        dates = [str(row[0]) for row in daily_data]
+        amounts = [float(row[1]) for row in daily_data]
 
     # -----------------------------
     # Monthly Income
-   
+    # -----------------------------
         cursor.execute("""
-        SELECT
-            DATE_FORMAT(payment_date, '%%Y-%%m') AS month_label,
-            SUM(paid_amount) AS monthly_income
-        FROM payments
-        WHERE lab_id = %s
-        GROUP BY DATE_FORMAT(payment_date, '%%Y-%%m')
-        ORDER BY DATE_FORMAT(payment_date, '%%Y-%%m')
+    SELECT
+        DATE_FORMAT(payment_date,'%Y-%m'),
+        SUM(paid_amount)
+    FROM payments
+    WHERE lab_id=%s
+    GROUP BY DATE_FORMAT(payment_date,'%Y-%m')
+    ORDER BY DATE_FORMAT(payment_date,'%Y-%m')
     """, (lab_id,))
+
         monthly_data = cursor.fetchall()
 
         monthly_income = monthly_data
@@ -4687,7 +3764,7 @@ def analytics():
     # -----------------------------
         cursor.execute("""
     SELECT
-        t.test_name AS test_name,
+        t.test_name,
         SUM(pt.amount) AS revenue
     FROM patient_tests pt
 
@@ -4706,16 +3783,16 @@ def analytics():
 
         top_tests = cursor.fetchall()
 
-        test_names = [row["test_name"] for row in top_tests]
-        test_revenue = [float(row["revenue"] or 0) for row in top_tests]
+        test_names = [row[0] for row in top_tests]
+        test_revenue = [float(row[1]) for row in top_tests]
 
     # -----------------------------
     # Patient Trend
     # -----------------------------
         cursor.execute("""
     SELECT
-        DATE(created_at) AS registration_day,
-        COUNT(*) AS patient_count
+        DATE(created_at),
+        COUNT(*)
     FROM patients
     WHERE lab_id=%s
     GROUP BY DATE(created_at)
@@ -4724,8 +3801,8 @@ def analytics():
 
         patient_trend = cursor.fetchall()
   
-        patient_dates = [str(row["registration_day"]) for row in patient_trend]
-        patient_counts = [row["patient_count"] for row in patient_trend]
+        patient_dates = [str(row[0]) for row in patient_trend]
+        patient_counts = [row[1] for row in patient_trend]
   
         return render_template(
             "analytics.html",
@@ -4756,7 +3833,7 @@ def billing():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
 
@@ -4800,7 +3877,7 @@ def view_bill(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     try:
         # -------- Bill Details --------
@@ -4861,7 +3938,10 @@ def view_bill(patient_id):
 
 
         # -------- Load Lab Settings --------
-        settings_cursor = db.cursor(pymysql.cursors.DictCursor)
+        settings_cursor = db.cursor(
+            dictionary=True,
+            buffered=True
+        )
 
         settings_cursor.execute("""
             SELECT
@@ -4913,7 +3993,7 @@ def view_bill(patient_id):
 @role_required("Developer", "Admin", "Technician")
 def patient_search():
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     lab_id = session["lab_id"]
 
@@ -4974,12 +4054,12 @@ def patient_search():
         if is_live_search:
             patients = [
                 {
-                    "patient_id": row[0],
-                    "name": row[1],
-                    "age": row[2],
-                    "gender": row[3],
-                    "mobile": row[4],
-                    "doctor_name": row[5]
+                   "patient_id": row["patient_id"],
+"name": row["name"],
+"age": row["age"],
+"gender": row["gender"],
+"mobile": row["mobile"],
+"doctor_name": row["doctor_name"]
                 }
                 for row in rows
             ]
@@ -5011,7 +4091,7 @@ def patient_search():
 def add_test(department_id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(buffered=True, dictionary=True)
 
     role = session["role"]
 
@@ -5496,7 +4576,7 @@ def expenses():
         commission = request.form["commission_percent"]
 
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor(buffered=True)
         try:
             cur.execute("""
                 INSERT INTO doctors
@@ -5529,9 +4609,8 @@ def expenses():
 
     def fetch_doctors_list():
         conn = get_db()
-        cur = None
+        cur = conn.cursor(dictionary=True, buffered=True)
         try:
-            cur = conn.cursor(pymysql.cursors.DictCursor)
             cur.execute("""
                 SELECT
                     id,
@@ -5544,13 +4623,12 @@ def expenses():
             """, (lab_id,))
             return cur.fetchall()
         finally:
-            if cur:
-                cur.close()
+            cur.close()
             conn.close()
 
     def fetch_doctor_summary():
         conn = get_db()
-        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur = conn.cursor(dictionary=True, buffered=True)
         try:
             query = """
                 SELECT
@@ -5629,7 +4707,7 @@ def expenses():
 def doctor_patients(doctor_id):
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -5795,7 +4873,7 @@ def doctor_patients(doctor_id):
 def toggle_doctor_status(doctor_id):
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -5848,7 +4926,7 @@ def toggle_doctor_status(doctor_id):
 def edit_doctor(doctor_id):
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -5908,7 +4986,7 @@ def edit_doctor(doctor_id):
 def payment_entries():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True, buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -6002,7 +5080,7 @@ def payment_entries():
 def payment_details(receipt_no):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True, buffered=True)
     lab_id = session["lab_id"]
 
     try:
@@ -6126,7 +5204,7 @@ def settings():
             return redirect(url_for("login"))
 
         db = get_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
+        cursor = db.cursor(dictionary=True, buffered=True)
 
         # --------------------------------------------------
         # 2. Get internal integer laboratory ID
@@ -6584,7 +5662,7 @@ def update_user_access():
 def delete_patient(patient_id):
 
     db = get_db()
-    cursor = db.cursor()
+    cursor = db.cursor(buffered=True)
 
     lab_id = session["lab_id"]
     print("Delete route called")
@@ -6696,7 +5774,7 @@ def delete_patient(patient_id):
 def user_management():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
 
@@ -6729,7 +5807,7 @@ def user_management():
 def add_user():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
 
@@ -6843,7 +5921,7 @@ def add_user():
 def edit_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
 
@@ -6977,7 +6055,7 @@ def edit_user(user_id):
 def delete_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
 
@@ -7061,7 +6139,7 @@ def delete_user(user_id):
 def delete_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     # Get image filename
     cursor.execute("""
@@ -7104,7 +6182,7 @@ def delete_signatory(id):
 def edit_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     cursor.execute("""
         SELECT *
@@ -7182,173 +6260,88 @@ def edit_signatory(id):
 @role_required('Developer', 'Admin')
 def edit_parameter(parameter_id):
 
-    db = None
-    cursor = None
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
-    try:
-        db = get_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("""
+        SELECT *
+        FROM test_parameters
+        WHERE id=%s
+        AND lab_id=%s
+    """, (parameter_id, session["lab_id"]))
+
+    parameter = cursor.fetchone()
+
+    if not parameter:
+        flash("Parameter not found.", "danger")
+        return redirect(request.referrer)
+
+    if request.method == "POST":
 
         cursor.execute("""
-            SELECT *
-            FROM test_parameters
-            WHERE id = %s
-              AND lab_id = %s
-        """, (parameter_id, session["lab_id"]))
+            UPDATE test_parameters
+            SET
+                parameter_name=%s,
+                unit=%s,
+                reference_type=%s,
+                display_order=%s
+            WHERE id=%s
+            AND lab_id=%s
+        """, (
+            request.form["parameter_name"],
+            request.form["unit"],
+            request.form["reference_type"],
+            request.form["display_order"],
+            parameter_id,
+            session["lab_id"]
+        ))
 
-        parameter = cursor.fetchone()
+        db.commit()
 
-        if not parameter:
-            flash("Parameter not found.", "danger")
-            return redirect(request.referrer or url_for("dashboard"))
+        flash("Parameter updated successfully.", "success")
 
-        if request.method == "POST":
+        return redirect(url_for(
+            "parameter_builder",
+            component_id=parameter["component_id"]
+        ))
 
-            cursor.execute("""
-                UPDATE test_parameters
-                SET
-                    parameter_name = %s,
-                    unit = %s,
-                    reference_type = %s,
-                    display_order = %s
-                WHERE id = %s
-                  AND lab_id = %s
-            """, (
-                request.form["parameter_name"],
-                request.form["unit"],
-                request.form["reference_type"],
-                request.form["display_order"],
-                parameter_id,
-                session["lab_id"]
-            ))
-
-            db.commit()
-
-            flash("Parameter updated successfully.", "success")
-
-            return redirect(url_for(
-                "parameter_builder",
-                component_id=parameter["component_id"]
-            ))
-
-        return render_template(
-            "edit_parameter.html",
-            parameter=parameter
-        )
-
-    except Exception:
-        if db:
-            db.rollback()
-
-        app.logger.exception("Edit parameter failed")
-        raise
-
-    finally:
-        if cursor:
-            cursor.close()
-
-        if db:
-            db.close()
+    return render_template(
+        "edit_parameter.html",
+        parameter=parameter
+    )
 @app.route('/delete-parameter/<int:parameter_id>', methods=['POST'])
 @login_required
 @role_required('Developer', 'Admin')
 def delete_parameter(parameter_id):
 
-    db = None
-    cursor = None
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
-    try:
-        db = get_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor.execute("""
+        SELECT component_id
+        FROM parameter_definition
+        WHERE id=%s
+    """, (parameter_id,))
 
-        role = session.get("role")
-        lab_id = session.get("lab_id")
+    parameter = cursor.fetchone()
 
-        # Verify parameter ownership through its parent test.
-        cursor.execute("""
-            SELECT
-                pd.id,
-                pd.component_id,
-                pd.lab_id,
-                t.lab_id AS test_lab_id
-            FROM parameter_definition pd
-            JOIN report_components rc
-                ON pd.component_id = rc.id
-            JOIN tests t
-                ON rc.test_id = t.id
-            WHERE pd.id = %s
-              AND pd.lab_id <=> t.lab_id
-              AND (
-                    %s = 'Developer'
-                    OR t.lab_id = %s
-              )
-            LIMIT 1
-        """, (parameter_id, role, lab_id))
+    if not parameter:
+        flash("Parameter not found.", "danger")
+        return redirect(request.referrer)
 
-        parameter = cursor.fetchone()
+    cursor.execute("""
+        DELETE FROM parameter_definition
+        WHERE id=%s
+    """, (parameter_id,))
 
-        if not parameter:
-            flash(
-                "Parameter not found or access denied.",
-                "danger"
-            )
-            return redirect(
-                request.referrer
-                or url_for("dashboard")
-            )
+    db.commit()
 
-        # Delete only the verified parameter.
-        cursor.execute("""
-            DELETE pd
-            FROM parameter_definition pd
-            JOIN report_components rc
-                ON pd.component_id = rc.id
-            JOIN tests t
-                ON rc.test_id = t.id
-            WHERE pd.id = %s
-              AND pd.lab_id <=> t.lab_id
-              AND (
-                    %s = 'Developer'
-                    OR t.lab_id = %s
-              )
-        """, (parameter_id, role, lab_id))
+    flash("Parameter deleted successfully.", "success")
 
-        if cursor.rowcount != 1:
-            db.rollback()
-            flash("Parameter could not be deleted.", "danger")
-            return redirect(
-                request.referrer
-                or url_for("dashboard")
-            )
-
-        db.commit()
-
-        flash(
-            "Parameter deleted successfully.",
-            "success"
-        )
-
-        return redirect(url_for(
-            "test_builder.parameter_list",
-            component_id=parameter["component_id"]
-        ))
-
-    except Exception:
-        if db:
-            db.rollback()
-
-        app.logger.exception(
-            "Delete parameter failed | parameter_id=%s",
-            parameter_id
-        )
-        raise
-
-    finally:
-        if cursor:
-            cursor.close()
-
-        if db:
-            db.close()
+    return redirect(url_for(
+        "test_builder.parameter_list",
+        component_id=parameter["component_id"]
+    ))
 # ============================================================
 # SUPER ADMIN DASHBOARD
 # ============================================================
@@ -7359,7 +6352,7 @@ def delete_parameter(parameter_id):
 def super_admin_dashboard():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         # ----------------------------------------------------
@@ -7488,7 +6481,7 @@ def super_admin_dashboard():
 def super_admin_labs():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         search = request.args.get("search", "").strip()
@@ -7596,7 +6589,7 @@ def super_admin_labs():
 def super_admin_assign_subscription():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         # Fetch all laboratories
@@ -7750,7 +6743,7 @@ def super_admin_assign_subscription():
 def super_admin_plans():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         search = request.args.get("search", "").strip()
@@ -7930,7 +6923,7 @@ def super_admin_create_plan():
             return render_template("super_admin_create_plan.html")
 
         db = get_db()
-        cursor = db.cursor(pymysql.cursors.DictCursor)
+        cursor = db.cursor(dictionary=True)
 
         try:
             # Prevent duplicate plan names
@@ -7995,7 +6988,7 @@ def super_admin_create_plan():
 def super_admin_edit_plan(plan_id):
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         # Fetch existing plan
@@ -8161,7 +7154,7 @@ def super_admin_edit_plan(plan_id):
 def super_admin_subscription_history():
 
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         search = request.args.get("search", "").strip()
@@ -8278,7 +7271,7 @@ def super_admin_subscription_history():
 @role_required("Developer")
 def super_admin_broadcasts():
     db = get_db()
-    cursor = db.cursor(pymysql.cursors.DictCursor)
+    cursor = db.cursor(dictionary=True)
 
     try:
         if request.method == "POST":

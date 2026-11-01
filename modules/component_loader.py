@@ -168,17 +168,15 @@ def _load_reference_ranges(
     }
 
     for row in rows:
-        (
-            parameter_id,
-            range_gender,
-            age_from,
-            age_to,
-            age_unit,
-            lower_value,
-            upper_value,
-            reference_text,
-            interpretation,
-        ) = row
+        parameter_id = row["parameter_id"]
+        range_gender = row["gender"]
+        age_from = row["age_from"]
+        age_to = row["age_to"]
+        age_unit = row["age_unit"]
+        lower_value = row["lower_value"]
+        upper_value = row["upper_value"]
+        reference_text = row["reference_text"]
+        interpretation = row["interpretation"]
 
         gender_match, gender_specificity = _gender_matches(
             range_gender,
@@ -314,8 +312,9 @@ def load_component(
     """
     Load a report component and select reference ranges for this patient.
 
-    Expected component tuple:
-        (id, component_name, component_type, component_content)
+    Expected component row:
+        DictCursor mapping with id, component_name,
+        component_type, and component_content keys.
     """
     if not comp or len(comp) < 4:
         raise ValueError(
@@ -323,10 +322,10 @@ def load_component(
             "(id, component_name, component_type, component_content)"
         )
 
-    component_id = comp[0]
-    component_name = comp[1]
-    component_type = comp[2]
-    component_content = comp[3]
+    component_id = comp["id"]
+    component_name = comp["component_name"]
+    component_type = comp["component_type"]
+    component_content = comp["component_content"]
 
     component_settings = _parse_component_content(
         component_content
@@ -343,11 +342,14 @@ def load_component(
             (component_id,),
         )
 
-        for setting_key, setting_value in cursor.fetchall() or []:
+        for setting_row in cursor.fetchall() or []:
+            setting_key = setting_row["setting_key"]
+            setting_value = setting_row["setting_value"]
+
             if setting_key:
                 component_settings.setdefault(
                     str(setting_key),
-                    setting_value,
+                    setting_value
                 )
 
     except Exception as exc:
@@ -418,7 +420,7 @@ def load_component(
         return component_data
 
     parameter_ids = [
-        row[0]
+        row["id"]
         for row in rows
     ]
 
@@ -430,24 +432,22 @@ def load_component(
     )
 
     for row in rows:
-        (
-            parameter_id,
-            parameter_code,
-            display_name,
-            short_name,
-            unit,
-            formula_id,
-            formula_expression,
-            decimal_places,
-            data_type,
-            reference_type,
-            min_range,
-            max_range,
-            default_value,
-            editable,
-            optional_field,
-            display_order,
-        ) = row
+        parameter_id = row["id"]
+        parameter_code = row["parameter_code"]
+        display_name = row["display_name"]
+        short_name = row["short_name"]
+        unit = row["unit"]
+        formula_id = row["formula_id"]
+        formula_expression = row["formula_expression"]
+        decimal_places = row["decimal_places"]
+        data_type = row["data_type"]
+        reference_type = row["reference_type"]
+        min_range = row["min_range"]
+        max_range = row["max_range"]
+        default_value = row["default_value"]
+        editable = row["editable"]
+        optional_field = row["optional_field"]
+        display_order = row["display_order"]
 
         data_type = str(
             data_type or "numeric"

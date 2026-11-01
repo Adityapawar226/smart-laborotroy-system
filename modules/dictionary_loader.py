@@ -10,6 +10,9 @@ def load_dictionary_values(cursor, dictionary_id):
         ORDER BY display_order, id
     """, (dictionary_id,))
 
-    rows = cursor.fetchall()
+    rows = cursor.fetchall() or []
 
-    return [row[0] for row in rows]
+    return [
+        row.get("value_text", "")
+        for row in rows
+    ]

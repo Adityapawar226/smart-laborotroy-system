@@ -380,32 +380,68 @@
                         <th class="billing-action-column">Action</th>
                     </tr>
                 </thead>
-                <tbody>
-                    {% for bill in bills %}
-                    <tr>
-                        <td><span class="receipt-number">{{ bill[0] }}</span></td>
-                        <td>{{ bill[1] }}</td>
-                        <td>{{ bill[2] }}</td>
-                        <td>₹{{ bill[3] }}</td>
-                        <td>{{ bill[4] }}</td>
-                        <td>
-                            {% if bill[5] == 'Paid' %}
-                                <span class="payment-badge payment-paid">Paid</span>
-                            {% else %}
-                                <span class="payment-badge payment-pending">Pending</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ bill[6] }}</td>
-                        <td class="billing-action-column">
-                            <a href="/view-bill/{{ bill[1] }}" class="billing-view-button">View</a>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="8" class="billing-empty">No billing records found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
+               <tbody>
+    {% for bill in bills %}
+    <tr>
+        <td>
+            <span class="receipt-number">
+                {{ bill.get('receipt_no') or '-' }}
+            </span>
+        </td>
+
+        <td>
+            {{ bill.get('patient_id') or '-' }}
+        </td>
+
+        <td>
+            {{ bill.get('name') or '-' }}
+        </td>
+
+        <td>
+            ₹{{ "%.2f"|format(bill.get('total_amount') or 0) }}
+        </td>
+
+        <td>
+            {{ bill.get('payment_mode') or '-' }}
+        </td>
+
+        <td>
+            {% if bill.get('payment_status') == 'Paid' %}
+                <span class="payment-badge payment-paid">
+                    Paid
+                </span>
+            {% else %}
+                <span class="payment-badge payment-pending">
+                    {{ bill.get('payment_status') or 'Pending' }}
+                </span>
+            {% endif %}
+        </td>
+
+        <td>
+            {% if bill.get('payment_date') %}
+                {{ bill.get('payment_date').strftime('%d-%m-%Y') }}
+            {% else %}
+                -
+            {% endif %}
+        </td>
+
+        <td class="billing-action-column">
+            <a
+                href="{{ url_for('view_bill', patient_id=bill.get('patient_id')) }}"
+                class="billing-view-button">
+                View
+            </a>
+        </td>
+    </tr>
+
+    {% else %}
+    <tr>
+        <td colspan="8" class="billing-empty">
+            No billing records found.
+        </td>
+    </tr>
+    {% endfor %}
+</tbody>
             </table>
         </div>
     </div>

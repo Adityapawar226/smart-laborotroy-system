@@ -85,18 +85,18 @@
 
                 <p>
                     <strong>Patient Name :</strong>
-                    {{ bill[2] }}
+                    {{ bill.get('name', '-') or '-' }}
                 </p>
 
                 <p>
                     <strong>Age / Gender :</strong>
-                    {{ bill[3] }} Years /
-                    {{ bill[4] }}
+                    {{ bill.get('age', '-') or '-' }} Years /
+                    {{ bill.get('gender', '-') or '-' }}
                 </p>
 
                 <p>
                     <strong>Referral Name :</strong>
-                    {{ bill[5] }}
+                    {{ bill.get('doctor_name', '-') or '-' }}
                 </p>
 
             </div>
@@ -127,7 +127,7 @@
                 <p>
 
                     <strong>Pt. ID / Sp. ID :</strong>
-                    {{ bill[1] }}
+                    {{ bill.get('patient_id', '-') or '-' }}
 
                 </p>
 
@@ -135,7 +135,7 @@
                 <p>
 
                     <strong>Receipt No :</strong>
-                    {{ bill[0] }}
+                    {{ bill.get('receipt_no', '-') or '-' }}
 
                 </p>
 
@@ -144,8 +144,7 @@
 
                     <strong>Bill Date :</strong>
 
-                    {{ bill[11].strftime('%d/%m/%Y')
-                       if bill[11] else '' }}
+                    {{ bill.get('payment_date').strftime('%d/%m/%Y') if bill.get('payment_date') else '' }}
 
                 </p>
 
@@ -197,11 +196,11 @@
                     </td>
 
                     <td>
-                        {{ test[0] }}
+                        {{ test.get('test_name', test.get('name', '-')) if test is mapping else test[0] }}
                     </td>
 
                     <td>
-                        {{ "%.2f"|format(test[1]) }}
+                        {{ "%.2f"|format((test.get("price", test.get("amount", 0)) if test is mapping else test[1])|float) }}
                     </td>
 
                 </tr>
@@ -232,7 +231,7 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[6]) }}
+                    {{ "%.2f"|format(bill.get("paid_amount", 0)|float) }}
                 </td>
 
             </tr>
@@ -246,14 +245,14 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[7]) }}
+                    {{ "%.2f"|format(bill.get("total_amount", 0)|float) }}
                 </td>
 
             </tr>
 
 
 
-            {% if bill[10] == "Paid" %}
+            {% if bill.get("payment_status") == "Paid" %}
 
 
             <tr>
@@ -263,7 +262,7 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[6]) }}
+                    {{ "%.2f"|format(bill.get("paid_amount", 0)|float) }}
                 </td>
 
             </tr>
@@ -276,7 +275,7 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[8]) }}
+                    {{ "%.2f"|format(bill.get("remaining_amount", 0)|float) }}
                 </td>
 
             </tr>
@@ -292,7 +291,7 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[7]) }}
+                    {{ "%.2f"|format(bill.get("total_amount", 0)|float) }}
                 </td>
 
             </tr>
@@ -305,7 +304,7 @@
                 </td>
 
                 <td>
-                    {{ "%.2f"|format(bill[8]) }}
+                    {{ "%.2f"|format(bill.get("remaining_amount", 0)|float) }}
                 </td>
 
             </tr>

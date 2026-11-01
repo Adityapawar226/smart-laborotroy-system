@@ -1003,314 +1003,938 @@ from concurrent.futures import ThreadPoolExecutor
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def dashboard():
-    """Render the dashboard using Redis cache for stats and ThreadPoolExecutor for fresh data."""
+
+    """
+    Diagnora Dashboard
+
+    - PyMySQL DictCursor compatible
+    - Redis caching
+    - Multi-tenant lab isolation
+    - Latest payment selection by payment_date
+    - Parallel database queries
+    """
+
     route_start = time.perf_counter()
 
     if session.get("role") == "Developer":
         return redirect(url_for("super_admin_dashboard"))
 
     try:
-        lab_id = session["lab_id"]
+
+        # ==================================================
+        # 1. SESSION DATA
+        # ==================================================
+
+        lab_id = session.get("lab_id")
+
+        if not lab_id:
+            app.logger.error("Dashboard accessed without lab_id")
+            abort(403)
+
         search = request.args.get("search", "").strip()
 
-        # 1. Try to fetch summary stats from Redis cache (skips heavy queries if cached)
+        # ==================================================
+        # 2. DEFAULT VALUES
+        # ==================================================
+
+        patients = []
+        payments = []
+
+        total_patients = 0
+        patient_count = 0
+
+        total_income = 0
+        cash_total = 0
+        upi_total = 0
+
+        cash_count = 0
+        upi_count = 0
+
+        grand_total_income = 0
+        pending_amount = 0
+
+        total_tests = 0
+        total_reports = 0
+
+        # ==================================================
+        # 3. REDIS CACHE
+        # ==================================================
+
         cache_key = f"lab_{lab_id}_dashboard_stats"
-        cached_stats = r.get(cache_key)
-        
-        if cached_stats and not search:
-            # If cached and no active search filter is applied, load data from cache
-            stats_data = json.loads(cached_stats)
-            patients = stats_data["patients"]
-            payments = stats_data["payments"]
-            total_patients = stats_data["total_patients"]
-            patient_count = stats_data["patient_count"]
-            total_income = stats_data["total_income"]
-            cash_total = stats_data["cash_total"]
-            upi_total = stats_data["upi_total"]
-            cash_count = stats_data["cash_count"]
-            upi_count = stats_data["upi_count"]
-            grand_total_income = stats_data["grand_total_income"]
-            pending_amount = stats_data["pending_amount"]
-            total_tests = stats_data["total_tests"]
-            total_reports = stats_data["total_reports"]
-        else:
-            # 2. Fallback to parallel execution if cache misses or a search query is active
+
+        cache_hit = False
+
+        if not search:
+
+            try:
+
+                cached_stats = r.get(cache_key)
+
+                if cached_stats:
+
+                    stats_data = json.loads(cached_stats)
+
+                    if isinstance(stats_data, dict):
+
+                        patients = stats_data.get("patients", [])
+                        payments = stats_data.get("payments", [])
+
+                        total_patients = stats_data.get(
+                            "total_patients", 0
+                        )
+
+                        patient_count = stats_data.get(
+                            "patient_count", 0
+                        )
+
+                        total_income = stats_data.get(
+                            "total_income", 0
+                        )
+
+                        cash_total = stats_data.get(
+                            "cash_total", 0
+                        )
+
+                        upi_total = stats_data.get(
+                            "upi_total", 0
+                        )
+
+                        cash_count = stats_data.get(
+                            "cash_count", 0
+                        )
+
+                        upi_count = stats_data.get(
+                            "upi_count", 0
+                        )
+
+                        grand_total_income = stats_data.get(
+                            "grand_total_income", 0
+                        )
+
+                        pending_amount = stats_data.get(
+                            "pending_amount", 0
+                        )
+
+                        total_tests = stats_data.get(
+                            "total_tests", 0
+                        )
+
+                        total_reports = stats_data.get(
+                            "total_reports", 0
+                        )
+
+                        cache_hit = True
+
+                        app.logger.info(
+                            "Dashboard Redis cache HIT | lab_id=%s",
+                            lab_id
+                        )
+
+            except Exception as cache_error:
+
+                app.logger.warning(
+                    "Dashboard Redis GET failed | lab_id=%s | error=%s",
+                    lab_id,
+                    str(cache_error)
+                )
+
+        # ==================================================
+        # 4. DATABASE FETCH
+        # ==================================================
+
+        if not cache_hit or search:
+
+            # ==================================================
+            # 4.1 FETCH PATIENTS
+            # ==================================================
+
             def fetch_patients():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
+                    query = """
+                        SELECT
+                            p.patient_id AS patient_id,
+                            p.name AS name,
+                            p.age AS age,
+
+                            COALESCE(
+                                test_data.tests,
+                                '-'
+                            ) AS tests,
+
+                            COALESCE(
+                                pay.total_amount,
+                                0
+                            ) AS total_amount,
+
+                            COALESCE(
+                                pay.payment_mode,
+                                '-'
+                            ) AS payment_mode,
+
+                            COALESCE(
+                                pay.payment_status,
+                                'Pending'
+                            ) AS payment_status
+
+                        FROM patients p
+
+                        LEFT JOIN (
+
+                            SELECT
+                                pt.patient_id,
+                                pt.lab_id,
+
+                                GROUP_CONCAT(
+                                    DISTINCT t.test_name
+                                    ORDER BY t.test_name
+                                    SEPARATOR ', '
+                                ) AS tests
+
+                            FROM patient_tests pt
+
+                            LEFT JOIN tests t
+
+                                ON t.id = pt.test_id
+
+                                AND (
+                                    t.lab_id = pt.lab_id
+                                    OR t.lab_id IS NULL
+                                )
+
+                            WHERE pt.lab_id = %s
+
+                            GROUP BY
+                                pt.patient_id,
+                                pt.lab_id
+
+                        ) AS test_data
+
+                            ON test_data.patient_id = p.patient_id
+
+                            AND test_data.lab_id = p.lab_id
+
+                        LEFT JOIN payments pay
+
+                            ON pay.id = (
+
+                                SELECT p2.id
+
+                                FROM payments p2
+
+                                WHERE p2.patient_id = p.patient_id
+
+                                AND p2.lab_id = p.lab_id
+
+                                ORDER BY
+                                    p2.payment_date DESC,
+                                    p2.id DESC
+
+                                LIMIT 1
+
+                            )
+
+                        WHERE p.lab_id = %s
+
+                    """
+
+                    params = [lab_id, lab_id]
+
+                    # TODAY'S PATIENTS
+
                     if not search:
-                        cur.execute("""
-                            SELECT
-                                p.patient_id, p.name, p.age,
-                                GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
-                                pay.total_amount, pay.payment_mode, pay.payment_status
-                            FROM patients p
-                            JOIN patient_tests pt ON pt.patient_id = p.patient_id AND pt.lab_id = p.lab_id
-                            JOIN tests t ON t.id = pt.test_id AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
-                            JOIN payments pay ON pay.patient_id = p.patient_id AND pay.lab_id = p.lab_id
-                            WHERE p.lab_id = %s
-                              AND p.created_at >= CURDATE()
-                              AND p.created_at < CURDATE() + INTERVAL 1 DAY
-                            GROUP BY p.id, p.patient_id, p.name, p.age, pay.total_amount, pay.payment_mode, pay.payment_status, p.created_at
-                            ORDER BY p.created_at DESC
-                            LIMIT 10
-                        """, (lab_id,))
+
+                        query += """
+
+                            AND p.created_at >= CURDATE()
+
+                            AND p.created_at <
+                                CURDATE() + INTERVAL 1 DAY
+
+                        """
+
+                    # PATIENT SEARCH
+
                     else:
-                        cur.execute("""
-                            SELECT
-                                p.patient_id, p.name, p.age,
-                                GROUP_CONCAT(DISTINCT t.test_name ORDER BY t.test_name SEPARATOR ', ') AS tests,
-                                pay.total_amount, pay.payment_mode, pay.payment_status
-                            FROM patients p
-                            JOIN patient_tests pt ON pt.patient_id = p.patient_id AND pt.lab_id = p.lab_id
-                            JOIN tests t ON t.id = pt.test_id AND (t.lab_id IS NULL OR t.lab_id = pt.lab_id)
-                            JOIN payments pay ON pay.patient_id = p.patient_id AND pay.lab_id = p.lab_id
-                            WHERE p.lab_id = %s
-                              AND (
-                                  p.patient_id LIKE %s
-                                  OR p.name LIKE %s
-                                  OR p.mobile LIKE %s
-                              )
-                            GROUP BY p.id, p.patient_id, p.name, p.age, pay.total_amount, pay.payment_mode, pay.payment_status, p.created_at
-                            ORDER BY p.created_at DESC
-                        """, (lab_id, f"%{search}%", f"%{search}%", f"%{search}%"))
-                    return cur.fetchall()
+
+                        query += """
+
+                            AND (
+
+                                p.patient_id LIKE %s
+
+                                OR p.name LIKE %s
+
+                                OR p.mobile LIKE %s
+
+                            )
+
+                        """
+
+                        search_value = f"%{search}%"
+
+                        params.extend([
+                            search_value,
+                            search_value,
+                            search_value
+                        ])
+
+                    query += """
+
+                        ORDER BY p.created_at DESC
+
+                    """
+
+                    if not search:
+
+                        query += " LIMIT 10"
+
+                    cur.execute(query, tuple(params))
+
+                    result = cur.fetchall()
+
+                    app.logger.info(
+                        "PERF | Dashboard patients fetched | lab_id=%s | rows=%s",
+                        lab_id,
+                        len(result)
+                    )
+
+                    return result
+
                 finally:
+
                     cur.close()
                     conn.close()
+
+            # ==================================================
+            # 4.2 FETCH LATEST PAYMENTS
+            # ==================================================
 
             def fetch_payments():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
                     cur.execute("""
-                        SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
+
+                        SELECT
+
+                            p.receipt_no AS receipt_no,
+
+                            pa.name AS patient_name,
+
+                            p.total_amount AS total_amount,
+
+                            p.payment_mode AS payment_mode,
+
+                            p.payment_status AS payment_status
+
                         FROM payments p
-                        JOIN patients pa ON pa.patient_id = p.patient_id AND pa.lab_id = p.lab_id
+
+                        JOIN patients pa
+
+                            ON pa.patient_id = p.patient_id
+
+                            AND pa.lab_id = p.lab_id
+
                         WHERE p.lab_id = %s
-                        ORDER BY p.id DESC
+
+                        ORDER BY
+                            p.payment_date DESC,
+                            p.id DESC
+
                         LIMIT 10
+
                     """, (lab_id,))
-                    return cur.fetchall()
+
+                    result = cur.fetchall()
+
+                    return result
+
                 finally:
+
                     cur.close()
                     conn.close()
+
+            # ==================================================
+            # 4.3 FETCH PATIENT STATISTICS
+            # ==================================================
 
             def fetch_patient_stats():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
                     cur.execute("""
+
                         SELECT
+
                             COUNT(*) AS total_patients,
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN created_at >= CURDATE()
-                                         AND created_at < CURDATE() + INTERVAL 1 DAY
-                                        THEN 1 ELSE 0
+
+                                        AND created_at <
+                                            CURDATE() + INTERVAL 1 DAY
+
+                                        THEN 1
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS patient_count
+
                         FROM patients
+
                         WHERE lab_id = %s
+
                     """, (lab_id,))
-                    return cur.fetchone()
+
+                    return cur.fetchone() or {}
+
                 finally:
+
                     cur.close()
                     conn.close()
+
+            # ==================================================
+            # 4.4 FETCH TRANSACTION STATISTICS
+            # ==================================================
 
             def fetch_transaction_stats():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
                     cur.execute("""
+
                         SELECT
+
+                            /* TODAY'S TOTAL INCOME */
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN payment_date >= CURDATE()
-                                         AND payment_date < CURDATE() + INTERVAL 1 DAY
-                                        THEN amount ELSE 0
+
+                                        AND payment_date <
+                                            CURDATE() + INTERVAL 1 DAY
+
+                                        THEN amount
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS total_income,
+
+
+                            /* MONTHLY CASH TOTAL */
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-                                        THEN amount ELSE 0
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
+                                        THEN amount
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS cash_total,
+
+
+                            /* MONTHLY UPI TOTAL */
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-                                        THEN amount ELSE 0
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
+                                        THEN amount
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS upi_total,
+
+
+                            /* MONTHLY CASH COUNT */
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN payment_mode = 'Cash'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-                                        THEN 1 ELSE 0
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
+                                        THEN 1
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS cash_count,
+
+
+                            /* MONTHLY UPI COUNT */
+
                             COALESCE(
+
                                 SUM(
+
                                     CASE
+
                                         WHEN payment_mode = 'UPI'
-                                         AND payment_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                                         AND payment_date < DATE_FORMAT(CURDATE() + INTERVAL 1 MONTH, '%Y-%m-01')
-                                        THEN 1 ELSE 0
+
+                                        AND payment_date >=
+                                            DATE_SUB(
+                                                CURDATE(),
+                                                INTERVAL
+                                                (DAYOFMONTH(CURDATE()) - 1)
+                                                DAY
+                                            )
+
+                                        AND payment_date <
+                                            DATE_ADD(
+                                                LAST_DAY(CURDATE()),
+                                                INTERVAL 1 DAY
+                                            )
+
+                                        THEN 1
+
+                                        ELSE 0
+
                                     END
-                                ), 0
+
+                                ),
+
+                                0
+
                             ) AS upi_count,
-                            COALESCE(SUM(amount), 0) AS grand_total_income
+
+
+                            /* OVERALL INCOME */
+
+                            COALESCE(
+                                SUM(amount),
+                                0
+                            ) AS grand_total_income
+
                         FROM payment_transactions
+
                         WHERE lab_id = %s
+
                     """, (lab_id,))
-                    return cur.fetchone()
+
+                    return cur.fetchone() or {}
+
                 finally:
+
                     cur.close()
                     conn.close()
+
+            # ==================================================
+            # 4.5 FETCH PENDING PAYMENTS
+            # ==================================================
 
             def fetch_pending_payments():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
                     cur.execute("""
-                        SELECT COALESCE(SUM(remaining_amount), 0)
+
+                        SELECT
+
+                            COALESCE(
+                                SUM(remaining_amount),
+                                0
+                            ) AS pending_amount
+
                         FROM payments
-                        WHERE payment_status = 'Pending' AND lab_id = %s
+
+                        WHERE payment_status = 'Pending'
+
+                        AND lab_id = %s
+
                     """, (lab_id,))
-                    res = cur.fetchone()
-                    return res[0] if res else 0
+
+                    result = cur.fetchone()
+
+                    return (
+                        result["pending_amount"]
+                        if result else 0
+                    )
+
                 finally:
+
                     cur.close()
                     conn.close()
+
+            # ==================================================
+            # 4.6 FETCH TEST AND REPORT STATISTICS
+            # ==================================================
 
             def fetch_test_report_stats():
+
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
+
                 try:
+
                     cur.execute("""
+
                         SELECT
-                            (SELECT COUNT(*) FROM patient_tests WHERE lab_id = %s) AS total_tests,
-                            (SELECT COUNT(DISTINCT patient_id) FROM test_results WHERE lab_id = %s) AS total_reports
+
+                            (
+
+                                SELECT COUNT(*)
+
+                                FROM patient_tests
+
+                                WHERE lab_id = %s
+
+                            ) AS total_tests,
+
+                            (
+
+                                SELECT COUNT(DISTINCT patient_test_id)
+
+                                FROM test_results
+
+                                WHERE lab_id = %s
+
+                                AND patient_test_id IS NOT NULL
+
+                            ) AS total_reports
+
                     """, (lab_id, lab_id))
-                    return cur.fetchone()
+
+                    return cur.fetchone() or {}
+
                 finally:
+
                     cur.close()
                     conn.close()
 
-            with ThreadPoolExecutor(max_workers=6) as executor:
+            # ==================================================
+            # 5. PARALLEL DATABASE EXECUTION
+            # ==================================================
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+
                 future_patients = executor.submit(fetch_patients)
+
                 future_payments = executor.submit(fetch_payments)
+
                 future_p_stats = executor.submit(fetch_patient_stats)
+
                 future_t_stats = executor.submit(fetch_transaction_stats)
+
                 future_pending = executor.submit(fetch_pending_payments)
-                future_test_stats = executor.submit(fetch_test_report_stats)
 
-                patients = future_patients.result()
-                payments = future_payments.result()
-                
-                patient_stats = future_p_stats.result()
-                total_patients = patient_stats[0]
-                patient_count = patient_stats[1]
+                future_test_stats = executor.submit(
+                    fetch_test_report_stats
+                )
 
-                transaction_stats = future_t_stats.result()
-                total_income = transaction_stats[0]
-                cash_total = transaction_stats[1]
-                upi_total = transaction_stats[2]
-                cash_count = transaction_stats[3]
-                upi_count = transaction_stats[4]
-                grand_total_income = transaction_stats[5]
+                # COLLECT RESULTS
 
-                pending_amount = future_pending.result()
+                patients = future_patients.result() or []
 
-                test_stats = future_test_stats.result()
-                total_tests = test_stats[0]
-                total_reports = test_stats[1]
+                payments = future_payments.result() or []
 
-            # Save to Redis cache for 60 seconds if no search query was passed
+                patient_stats = future_p_stats.result() or {}
+
+                transaction_stats = future_t_stats.result() or {}
+
+                pending_amount = future_pending.result() or 0
+
+                test_stats = future_test_stats.result() or {}
+
+            # ==================================================
+            # 6. PATIENT STATISTICS
+            # ==================================================
+
+            total_patients = patient_stats.get(
+                "total_patients", 0
+            )
+
+            patient_count = patient_stats.get(
+                "patient_count", 0
+            )
+
+            # ==================================================
+            # 7. TRANSACTION STATISTICS
+            # ==================================================
+
+            total_income = transaction_stats.get(
+                "total_income", 0
+            )
+
+            cash_total = transaction_stats.get(
+                "cash_total", 0
+            )
+
+            upi_total = transaction_stats.get(
+                "upi_total", 0
+            )
+
+            cash_count = transaction_stats.get(
+                "cash_count", 0
+            )
+
+            upi_count = transaction_stats.get(
+                "upi_count", 0
+            )
+
+            grand_total_income = transaction_stats.get(
+                "grand_total_income", 0
+            )
+
+            # ==================================================
+            # 8. TEST AND REPORT STATISTICS
+            # ==================================================
+
+            total_tests = test_stats.get(
+                "total_tests", 0
+            )
+
+            total_reports = test_stats.get(
+                "total_reports", 0
+            )
+
+            # ==================================================
+            # 9. SAVE RESULTS TO REDIS
+            # ==================================================
+
             if not search:
-                payload = {
-                    "patients": patients,
-                    "payments": payments,
-                    "total_patients": total_patients,
-                    "patient_count": patient_count,
-                    "total_income": total_income,
-                    "cash_total": cash_total,
-                    "upi_total": upi_total,
-                    "cash_count": cash_count,
-                    "upi_count": upi_count,
-                    "grand_total_income": grand_total_income,
-                    "pending_amount": pending_amount,
-                    "total_tests": total_tests,
-                    "total_reports": total_reports
-                }
-                r.setex(cache_key, 60, json.dumps(payload, default=str))
 
-        current_time = datetime.now().strftime("%d %B %Y | %I:%M %p")
-        return render_template(
-            "dashboard.html",
-            patients=patients,
-            search=search,
-            payments=payments,
-            patient_count=patient_count,
-            total_income=total_income,
-            pending_amount=pending_amount,
-            cash_total=cash_total,
-            upi_total=upi_total,
-            cash_count=cash_count,
-            upi_count=upi_count,
-            current_time=current_time,
-            total_patients=total_patients,
-            grand_total_income=grand_total_income,
-            total_tests=total_tests,
-            total_reports=total_reports
+                payload = {
+
+                    "patients": patients,
+
+                    "payments": payments,
+
+                    "total_patients": total_patients,
+
+                    "patient_count": patient_count,
+
+                    "total_income": total_income,
+
+                    "cash_total": cash_total,
+
+                    "upi_total": upi_total,
+
+                    "cash_count": cash_count,
+
+                    "upi_count": upi_count,
+
+                    "grand_total_income": grand_total_income,
+
+                    "pending_amount": pending_amount,
+
+                    "total_tests": total_tests,
+
+                    "total_reports": total_reports
+
+                }
+
+                try:
+
+                    r.setex(
+                        cache_key,
+                        60,
+                        json.dumps(payload, default=str)
+                    )
+
+                except Exception as cache_error:
+
+                    app.logger.warning(
+                        "Dashboard Redis SET failed | lab_id=%s | error=%s",
+                        lab_id,
+                        str(cache_error)
+                    )
+
+        # ==================================================
+        # 10. CURRENT DATE AND TIME
+        # ==================================================
+
+        current_time = datetime.now().strftime(
+            "%d %B %Y | %I:%M %p"
         )
+
+        # ==================================================
+        # 11. RENDER DASHBOARD
+        # ==================================================
+
+        return render_template(
+
+            "dashboard.html",
+
+            patients=patients,
+
+            search=search,
+
+            payments=payments,
+
+            patient_count=patient_count,
+
+            total_patients=total_patients,
+
+            total_income=total_income,
+
+            pending_amount=pending_amount,
+
+            cash_total=cash_total,
+
+            upi_total=upi_total,
+
+            cash_count=cash_count,
+
+            upi_count=upi_count,
+
+            grand_total_income=grand_total_income,
+
+            total_tests=total_tests,
+
+            total_reports=total_reports,
+
+            current_time=current_time
+
+        )
+
+    except Exception:
+
+        app.logger.exception(
+            "Dashboard route failed | lab_id=%s",
+            session.get("lab_id")
+        )
+
+        return "Internal Server Error", 500
 
     finally:
+
         app.logger.info(
+
             "PERF | Dashboard total route processing | %.2f ms",
+
             (time.perf_counter() - route_start) * 1000
+
         )
-
-
 
 # Add this import with the other imports at the top of your Flask application:
 # import uuid
 
-@app.route(
-    "/patient-registration",
-    methods=["GET", "POST"]
-)
+@app.route("/patient-registration", methods=["GET", "POST"])
 @login_required
-@role_required(
-    "Developer",
-    "Admin",
-    "Technician"
-)
+@role_required("Developer", "Admin", "Technician")
 def patient_registration():
-    lab_id = session["lab_id"]
+
+    lab_id = session.get("lab_id")
+
+    if not lab_id:
+        abort(403)
 
     # ==================================================
-    # GET NUMERIC LAB ID FOR lab_test_overrides (Initial Check)
+    # 1. GET NUMERIC LAB ID
     # ==================================================
+
     db_init = get_db()
     cursor_init = db_init.cursor()
+
     try:
         cursor_init.execute("""
             SELECT id
@@ -1318,25 +1942,36 @@ def patient_registration():
             WHERE lab_id = %s
             LIMIT 1
         """, (lab_id,))
+
         lab_row = cursor_init.fetchone()
+
         if not lab_row:
-            raise ValueError(f"Laboratory not found: {lab_id}")
-        numeric_lab_id = lab_row[0]
+            raise ValueError(
+                f"Laboratory not found: {lab_id}"
+            )
+
+        # DictCursor correction
+        numeric_lab_id = lab_row["id"]
+
     finally:
         cursor_init.close()
         db_init.close()
 
     # ==================================================
-    # POST REQUEST (Patient Registration Handling)
+    # 2. POST REQUEST
     # ==================================================
+
     if request.method == "POST":
+
         db = get_db()
         cursor = db.cursor()
 
         try:
-            # -----------------------------------------------
-            # Patient Details
-            # -----------------------------------------------
+
+            # ------------------------------------------
+            # PATIENT DETAILS
+            # ------------------------------------------
+
             name = request.form["name"].strip()
 
             age_raw = request.form.get("age", "").strip()
@@ -1344,15 +1979,21 @@ def patient_registration():
 
             gender = request.form["gender"]
             mobile = request.form["mobile"].strip()
-            address = request.form.get("address", "").strip()
+
+            address = request.form.get(
+                "address", ""
+            ).strip()
+
             doctor_id = request.form.get("doctor_id") or None
 
-            # -----------------------------------------------
-            # Get Doctor
-            # -----------------------------------------------
+            # ------------------------------------------
+            # GET DOCTOR
+            # ------------------------------------------
+
             doctor_name = "Self"
 
             if doctor_id:
+
                 cursor.execute("""
                     SELECT doctor_name
                     FROM doctors
@@ -1363,21 +2004,24 @@ def patient_registration():
                 doctor = cursor.fetchone()
 
                 if doctor:
-                    doctor_name = doctor[0]
+                    doctor_name = doctor["doctor_name"]
                 else:
                     doctor_id = None
 
-            # -----------------------------------------------
-            # Payment Details
-            # -----------------------------------------------
+            # ------------------------------------------
+            # PAYMENT DETAILS
+            # ------------------------------------------
+
             payment_mode = request.form["payment_mode"]
 
             try:
                 paid_amount = Decimal(
                     request.form.get("paid_amount") or "0"
                 )
+
                 if not paid_amount.is_finite():
                     paid_amount = Decimal("0")
+
             except Exception:
                 paid_amount = Decimal("0")
 
@@ -1387,12 +2031,16 @@ def patient_registration():
             selected_test_ids = request.form.getlist("tests")
 
             if not selected_test_ids:
-                flash("Please select at least one test.", "warning")
+                flash(
+                    "Please select at least one test.",
+                    "warning"
+                )
                 return redirect(url_for("patient_registration"))
 
-            # -----------------------------------------------
-            # Patient ID Prefix
-            # -----------------------------------------------
+            # ------------------------------------------
+            # PATIENT ID PREFIX
+            # ------------------------------------------
+
             cursor.execute("""
                 SELECT patient_prefix
                 FROM lab_settings
@@ -1403,14 +2051,15 @@ def patient_registration():
             prefix_row = cursor.fetchone()
 
             patient_prefix = (
-                prefix_row[0]
-                if prefix_row and prefix_row[0]
+                prefix_row["patient_prefix"]
+                if prefix_row and prefix_row["patient_prefix"]
                 else "PAT"
             )
 
-            # -----------------------------------------------
-            # Generate Patient ID
-            # -----------------------------------------------
+            # ------------------------------------------
+            # GENERATE PATIENT ID
+            # ------------------------------------------
+
             cursor.execute("""
                 SELECT patient_id
                 FROM patients
@@ -1422,12 +2071,16 @@ def patient_registration():
             last_patient = cursor.fetchone()
 
             try:
+
                 last_no = (
-                    int(last_patient[0].split("-")[-1])
-                    if last_patient and last_patient[0]
+                    int(
+                        last_patient["patient_id"].split("-")[-1]
+                    )
+                    if last_patient and last_patient["patient_id"]
                     else 0
                 )
-            except (ValueError, IndexError):
+
+            except (ValueError, IndexError, AttributeError):
                 last_no = 0
 
             next_no = last_no + 1
@@ -1439,9 +2092,10 @@ def patient_registration():
 
             collected_on = datetime.now()
 
-            # -----------------------------------------------
-            # Save Patient
-            # -----------------------------------------------
+            # ------------------------------------------
+            # SAVE PATIENT
+            # ------------------------------------------
+
             cursor.execute("""
                 INSERT INTO patients (
                     lab_id,
@@ -1455,7 +2109,10 @@ def patient_registration():
                     doctor_id,
                     collected_on
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
             """, (
                 lab_id,
                 patient_id,
@@ -1469,13 +2126,16 @@ def patient_registration():
                 collected_on
             ))
 
-            # -----------------------------------------------
-            # Save Selected Tests With Patient-Specific Prices
-            # -----------------------------------------------
+            # ------------------------------------------
+            # SAVE SELECTED TESTS
+            # ------------------------------------------
+
             total_amount = Decimal("0.00")
             sample_ids_by_type = {}
 
-            submitted_prices = request.form.getlist("patient_price")
+            submitted_prices = request.form.getlist(
+                "patient_price"
+            )
 
             if len(selected_test_ids) != len(submitted_prices):
                 raise ValueError(
@@ -1487,15 +2147,20 @@ def patient_registration():
                 selected_test_ids,
                 submitted_prices
             ):
+
                 try:
                     test_id = int(selected_id)
+
                 except (ValueError, TypeError):
-                    raise ValueError("Invalid selected test ID.")
+                    raise ValueError(
+                        "Invalid selected test ID."
+                    )
 
                 try:
                     patient_price = Decimal(
                         str(submitted_price).strip()
                     )
+
                 except Exception:
                     raise ValueError(
                         "Invalid patient price submitted."
@@ -1507,20 +2172,25 @@ def patient_registration():
                     or patient_price > Decimal("99999999.99")
                 ):
                     raise ValueError(
-                        "Patient price must be a valid non-negative amount."
+                        "Patient price must be a valid "
+                        "non-negative amount."
                     )
 
                 patient_price = patient_price.quantize(
                     Decimal("0.01")
                 )
 
-                # Fetch Original Price and verify test availability
+                # --------------------------------------
+                # VERIFY TEST AVAILABILITY
+                # --------------------------------------
+
                 cursor.execute("""
                     SELECT
                         t.id,
                         t.test_name,
                         t.price AS original_price,
                         t.sample_type
+
                     FROM tests t
 
                     LEFT JOIN lab_test_settings lts
@@ -1528,20 +2198,24 @@ def patient_registration():
                        AND lts.lab_id = %s
 
                     WHERE t.id = %s
+
                       AND (
                             t.lab_id IS NULL
                             OR t.lab_id = %s
                       )
+
                       AND COALESCE(
                             lts.is_deleted,
                             FALSE
                       ) = FALSE
+
                       AND COALESCE(
                             lts.status,
                             t.status
                       ) = 'Active'
 
                     LIMIT 1
+
                 """, (
                     lab_id,
                     test_id,
@@ -1552,34 +2226,51 @@ def patient_registration():
 
                 if not test:
                     raise ValueError(
-                        f"Selected test ID {test_id} is unavailable "
-                        "for this laboratory."
+                        f"Selected test ID {test_id} "
+                        "is unavailable for this laboratory."
                     )
 
-                test_id = test[0]
-                test_name = test[1]
-                test_sample_type = (test[3] or "Unknown").strip()
+                # DictCursor corrections
+                test_id = test["id"]
+                test_name = test["test_name"]
+
+                test_sample_type = (
+                    test["sample_type"] or "Unknown"
+                ).strip()
+
                 if not test_sample_type:
                     test_sample_type = "Unknown"
 
+                # --------------------------------------
+                # GENERATE SAMPLE ID
+                # --------------------------------------
+
                 if test_sample_type not in sample_ids_by_type:
+
                     sample_id = None
 
                     for _ in range(5):
+
                         candidate_sample_id = (
-                            f"SMP-{year}-{uuid.uuid4().hex[:8].upper()}"
+                            f"SMP-{year}-"
+                            f"{uuid.uuid4().hex[:8].upper()}"
                         )
-                        cursor.execute(
-                            "SELECT 1 FROM samples WHERE sample_id = %s LIMIT 1",
-                            (candidate_sample_id,)
-                        )
+
+                        cursor.execute("""
+                            SELECT 1
+                            FROM samples
+                            WHERE sample_id = %s
+                            LIMIT 1
+                        """, (candidate_sample_id,))
+
                         if not cursor.fetchone():
                             sample_id = candidate_sample_id
                             break
 
                     if not sample_id:
                         raise RuntimeError(
-                            "Could not generate a unique Sample ID. Please retry."
+                            "Could not generate a unique "
+                            "Sample ID. Please retry."
                         )
 
                     cursor.execute("""
@@ -1602,10 +2293,22 @@ def patient_registration():
                     ))
 
                     sample_ids_by_type[test_sample_type] = sample_id
+
                 else:
-                    sample_id = sample_ids_by_type[test_sample_type]
+
+                    sample_id = sample_ids_by_type[
+                        test_sample_type
+                    ]
+
+                # --------------------------------------
+                # UPDATE TOTAL AMOUNT
+                # --------------------------------------
 
                 total_amount += patient_price
+
+                # --------------------------------------
+                # INSERT PATIENT TEST
+                # --------------------------------------
 
                 cursor.execute("""
                     INSERT INTO patient_tests (
@@ -1630,9 +2333,14 @@ def patient_registration():
                     "Pending"
                 ))
 
+            # ------------------------------------------
+            # CALCULATE PAYMENT
+            # ------------------------------------------
+
             total_amount = total_amount.quantize(
                 Decimal("0.01")
             )
+
             remaining_amount = max(
                 Decimal("0.00"),
                 total_amount - paid_amount
@@ -1644,9 +2352,10 @@ def patient_registration():
                 else "Pending"
             )
 
-            # -----------------------------------------------
-            # Save Payment
-            # -----------------------------------------------
+            # ------------------------------------------
+            # SAVE PAYMENT
+            # ------------------------------------------
+
             cursor.execute("""
                 INSERT INTO payments (
                     lab_id,
@@ -1672,9 +2381,10 @@ def patient_registration():
 
             payment_id = cursor.lastrowid
 
-            # -----------------------------------------------
-            # Generate Receipt Number
-            # -----------------------------------------------
+            # ------------------------------------------
+            # GENERATE RECEIPT NUMBER
+            # ------------------------------------------
+
             cursor.execute("""
                 SELECT receipt_prefix
                 FROM lab_settings
@@ -1685,8 +2395,8 @@ def patient_registration():
             receipt_row = cursor.fetchone()
 
             receipt_prefix = (
-                receipt_row[0]
-                if receipt_row and receipt_row[0]
+                receipt_row["receipt_prefix"]
+                if receipt_row and receipt_row["receipt_prefix"]
                 else "RCPT"
             )
 
@@ -1705,10 +2415,12 @@ def patient_registration():
                 lab_id
             ))
 
-            # -----------------------------------------------
-            # Save Payment Transaction
-            # -----------------------------------------------
+            # ------------------------------------------
+            # SAVE PAYMENT TRANSACTION
+            # ------------------------------------------
+
             if paid_amount > 0:
+
                 cursor.execute("""
                     INSERT INTO payment_transactions (
                         lab_id,
@@ -1728,10 +2440,12 @@ def patient_registration():
                     "Registration Payment"
                 ))
 
-            # -----------------------------------------------
-            # Save Pending Payment
-            # -----------------------------------------------
+            # ------------------------------------------
+            # SAVE PENDING PAYMENT
+            # ------------------------------------------
+
             if payment_status == "Pending":
+
                 cursor.execute("""
                     INSERT INTO pending_payments (
                         lab_id,
@@ -1764,7 +2478,20 @@ def patient_registration():
                     total_amount
                 ))
 
+            # ------------------------------------------
+            # COMMIT TRANSACTION
+            # ------------------------------------------
+
             db.commit()
+
+            # Invalidate dashboard cache
+            try:
+                r.delete(f"lab_{lab_id}_dashboard_stats")
+            except Exception as cache_error:
+                app.logger.warning(
+                    "Dashboard cache invalidation failed: %s",
+                    str(cache_error)
+                )
 
             flash(
                 f"Patient registered successfully. "
@@ -1775,33 +2502,49 @@ def patient_registration():
             return redirect("/dashboard")
 
         except Exception:
+
             db.rollback()
+
+            app.logger.exception(
+                "Patient registration failed | lab_id=%s",
+                lab_id
+            )
+
             raise
+
         finally:
+
             cursor.close()
             db.close()
 
     # ==================================================
-    # GET REQUEST: PARALLEL FETCHING (Tests, Doctors, Settings)
+    # 3. GET REQUEST: FETCH TESTS
     # ==================================================
+
     def fetch_tests():
+
         conn = get_db()
         cur = conn.cursor()
+
         try:
+
             cur.execute("""
                 SELECT
                     t.id,
                     t.test_name,
+
                     COALESCE(
                         lto.price,
                         lts.price,
                         t.price
                     ) AS price,
+
                     CASE
                         WHEN t.lab_id IS NULL
                         THEN 'Global Master'
                         ELSE 'Custom Lab Test'
                     END AS test_type
+
                 FROM tests t
 
                 LEFT JOIN lab_test_overrides lto
@@ -1814,62 +2557,106 @@ def patient_registration():
                    AND lts.lab_id = %s
 
                 WHERE (
-                        t.lab_id IS NULL
-                        OR t.lab_id = %s
-                      )
-                  AND COALESCE(
-                        lts.is_deleted,
-                        FALSE
-                      ) = FALSE
-                  AND COALESCE(
-                        lts.status,
-                        t.status
-                      ) = 'Active'
+                    t.lab_id IS NULL
+                    OR t.lab_id = %s
+                )
+
+                AND COALESCE(
+                    lts.is_deleted,
+                    FALSE
+                ) = FALSE
+
+                AND COALESCE(
+                    lts.status,
+                    t.status
+                ) = 'Active'
 
                 ORDER BY t.test_name
+
             """, (
                 numeric_lab_id,
                 lab_id,
                 lab_id
             ))
+
             return cur.fetchall()
+
         finally:
+
             cur.close()
             conn.close()
+
+    # ==================================================
+    # 4. GET REQUEST: FETCH DOCTORS
+    # ==================================================
 
     def fetch_doctors():
+
         conn = get_db()
         cur = conn.cursor()
+
         try:
+
             cur.execute("""
-                SELECT id, doctor_name
+                SELECT
+                    id,
+                    doctor_name
+
                 FROM doctors
+
                 WHERE status = 'Active'
                   AND lab_id = %s
+
                 ORDER BY doctor_name
+
             """, (lab_id,))
+
             return cur.fetchall()
+
         finally:
+
             cur.close()
             conn.close()
+
+    # ==================================================
+    # 5. GET REQUEST: FETCH LAB SETTINGS
+    # ==================================================
 
     def fetch_lab_settings():
+
         conn = get_db()
         cur = conn.cursor()
+
         try:
+
             cur.execute("""
-                SELECT lab_name, upi_id
+                SELECT
+                    lab_name,
+                    upi_id
+
                 FROM lab_settings
+
                 WHERE lab_id = %s
+
                 LIMIT 1
+
             """, (lab_id,))
+
             return cur.fetchone()
+
         finally:
+
             cur.close()
             conn.close()
 
+    # ==================================================
+    # 6. PARALLEL FETCHING
+    # ==================================================
+
     try:
+
         with ThreadPoolExecutor(max_workers=3) as executor:
+
             f_tests = executor.submit(fetch_tests)
             f_doctors = executor.submit(fetch_doctors)
             f_settings = executor.submit(fetch_lab_settings)
@@ -1884,7 +2671,14 @@ def patient_registration():
             doctors=doctors,
             lab_settings=lab_settings
         )
+
     except Exception:
+
+        app.logger.exception(
+            "Patient registration page loading failed | lab_id=%s",
+            lab_id
+        )
+
         raise
 @app.route("/generate-upi-qr")
 @login_required
@@ -2542,19 +3336,22 @@ def reports_management():
     def fetch_today_reports():
         conn = get_db()
         cur = conn.cursor()
+
         try:
-            cur.execute("""
-                SELECT COUNT(*)
-                FROM patients p
-                WHERE p.lab_id = %s
-                  AND p.report_generated_on >= CURDATE()
-                  AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
-            """, (lab_id,))
-            res = cur.fetchone()
-            return res[0] if res else 0
+         cur.execute("""
+            SELECT COUNT(*) AS today_reports
+            FROM patients p
+            WHERE p.lab_id = %s
+              AND p.report_generated_on >= CURDATE()
+              AND p.report_generated_on < CURDATE() + INTERVAL 1 DAY
+        """, (lab_id,))
+
+         res = cur.fetchone()
+         return res.get("today_reports", 0) if res else 0
+
         finally:
-            cur.close()
-            conn.close()
+          cur.close()
+          conn.close()
 
     try:
         # Run both independent database tasks concurrently
@@ -2569,14 +3366,14 @@ def reports_management():
         total_reports = len(reports)
 
         completed_reports = sum(
-            1 for report in reports
-            if report[3] == "Completed"
-        )
+    1 for report in reports
+    if report.get("report_status") == "Completed"
+)
 
         pending_reports = sum(
-            1 for report in reports
-            if report[3] != "Completed"
-        )
+    1 for report in reports
+    if report.get("report_status") != "Completed"
+)
 
         return render_template(
             "reports_management.html",
@@ -2604,6 +3401,7 @@ def enter_results(patient_id):
     cursor = db.cursor()
 
     try:
+
         # ==================================================
         # 1. LOAD PATIENT
         # ==================================================
@@ -2735,10 +3533,10 @@ def enter_results(patient_id):
 
             for row in parameter_rows:
 
-                parameter_id = row[0]
-                display_name = row[1]
-                short_name = row[2]
-                parameter_code = row[3]
+                parameter_id = row["parameter_id"]
+                display_name = row["display_name"]
+                short_name = row["short_name"]
+                parameter_code = row["parameter_code"]
 
                 form_key = f"param_{parameter_id}"
 
@@ -2759,9 +3557,6 @@ def enter_results(patient_id):
                 if display_name:
                     parameter_values[display_name] = value
 
-            
-
-           
             # ----------------------------------------------
             # Save manual results
             # ----------------------------------------------
@@ -2796,19 +3591,7 @@ def enter_results(patient_id):
             )
 
             # ----------------------------------------------
-            # Save dictionary/dropdown results
-            # ----------------------------------------------
-
-            save_dictionary_results(
-                cursor,
-                patient_id,
-                lab_id,
-                request.form
-            )
-
-
-            # ----------------------------------------------
-            # Save dictionary/dropdown results
+            # Save dictionary/dropdown results ONCE
             # ----------------------------------------------
 
             save_dictionary_results(
@@ -2822,16 +3605,18 @@ def enter_results(patient_id):
             # Update report generation date
             # ----------------------------------------------
 
-            # Update report generation date
             cursor.execute(
-    """
-    UPDATE patients
-    SET report_generated_on = COALESCE(report_generated_on, NOW())
-    WHERE patient_id = %s
-      AND lab_id = %s
-    """,
-    (patient_id, lab_id)
-)
+                """
+                UPDATE patients
+                SET report_generated_on = NOW()
+                WHERE patient_id = %s
+                  AND lab_id = %s
+                """,
+                (
+                    patient_id,
+                    lab_id
+                )
+            )
 
             # ----------------------------------------------
             # Commit all changes
@@ -2869,20 +3654,14 @@ def enter_results(patient_id):
         description_row = cursor.fetchone()
 
         report_description = (
-            description_row[0]
-            if description_row and description_row[0]
-            else ""
+            description_row.get("report_description")
+            if description_row else None
         )
 
         # ==================================================
         # 4. BUILD REPORT STRUCTURE
+        #    USING PATIENT AGE AND GENDER
         # ==================================================
-
-        
-# ==================================================
-# 4. BUILD REPORT STRUCTURE
-#    USING PATIENT AGE AND GENDER
-# ==================================================
 
         patient_age = patient.get("age")
         patient_gender = patient.get("gender")
@@ -2895,13 +3674,11 @@ def enter_results(patient_id):
         print("=" * 60)
 
         report_structure = build_report_structure(
-     cursor,
-    patient_id=patient_id,
-    patient_age=patient_age,
-    patient_gender=patient_gender
-)
-
-
+            cursor,
+            patient_id=patient_id,
+            patient_age=patient_age,
+            patient_gender=patient_gender
+        )
 
         # ==================================================
         # 5. LOAD SAVED RESULTS
@@ -2969,7 +3746,10 @@ def enter_results(patient_id):
 
         db.rollback()
 
-        print("Error in enter_results:", repr(e))
+        print("=" * 60)
+        print("[ERROR] enter_results()")
+        print(repr(e))
+        print("=" * 60)
 
         raise
 
@@ -2986,6 +3766,7 @@ def enter_results(patient_id):
 # VIEW REPORT
 # ============================================================
 
+
 @app.route("/view-report/<patient_id>")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -2997,6 +3778,7 @@ def view_report(patient_id):
     cursor = db.cursor()
 
     try:
+
         # ====================================================
         # 1. LOAD PATIENT
         # ====================================================
@@ -3010,7 +3792,6 @@ def view_report(patient_id):
         if not patient:
             return "Patient not found", 404
 
-        # Get the patient's actual age and gender.
         patient_age = patient.get("age")
         patient_gender = patient.get("gender")
 
@@ -3026,23 +3807,19 @@ def view_report(patient_id):
         # 2. LOAD REPORT DESCRIPTION
         # ====================================================
 
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT report_description
             FROM patients
             WHERE patient_id = %s
               AND lab_id = %s
             LIMIT 1
-            """,
-            (patient_id, lab_id)
-        )
+        """, (patient_id, lab_id))
 
         description_row = cursor.fetchone()
 
         report_description = (
-            description_row[0]
-            if description_row and description_row[0]
-            else ""
+            description_row.get("report_description")
+            if description_row else None
         )
 
         # ====================================================
@@ -3052,8 +3829,7 @@ def view_report(patient_id):
         settings_cursor = db.cursor()
 
         try:
-            settings_cursor.execute(
-                """
+            settings_cursor.execute("""
                 SELECT
                     lab_name,
                     logo,
@@ -3064,9 +3840,7 @@ def view_report(patient_id):
                 FROM lab_settings
                 WHERE lab_id = %s
                 LIMIT 1
-                """,
-                (lab_id,)
-            )
+            """, (lab_id,))
 
             lab_settings = settings_cursor.fetchone()
 
@@ -3075,7 +3849,6 @@ def view_report(patient_id):
 
         # ====================================================
         # 4. BUILD REPORT STRUCTURE
-        #    USING PATIENT-SPECIFIC REFERENCE RANGES
         # ====================================================
 
         report_structure = build_report_structure(
@@ -3083,6 +3856,11 @@ def view_report(patient_id):
             patient_id=patient_id,
             patient_age=patient_age,
             patient_gender=patient_gender
+        )
+
+        print(
+            "[DEBUG] Report tests loaded:",
+            len(report_structure)
         )
 
         # ====================================================
@@ -3096,7 +3874,7 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 6. LOAD DICTIONARY / COMPONENT RESULTS
+        # 6. LOAD COMPONENT RESULTS
         # ====================================================
 
         component_results = load_component_results(
@@ -3106,7 +3884,7 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 7. MERGE ALL RESULTS
+        # 7. MERGE EXISTING COMPONENT RESULTS
         # ====================================================
 
         report_structure = merge_results(
@@ -3116,7 +3894,121 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 8. APPLY REFERENCE RANGE STATUS
+        # 8. EXPLICITLY ATTACH SAVED PARAMETER RESULTS
+        # ====================================================
+
+        print("\n========== PARAMETER RESULT MERGING ==========")
+
+        # Normalize dictionary keys to avoid int/string mismatch.
+        saved_results_by_id = {
+            str(parameter_id): result
+            for parameter_id, result in saved_results.items()
+        }
+
+        attached_count = 0
+        unmatched_parameter_ids = []
+
+        for test in report_structure:
+
+            for section in test.get("sections", []):
+
+                for component in section.get("components", []):
+
+                    for parameter in component.get("parameters", []):
+
+                        parameter_id = parameter.get("parameter_id")
+
+                        if parameter_id is None:
+                            parameter_id = parameter.get("id")
+
+                        if parameter_id is None:
+                            continue
+
+                        saved = saved_results_by_id.get(
+                            str(parameter_id)
+                        )
+
+                        if saved is None:
+                            unmatched_parameter_ids.append(
+                                parameter_id
+                            )
+                            continue
+
+                        # Attach saved result.
+                        parameter["result"] = saved.get(
+                            "result_value"
+                        )
+
+                        # Preserve saved unit when available.
+                        parameter["unit"] = (
+                            saved.get("unit")
+                            or parameter.get("unit")
+                        )
+
+                        # Preserve configured reference range if
+                        # the saved result has no reference range.
+                        parameter["reference_range"] = (
+                            saved.get("reference_range")
+                            or parameter.get("reference_range")
+                            or ""
+                        )
+
+                        parameter["entry_mode"] = saved.get(
+                            "entry_mode"
+                        )
+
+                        attached_count += 1
+
+                        print(
+                            "[ATTACHED]",
+                            parameter.get("display_name"),
+                            "| ID:",
+                            parameter_id,
+                            "| Result:",
+                            parameter["result"]
+                        )
+
+        print("Total saved results:", len(saved_results))
+        print("Successfully attached:", attached_count)
+        print("Unmatched parameter IDs:", unmatched_parameter_ids)
+        print("==============================================\n")
+
+        # ====================================================
+        # 9. CHECK REPORT STRUCTURE
+        # ====================================================
+
+        print("\n========== FINAL REPORT STRUCTURE ==========")
+
+        for test in report_structure:
+
+            print("TEST:", test.get("test_name"))
+
+            for section in test.get("sections", []):
+
+                print("SECTION:", section.get("section_name"))
+
+                for component in section.get("components", []):
+
+                    print(
+                        "COMPONENT:",
+                        component.get("component_id"),
+                        component.get("component_name")
+                    )
+
+                    for parameter in component.get("parameters", []):
+
+                        print(
+                            "PARAMETER:",
+                            parameter.get("parameter_id"),
+                            parameter.get("display_name"),
+                            "| RESULT:",
+                            parameter.get("result")
+                        )
+
+        print("============================================\n")
+
+        # ====================================================
+        # 10. APPLY REFERENCE RANGE STATUS
         # ====================================================
 
         report_structure = apply_reference_status(
@@ -3124,7 +4016,7 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 9. LOAD REPORT SIGNATORIES
+        # 11. LOAD REPORT SIGNATORIES
         # ====================================================
 
         signatories = load_signatories(
@@ -3134,7 +4026,7 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 10. GENERATE SECURE QR TOKEN
+        # 12. GENERATE SECURE QR TOKEN
         # ====================================================
 
         qr_token = create_report_qr_token(
@@ -3143,16 +4035,18 @@ def view_report(patient_id):
         )
 
         # ====================================================
-        # 11. CREATE PUBLIC REPORT URL
+        # 13. CREATE PUBLIC REPORT URL
         # ====================================================
 
-        public_report_url = (
-            f"http://10.194.109.107:5000"
-            f"/public-report/{qr_token}"
+        public_report_url = url_for(
+            "public_report",
+            token=qr_token,
+            _external=True,
+            _scheme="https"
         )
 
         # ====================================================
-        # 12. GENERATE QR IMAGE
+        # 14. GENERATE QR IMAGE
         # ====================================================
 
         qr = qrcode.QRCode(
@@ -3168,7 +4062,7 @@ def view_report(patient_id):
         qr_image = qr.make_image()
 
         # ====================================================
-        # 13. CONVERT QR IMAGE TO BASE64
+        # 15. CONVERT QR IMAGE TO BASE64
         # ====================================================
 
         buffer = io.BytesIO()
@@ -3183,62 +4077,61 @@ def view_report(patient_id):
         ).decode("utf-8")
 
         # ====================================================
-        # 14. DEBUG INFORMATION
+        # 16. FINAL DEBUG
         # ====================================================
 
         print("=" * 60)
-        print("VIEW REPORT DEBUG")
+        print("VIEW REPORT FINAL DEBUG")
         print("Patient ID:", patient_id)
-        print("Patient age:", patient_age)
-        print("Patient gender:", patient_gender)
         print("Report description:", repr(report_description))
         print("Signatories:", signatories)
         print("Lab settings:", lab_settings)
+        print("Saved parameter results:", len(saved_results))
+        print("Attached parameter results:", attached_count)
         print("=" * 60)
 
         # ====================================================
-        # 15. RENDER REPORT
+        # 17. RENDER REPORT
         # ====================================================
 
         return render_template(
             "view_report.html",
 
-            # PATIENT
             patient=patient,
 
-            # REPORT STRUCTURE
             report_structure=report_structure,
 
-            # REPORT DESCRIPTION
             report_description=report_description,
 
-            # SIGNATORIES
             signatories=signatories,
 
-            # LAB SETTINGS
             lab_settings=lab_settings,
 
-            # REPORT DATES
             report_date=patient.get("report_date"),
+
             collection_date=patient.get("collection_date"),
 
-            # QR CODE
             qr_code=qr_base64,
 
-            # REPORT MODE
             public_view=False
         )
 
     except Exception as e:
+
         db.rollback()
 
-        print("Error in view_report:", repr(e))
+        print(
+            "Error in view_report:",
+            repr(e)
+        )
 
         raise
 
     finally:
+
         cursor.close()
         db.close()
+
 
 
 # ============================================================
@@ -3616,7 +4509,10 @@ def delete_report(patient_id):
 @role_required("Developer", "Admin")
 def analytics():
 
-    lab_id = session["lab_id"]
+    lab_id = session.get("lab_id")
+
+    if not lab_id:
+        abort(403)
 
     db = get_db()
     cursor = db.cursor()
@@ -3625,207 +4521,230 @@ def analytics():
 
         from_date = request.args.get("from_date")
         to_date = request.args.get("to_date")
-    # -----------------------------
-    # Total Income
-    # -----------------------------
+
+        # Validate date filter
+        if bool(from_date) != bool(to_date):
+            abort(400)
+
         if from_date and to_date:
+            try:
+                datetime.strptime(from_date, "%Y-%m-%d")
+                datetime.strptime(to_date, "%Y-%m-%d")
+            except ValueError:
+                abort(400)
 
-         cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        AND DATE(payment_date) BETWEEN %s AND %s
-        """, (
-            lab_id,
-            from_date,
-            to_date
-        ))
+            if from_date > to_date:
+                abort(400)
 
-        else:
+        date_filter = ""
+        date_params = []
 
-           cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        """, (lab_id,))
-
-        total_income = cursor.fetchone()[0]
-
-    # -----------------------------
-    # Cash Income
-    # -----------------------------
         if from_date and to_date:
+            date_filter = """
+                AND payment_date >= %s
+                AND payment_date < DATE_ADD(%s, INTERVAL 1 DAY)
+            """
+            date_params = [from_date, to_date]
 
-         cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        AND payment_mode='Cash'
-        
-        AND DATE(payment_date) BETWEEN %s AND %s
-        """, (
-            lab_id,
-            from_date,
-            to_date
-        ))
+        # ==================================================
+        # 1. TOTAL INCOME
+        # ==================================================
 
-        else:
+        cursor.execute(f"""
+            SELECT
+                COALESCE(SUM(paid_amount), 0) AS total_income
+            FROM payments
+            WHERE lab_id = %s
+            {date_filter}
+        """, [lab_id] + date_params)
 
-         cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        AND payment_mode='Cash'
-        
-        """, (lab_id,))
+        result = cursor.fetchone() or {}
 
-        cash_income = cursor.fetchone()[0]
+        total_income = result.get("total_income", 0)
 
-    # -----------------------------
-    # UPI Income
-    # -----------------------------
-        if from_date and to_date:
+        # ==================================================
+        # 2. CASH INCOME
+        # ==================================================
 
-         cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        AND payment_mode='UPI'
-       
-        AND DATE(payment_date) BETWEEN %s AND %s
-        """, (
-            lab_id,
-            from_date,
-            to_date
-        ))
+        cursor.execute(f"""
+            SELECT
+                COALESCE(SUM(paid_amount), 0) AS cash_income
+            FROM payments
+            WHERE lab_id = %s
+              AND payment_mode = 'Cash'
+            {date_filter}
+        """, [lab_id] + date_params)
 
-        else:
+        result = cursor.fetchone() or {}
 
-         cursor.execute("""
-        SELECT IFNULL(SUM(paid_amount),0)
-        FROM payments
-        WHERE lab_id=%s
-        AND payment_mode='UPI'
-        
-        """, (lab_id,))
+        cash_income = result.get("cash_income", 0)
 
-        upi_income = cursor.fetchone()[0]
+        # ==================================================
+        # 3. UPI INCOME
+        # ==================================================
 
-    # Daily Income Graph
-       # -----------------------------
-    # Daily Income Graph
-    # -----------------------------
-        if from_date and to_date:
+        cursor.execute(f"""
+            SELECT
+                COALESCE(SUM(paid_amount), 0) AS upi_income
+            FROM payments
+            WHERE lab_id = %s
+              AND payment_mode = 'UPI'
+            {date_filter}
+        """, [lab_id] + date_params)
 
-          cursor.execute("""
-        SELECT
-            DATE(payment_date),
-            SUM(paid_amount)
-        FROM payments
-        WHERE lab_id=%s
-        AND DATE(payment_date) BETWEEN %s AND %s
-        GROUP BY DATE(payment_date)
-        ORDER BY DATE(payment_date)
-        """, (
-            lab_id,
-            from_date,
-            to_date
-        ))
+        result = cursor.fetchone() or {}
 
-        else:
+        upi_income = result.get("upi_income", 0)
 
-         cursor.execute("""
-        SELECT
-            DATE(payment_date),
-            SUM(paid_amount)
-        FROM payments
-        WHERE lab_id=%s
-        GROUP BY DATE(payment_date)
-        ORDER BY DATE(payment_date)
-        """, (lab_id,))
+        # ==================================================
+        # 4. DAILY INCOME GRAPH
+        # ==================================================
+
+        cursor.execute(f"""
+            SELECT
+                DATE(payment_date) AS payment_day,
+                COALESCE(SUM(paid_amount), 0) AS daily_income
+            FROM payments
+            WHERE lab_id = %s
+            {date_filter}
+            GROUP BY DATE(payment_date)
+            ORDER BY payment_day
+        """, [lab_id] + date_params)
 
         daily_data = cursor.fetchall()
 
-        dates = [str(row[0]) for row in daily_data]
-        amounts = [float(row[1]) for row in daily_data]
+        dates = [
+            str(row["payment_day"])
+            for row in daily_data
+        ]
 
-    # -----------------------------
-    # Monthly Income
-    # -----------------------------
+        amounts = [
+            float(row["daily_income"] or 0)
+            for row in daily_data
+        ]
+
+        # ==================================================
+        # 5. MONTHLY INCOME
+        # ==================================================
+
         cursor.execute("""
-    SELECT
-        DATE_FORMAT(payment_date,'%Y-%m'),
-        SUM(paid_amount)
-    FROM payments
-    WHERE lab_id=%s
-    GROUP BY DATE_FORMAT(payment_date,'%Y-%m')
-    ORDER BY DATE_FORMAT(payment_date,'%Y-%m')
-    """, (lab_id,))
+            SELECT
+                DATE_FORMAT(payment_date, '%%Y-%%m') AS income_month,
+                COALESCE(SUM(paid_amount), 0) AS monthly_income
+            FROM payments
+            WHERE lab_id = %s
+            GROUP BY DATE_FORMAT(payment_date, '%%Y-%%m')
+            ORDER BY income_month
+        """, (lab_id,))
 
         monthly_data = cursor.fetchall()
 
-        monthly_income = monthly_data
+        monthly_income = [
+            {
+                "month": row["income_month"],
+                "income": float(row["monthly_income"] or 0)
+            }
+            for row in monthly_data
+        ]
 
-    # -----------------------------
-    # Top Revenue Tests
-    # -----------------------------
+        # ==================================================
+        # 6. TOP REVENUE TESTS
+        # ==================================================
+
         cursor.execute("""
-    SELECT
-        t.test_name,
-        SUM(pt.amount) AS revenue
-    FROM patient_tests pt
+            SELECT
+                t.test_name AS test_name,
+                COALESCE(SUM(pt.amount), 0) AS revenue
+            FROM patient_tests pt
 
-    JOIN tests t
-        ON pt.test_id=t.id
-        AND pt.lab_id=t.lab_id
+            JOIN tests t
+                ON pt.test_id = t.id
+                AND (
+                    t.lab_id = pt.lab_id
+                    OR t.lab_id IS NULL
+                )
 
-    WHERE pt.lab_id=%s
+            WHERE pt.lab_id = %s
 
-    GROUP BY t.test_name
+            GROUP BY t.id, t.test_name
 
-    ORDER BY revenue DESC
+            ORDER BY revenue DESC
 
-    LIMIT 5
-    """, (lab_id,))
+            LIMIT 5
+        """, (lab_id,))
 
         top_tests = cursor.fetchall()
 
-        test_names = [row[0] for row in top_tests]
-        test_revenue = [float(row[1]) for row in top_tests]
+        test_names = [
+            row["test_name"]
+            for row in top_tests
+        ]
 
-    # -----------------------------
-    # Patient Trend
-    # -----------------------------
+        test_revenue = [
+            float(row["revenue"] or 0)
+            for row in top_tests
+        ]
+
+        # ==================================================
+        # 7. PATIENT TREND
+        # ==================================================
+
         cursor.execute("""
-    SELECT
-        DATE(created_at),
-        COUNT(*)
-    FROM patients
-    WHERE lab_id=%s
-    GROUP BY DATE(created_at)
-    ORDER BY DATE(created_at)
-    """, (lab_id,))
+            SELECT
+                DATE(created_at) AS patient_day,
+                COUNT(*) AS patient_count
+            FROM patients
+            WHERE lab_id = %s
+            GROUP BY DATE(created_at)
+            ORDER BY patient_day
+        """, (lab_id,))
 
         patient_trend = cursor.fetchall()
-  
-        patient_dates = [str(row[0]) for row in patient_trend]
-        patient_counts = [row[1] for row in patient_trend]
-  
+
+        patient_dates = [
+            str(row["patient_day"])
+            for row in patient_trend
+        ]
+
+        patient_counts = [
+            int(row["patient_count"])
+            for row in patient_trend
+        ]
+
+        # ==================================================
+        # 8. RENDER ANALYTICS
+        # ==================================================
+
         return render_template(
             "analytics.html",
+
             total_income=total_income,
             cash_income=cash_income,
             upi_income=upi_income,
+
             dates=dates,
             amounts=amounts,
+
             from_date=from_date,
             to_date=to_date,
+
             monthly_income=monthly_income,
+
             test_names=test_names,
             test_revenue=test_revenue,
+
             patient_dates=patient_dates,
-            patient_counts=patient_counts,
+            patient_counts=patient_counts
         )
+
+    except Exception:
+
+        app.logger.exception(
+            "Analytics route failed | lab_id=%s",
+            lab_id
+        )
+
+        raise
 
     finally:
         cursor.close()
@@ -3837,42 +4756,86 @@ def analytics():
 @role_required("Developer", "Admin", "Technician")
 def billing():
 
-    lab_id = session["lab_id"]
+    lab_id = session.get("lab_id")
+
+    if not lab_id:
+        abort(403)
 
     db = get_db()
     cursor = db.cursor()
 
     try:
 
+        # ==========================================
+        # FETCH BILLING RECORDS
+        # ==========================================
+
         cursor.execute("""
-        SELECT
-            p.receipt_no,
-            pa.patient_id,
-            pa.name,
-            p.total_amount,
-            p.payment_mode,
-            p.payment_status,
-            p.payment_date
+            SELECT
+                p.receipt_no AS receipt_no,
+                pa.patient_id AS patient_id,
+                pa.name AS name,
+                p.total_amount AS total_amount,
+                p.payment_mode AS payment_mode,
+                p.payment_status AS payment_status,
+                p.payment_date AS payment_date
 
-        FROM payments p
+            FROM payments p
 
-        JOIN patients pa
-            ON p.patient_id = pa.patient_id
-            AND p.lab_id = pa.lab_id
+            JOIN patients pa
+                ON p.patient_id = pa.patient_id
+                AND p.lab_id = pa.lab_id
 
-        WHERE p.lab_id=%s
+            WHERE p.lab_id = %s
 
-        ORDER BY p.id DESC
+            ORDER BY p.id DESC
         """, (lab_id,))
 
         bills = cursor.fetchall()
 
+        # ==========================================
+        # FETCH LAB SETTINGS
+        # ==========================================
+
+        cursor.execute("""
+            SELECT
+                lab_name,
+                logo,
+                signature,
+                stamp,
+                report_header,
+                report_footer
+
+            FROM lab_settings
+
+            WHERE lab_id = %s
+
+            LIMIT 1
+        """, (lab_id,))
+
+        lab_settings = cursor.fetchone()
+
+        # ==========================================
+        # RENDER BILLING PAGE
+        # ==========================================
+
         return render_template(
             "billing.html",
-            bills=bills
+            bills=bills,
+            lab_settings=lab_settings
         )
 
+    except Exception:
+
+        app.logger.exception(
+            "Billing route failed | lab_id=%s",
+            lab_id
+        )
+
+        raise
+
     finally:
+
         cursor.close()
         db.close()
 
@@ -3996,18 +4959,24 @@ def view_bill(patient_id):
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def patient_search():
+
     db = get_db()
     cursor = db.cursor()
 
-    lab_id = session["lab_id"]
+    lab_id = session.get("lab_id")
+
+    if not lab_id:
+        cursor.close()
+        db.close()
+        abort(403)
 
     try:
         search = request.args.get("search", "").strip()
         is_live_search = request.args.get("live") == "1"
 
         if search:
-            cursor.execute(
-                """
+
+            cursor.execute("""
                 SELECT
                     patient_id,
                     name,
@@ -4025,18 +4994,17 @@ def patient_search():
                   )
                 ORDER BY id DESC
                 LIMIT 100
-                """,
-                (
-                    lab_id,
-                    f"%{search}%",
-                    f"%{search}%",
-                    f"%{search}%",
-                    f"%{search}%"
-                )
-            )
+            """, (
+                lab_id,
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%",
+                f"%{search}%"
+            ))
+
         else:
-            cursor.execute(
-                """
+
+            cursor.execute("""
                 SELECT
                     patient_id,
                     name,
@@ -4048,22 +5016,21 @@ def patient_search():
                 WHERE lab_id = %s
                 ORDER BY id DESC
                 LIMIT 20
-                """,
-                (lab_id,)
-            )
+            """, (lab_id,))
 
         rows = cursor.fetchall()
 
-        # Return JSON for live-search requests.
+        # LIVE SEARCH JSON RESPONSE
         if is_live_search:
+
             patients = [
                 {
-                    "patient_id": row[0],
-                    "name": row[1],
-                    "age": row[2],
-                    "gender": row[3],
-                    "mobile": row[4],
-                    "doctor_name": row[5]
+                    "patient_id": row["patient_id"],
+                    "name": row["name"],
+                    "age": row["age"],
+                    "gender": row["gender"],
+                    "mobile": row["mobile"],
+                    "doctor_name": row["doctor_name"]
                 }
                 for row in rows
             ]
@@ -4074,7 +5041,7 @@ def patient_search():
                 "count": len(patients)
             })
 
-        # Preserve normal page rendering.
+        # NORMAL PAGE
         return render_template(
             "patient_search.html",
             patients=rows,
@@ -4082,7 +5049,12 @@ def patient_search():
         )
 
     except Exception:
-        app.logger.exception("Patient search failed")
+
+        app.logger.exception(
+            "Patient search failed | lab_id=%s",
+            lab_id
+        )
+
         raise
 
     finally:

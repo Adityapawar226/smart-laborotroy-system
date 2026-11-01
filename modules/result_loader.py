@@ -1,3 +1,4 @@
+
 """
 Result Loader Module
 --------------------
@@ -10,14 +11,8 @@ def load_saved_results(cursor, patient_id, lab_id):
     """
     Load saved parameter results for a patient.
 
-    Args:
-        cursor: Active MySQL database cursor.
-        patient_id: Patient ID.
-        lab_id: Laboratory ID.
-
     Returns:
-        Dictionary containing saved parameter results,
-        indexed by parameter_id.
+        Dictionary indexed by parameter_id.
     """
 
     cursor.execute("""
@@ -42,28 +37,28 @@ def load_saved_results(cursor, patient_id, lab_id):
     print("Patient ID:", patient_id)
     print("Lab ID:", lab_id)
     print("Rows found:", len(rows))
-    print("Database rows:", rows)
-    print("=" * 60 + "\n")
+    print("=" * 60)
 
     results = {}
 
     for row in rows:
-        for row in rows:
 
-         parameter_id = row["parameter_id"]
+        parameter_id = row["parameter_id"]
 
-         results[parameter_id] = {
-        "parameter_name": row["parameter_name"],
-        "result": row["result_value"],
-        "unit": row["unit"],
-        "reference_range": row["reference_range"],
-        "entry_mode": row["entry_mode"],
-        "component_id": row["component_id"],
-        "section_id": row["section_id"]
-    }
+        results[parameter_id] = {
+            "parameter_id": parameter_id,
+            "component_id": row["component_id"],
+            "section_id": row["section_id"],
+            "parameter_name": row["parameter_name"],
+            "result_value": row["result_value"],
+            "unit": row["unit"],
+            "reference_range": row["reference_range"],
+            "entry_mode": row["entry_mode"]
+        }
 
     print("[DEBUG] SAVED RESULTS DICTIONARY:")
     print(results)
+    print("=" * 60 + "\n")
 
     return results
 
@@ -71,11 +66,6 @@ def load_saved_results(cursor, patient_id, lab_id):
 def load_component_results(cursor, patient_id, lab_id):
     """
     Load saved component results for a patient.
-
-    Args:
-        cursor: Active MySQL database cursor.
-        patient_id: Patient ID.
-        lab_id: Laboratory ID.
 
     Returns:
         Dictionary mapping component_id to result_value.
@@ -97,18 +87,17 @@ def load_component_results(cursor, patient_id, lab_id):
     print("Patient ID:", patient_id)
     print("Lab ID:", lab_id)
     print("Rows found:", len(rows))
-    print("Database rows:", rows)
-    print("=" * 60 + "\n")
+    print("=" * 60)
 
     results = {}
 
     for row in rows:
-
-      component_id = row["component_id"]
-
-      results[component_id] = row["result_value"]
+        component_id = row["component_id"]
+        results[component_id] = row["result_value"]
 
     print("[DEBUG] COMPONENT RESULTS DICTIONARY:")
     print(results)
+    print("=" * 60 + "\n")
 
     return results
+

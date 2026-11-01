@@ -121,13 +121,13 @@
 
         {% for patient in patients %}
         <tr>
-            <td>{{ patient[0] }}</td>
-            <td>{{ patient[1] }}</td>
-            <td>{{ patient[2] }}</td>
-            <td>{{ patient[3] }}</td>
-            <td>₹{{ patient[4] }}</td>
-            <td>{{ patient[5] }}</td>
-            <td>{{ patient[6] }}</td>
+            <td>{{ patient.get('patient_id', '-') or '-' }}</td>
+            <td>{{ patient.get('name', '-') or '-' }}</td>
+            <td>{{ patient.get('age', '-') or '-' }}</td>
+            <td>{{ patient.get('tests', '-') or '-' }}</td>
+            <td>₹{{ "%.2f"|format(patient.get('total_amount', 0)|float) }}</td>
+            <td>{{ patient.get('payment_mode', '-') or '-' }}</td>
+            <td>{{ patient.get('payment_status', '-') or '-' }}</td>
         </tr>
         {% endfor %}
 
@@ -207,38 +207,24 @@
             
 
                <tbody>
-    {% if patients %}
-
-        {% for patient in patients %}
-        <tr>
-            <td>{{ patient.get('patient_id', '-') or '-' }}</td>
-
-            <td>{{ patient.get('name', '-') or '-' }}</td>
-
-            <td>{{ patient.get('age', '-') or '-' }}</td>
-
-            <td>{{ patient.get('tests', '-') or '-' }}</td>
-
-            <td>
-                ₹{{ "%.2f"|format(patient.get('total_amount', 0)|float) }}
-            </td>
-
-            <td>{{ patient.get('payment_mode', '-') or '-' }}</td>
-
-            <td>{{ patient.get('payment_status', '-') or '-' }}</td>
-        </tr>
-        {% endfor %}
-
-    {% else %}
-
-        <tr>
-            <td colspan="7" style="text-align:center; padding:30px; color:#777;">
-                No registrations today
-            </td>
-        </tr>
-
-    {% endif %}
-</tbody>
+                    {% if payments %}
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.get('receipt_no', '-') or '-' }}</td>
+                            <td>{{ payment.get('patient_name', '-') or '-' }}</td>
+                            <td>₹{{ "%.2f"|format(payment.get('total_amount', 0)|float) }}</td>
+                            <td>{{ payment.get('payment_mode', '-') or '-' }}</td>
+                            <td>{{ payment.get('payment_status', '-') or '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align:center; padding:30px; color:#777;">
+                                No payments found
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
         
 
         </table>

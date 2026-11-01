@@ -1327,11 +1327,11 @@ def dashboard():
                                     CASE
                                         WHEN payment_mode = 'Cash'
                                         AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%Y-%m-01'
+                                            CURDATE(), '%%Y-%%m-01'
                                         )
                                         AND payment_date < DATE_FORMAT(
                                             CURDATE() + INTERVAL 1 MONTH,
-                                            '%Y-%m-01'
+                                            '%%Y-%%m-01'
                                         )
                                         THEN amount
                                         ELSE 0
@@ -1345,11 +1345,11 @@ def dashboard():
                                     CASE
                                         WHEN payment_mode = 'UPI'
                                         AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%Y-%m-01'
+                                            CURDATE(), '%%Y-%%m-01'
                                         )
                                         AND payment_date < DATE_FORMAT(
                                             CURDATE() + INTERVAL 1 MONTH,
-                                            '%Y-%m-01'
+                                            '%%Y-%%m-01'
                                         )
                                         THEN amount
                                         ELSE 0
@@ -1363,11 +1363,11 @@ def dashboard():
                                     CASE
                                         WHEN payment_mode = 'Cash'
                                         AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%Y-%m-01'
+                                            CURDATE(), '%%Y-%%m-01'
                                         )
                                         AND payment_date < DATE_FORMAT(
                                             CURDATE() + INTERVAL 1 MONTH,
-                                            '%Y-%m-01'
+                                            '%%Y-%%m-01'
                                         )
                                         THEN 1
                                         ELSE 0
@@ -1381,11 +1381,11 @@ def dashboard():
                                     CASE
                                         WHEN payment_mode = 'UPI'
                                         AND payment_date >= DATE_FORMAT(
-                                            CURDATE(), '%Y-%m-01'
+                                            CURDATE(), '%%Y-%%m-01'
                                         )
                                         AND payment_date < DATE_FORMAT(
                                             CURDATE() + INTERVAL 1 MONTH,
-                                            '%Y-%m-01'
+                                            '%%Y-%%m-01'
                                         )
                                         THEN 1
                                         ELSE 0

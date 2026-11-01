@@ -832,7 +832,7 @@ def register_lab():
     if request.method == "POST":
 
         db = get_db()
-        cursor = db.cursor(buffered=True)
+        cursor = db.cursor()
 
         try:
 
@@ -1065,7 +1065,7 @@ def dashboard():
             # 2. Fallback to parallel execution if cache misses or a search query is active
             def fetch_patients():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     if not search:
                         cur.execute("""
@@ -1110,7 +1110,7 @@ def dashboard():
 
             def fetch_payments():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT p.receipt_no, pa.name, p.total_amount, p.payment_mode, p.payment_status
@@ -1127,7 +1127,7 @@ def dashboard():
 
             def fetch_patient_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT
@@ -1151,7 +1151,7 @@ def dashboard():
 
             def fetch_transaction_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT
@@ -1215,7 +1215,7 @@ def dashboard():
 
             def fetch_pending_payments():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT COALESCE(SUM(remaining_amount), 0)
@@ -1230,7 +1230,7 @@ def dashboard():
 
             def fetch_test_report_stats():
                 conn = get_db()
-                cur = conn.cursor(buffered=True)
+                cur = conn.cursor()
                 try:
                     cur.execute("""
                         SELECT
@@ -1336,7 +1336,7 @@ def patient_registration():
     # GET NUMERIC LAB ID FOR lab_test_overrides (Initial Check)
     # ==================================================
     db_init = get_db()
-    cursor_init = db_init.cursor(buffered=True)
+    cursor_init = db_init.cursor()
     try:
         cursor_init.execute("""
             SELECT id
@@ -1357,7 +1357,7 @@ def patient_registration():
     # ==================================================
     if request.method == "POST":
         db = get_db()
-        cursor = db.cursor(buffered=True)
+        cursor = db.cursor()
 
         try:
             # -----------------------------------------------
@@ -1812,7 +1812,7 @@ def patient_registration():
     # ==================================================
     def fetch_tests():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT
@@ -1865,7 +1865,7 @@ def patient_registration():
 
     def fetch_doctors():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT id, doctor_name
@@ -1881,7 +1881,7 @@ def patient_registration():
 
     def fetch_lab_settings():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT lab_name, upi_id
@@ -2054,7 +2054,7 @@ def pending_payments():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -2514,7 +2514,7 @@ def reports_management():
 
     def fetch_reports():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT
@@ -2567,7 +2567,7 @@ def reports_management():
 
     def fetch_today_reports():
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT COUNT(*)
@@ -2627,7 +2627,7 @@ def enter_results(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # ==================================================
@@ -3020,7 +3020,7 @@ def view_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # ====================================================
@@ -3075,10 +3075,7 @@ def view_report(patient_id):
         # 3. LOAD LAB SETTINGS
         # ====================================================
 
-        settings_cursor = db.cursor(
-            dictionary=True,
-            buffered=True
-        )
+        settings_cursor = db.cursor()
 
         try:
             settings_cursor.execute(
@@ -3288,7 +3285,7 @@ def public_report(token):
         return "Invalid or expired report QR code.", 403
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3414,7 +3411,7 @@ def edit_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # =========================================
@@ -3603,7 +3600,7 @@ def delete_report(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # Verify that this patient belongs to the current laboratory.
@@ -3648,7 +3645,7 @@ def analytics():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3869,7 +3866,7 @@ def billing():
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -3913,7 +3910,7 @@ def view_bill(patient_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     try:
         # -------- Bill Details --------
@@ -3974,10 +3971,7 @@ def view_bill(patient_id):
 
 
         # -------- Load Lab Settings --------
-        settings_cursor = db.cursor(
-            dictionary=True,
-            buffered=True
-        )
+        settings_cursor = db.cursor()
 
         settings_cursor.execute("""
             SELECT
@@ -4029,7 +4023,7 @@ def view_bill(patient_id):
 @role_required("Developer", "Admin", "Technician")
 def patient_search():
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     lab_id = session["lab_id"]
 
@@ -4127,7 +4121,7 @@ def patient_search():
 def add_test(department_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True, dictionary=True)
+    cursor = db.cursor()
 
     role = session["role"]
 
@@ -4612,7 +4606,7 @@ def expenses():
         commission = request.form["commission_percent"]
 
         conn = get_db()
-        cur = conn.cursor(buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 INSERT INTO doctors
@@ -4645,7 +4639,7 @@ def expenses():
 
     def fetch_doctors_list():
         conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
+        cur = conn.cursor()
         try:
             cur.execute("""
                 SELECT
@@ -4664,7 +4658,7 @@ def expenses():
 
     def fetch_doctor_summary():
         conn = get_db()
-        cur = conn.cursor(dictionary=True, buffered=True)
+        cur = conn.cursor()
         try:
             query = """
                 SELECT
@@ -4743,7 +4737,7 @@ def expenses():
 def doctor_patients(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -4909,7 +4903,7 @@ def doctor_patients(doctor_id):
 def toggle_doctor_status(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -4962,7 +4956,7 @@ def toggle_doctor_status(doctor_id):
 def edit_doctor(doctor_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -5698,7 +5692,7 @@ def update_user_access():
 def delete_patient(patient_id):
 
     db = get_db()
-    cursor = db.cursor(buffered=True)
+    cursor = db.cursor()
 
     lab_id = session["lab_id"]
     print("Delete route called")
@@ -5810,7 +5804,7 @@ def delete_patient(patient_id):
 def user_management():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
 
@@ -5843,7 +5837,7 @@ def user_management():
 def add_user():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
 
@@ -5957,7 +5951,7 @@ def add_user():
 def edit_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
 
@@ -6091,7 +6085,7 @@ def edit_user(user_id):
 def delete_user(user_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
 
@@ -6175,7 +6169,7 @@ def delete_user(user_id):
 def delete_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     # Get image filename
     cursor.execute("""
@@ -6218,7 +6212,7 @@ def delete_signatory(id):
 def edit_signatory(id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     cursor.execute("""
         SELECT *
@@ -6297,7 +6291,7 @@ def edit_signatory(id):
 def edit_parameter(parameter_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     cursor.execute("""
         SELECT *
@@ -6351,7 +6345,7 @@ def edit_parameter(parameter_id):
 def delete_parameter(parameter_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     cursor.execute("""
         SELECT component_id
@@ -6388,7 +6382,7 @@ def delete_parameter(parameter_id):
 def super_admin_dashboard():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         # ----------------------------------------------------
@@ -6517,7 +6511,7 @@ def super_admin_dashboard():
 def super_admin_labs():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         search = request.args.get("search", "").strip()
@@ -6625,7 +6619,7 @@ def super_admin_labs():
 def super_admin_assign_subscription():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         # Fetch all laboratories
@@ -6779,7 +6773,7 @@ def super_admin_assign_subscription():
 def super_admin_plans():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         search = request.args.get("search", "").strip()
@@ -6959,7 +6953,7 @@ def super_admin_create_plan():
             return render_template("super_admin_create_plan.html")
 
         db = get_db()
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor()
 
         try:
             # Prevent duplicate plan names
@@ -7024,7 +7018,7 @@ def super_admin_create_plan():
 def super_admin_edit_plan(plan_id):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         # Fetch existing plan
@@ -7190,7 +7184,7 @@ def super_admin_edit_plan(plan_id):
 def super_admin_subscription_history():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         search = request.args.get("search", "").strip()
@@ -7307,7 +7301,7 @@ def super_admin_subscription_history():
 @role_required("Developer")
 def super_admin_broadcasts():
     db = get_db()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
         if request.method == "POST":

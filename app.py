@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
-
+import mysql.connector
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 from decimal import Decimal
@@ -10,8 +10,6 @@ from flask_bcrypt import Bcrypt
 from functools import wraps
 from modules.test_builder import test_builder_bp
 import uuid
-
-
 import math
 import cloudinary
 import cloudinary.uploader
@@ -22,7 +20,7 @@ from modules.reference_loader import apply_reference_status
 from modules.report_merger import merge_results
 import qrcode
 import io
-
+from mysql.connector.pooling import MySQLConnectionPool
 import base64
 import os
 from pathlib import Path
@@ -163,7 +161,43 @@ cloudinary.config(
 # PASSWORD RESET EMAIL CONFIGURATION
 # ============================================================
 
+def get_db():
+    """
+    Connect to Aiven MySQL and log connection performance.
+    Never log database credentials.
+    """
+    start_time = time.perf_counter()
 
+    try:
+        connection = mysql.connector.connect(
+            host=os.getenv("DB_HOST"),
+            port=int(os.getenv("DB_PORT", "15054")),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME"),
+            connection_timeout=10,
+            ssl_disabled=False
+        )
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        app.logger.info(
+            "PERF | MySQL connection established | %.2f ms | connected=%s",
+            elapsed_ms,
+            connection.is_connected()
+        )
+
+        return connection
+
+    except Exception:
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        app.logger.exception(
+            "PERF | MySQL connection failed after %.2f ms",
+            elapsed_ms
+        )
+
+        raise
 
 
   
@@ -413,7 +447,7 @@ def setup_developer():
 def login():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -568,7 +602,7 @@ def forgot_password():
         username = request.form["username"].strip().lower()
 
         db = get_db()
-        cursor = db.cursor(dictionary=True, buffered=True)
+        cursor = db.cursor()
 
         try:
 
@@ -1884,7 +1918,7 @@ def patient_registration():
 def generate_upi_qr():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -2061,7 +2095,7 @@ def mark_paid(id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -2211,7 +2245,7 @@ def collect_payment(payment_id):
     lab_id = session["lab_id"]
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
 
     try:
 
@@ -4056,12 +4090,12 @@ def patient_search():
         if is_live_search:
             patients = [
                 {
-                   "patient_id": row["patient_id"],
-"name": row["name"],
-"age": row["age"],
-"gender": row["gender"],
-"mobile": row["mobile"],
-"doctor_name": row["doctor_name"]
+                    "patient_id": row[0],
+                    "name": row[1],
+                    "age": row[2],
+                    "gender": row[3],
+                    "mobile": row[4],
+                    "doctor_name": row[5]
                 }
                 for row in rows
             ]
@@ -4988,7 +5022,7 @@ def edit_doctor(doctor_id):
 def payment_entries():
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -5082,7 +5116,7 @@ def payment_entries():
 def payment_details(receipt_no):
 
     db = get_db()
-    cursor = db.cursor(dictionary=True, buffered=True)
+    cursor = db.cursor()
     lab_id = session["lab_id"]
 
     try:
@@ -5206,7 +5240,7 @@ def settings():
             return redirect(url_for("login"))
 
         db = get_db()
-        cursor = db.cursor(dictionary=True, buffered=True)
+        cursor = db.cursor()
 
         # --------------------------------------------------
         # 2. Get internal integer laboratory ID

@@ -408,6 +408,7 @@ def setup_developer():
     return "Not Found", 404
 
 @app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
 
     db = get_db()

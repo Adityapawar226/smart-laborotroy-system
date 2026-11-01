@@ -1583,7 +1583,7 @@ def dashboard():
             # PARALLEL DATABASE EXECUTION
             # ==================================================
 
-            with ThreadPoolExecutor(max_workers=6) as executor:
+            with ThreadPoolExecutor(max_workers=2) as executor:
 
                 future_patients = executor.submit(fetch_patients)
 

@@ -829,18 +829,16 @@
                                     </a>
 
 
-                                    <a
-                                        href="{{ url_for(
-                                            'delete_signatory',
-                                            id=sign.id
-                                        ) }}"
-                                        onclick="return confirm('Delete this signatory?')"
-                                        class="btn btn-danger btn-sm"
-                                    >
+                                   <form method="POST"
+      action="{{ url_for('delete_signatory', id=sign.id) }}"
+      style="display:inline;"
+      onsubmit="return confirm('Are you sure you want to delete this signatory?');">
 
-                                        <i class="fas fa-trash"></i>
+    <button type="submit" class="btn btn-danger btn-sm">
+        <i class="fas fa-trash"></i> Delete
+    </button>
 
-                                    </a>
+</form>
 
                                 </td>
 

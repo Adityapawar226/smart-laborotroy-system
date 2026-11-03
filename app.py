@@ -6575,7 +6575,111 @@ def settings():
                 app.logger.exception(
                     "Failed to close settings database connection."
                 )
+@app.route("/edit-signatory/<int:id>", methods=["GET", "POST"])
+def edit_signatory(id):
+    if "lab_id" not in session:
+        return redirect(url_for("login"))
 
+    lab_id = session["lab_id"]
+    db = None
+    cursor = None
+
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            SELECT id, name, designation, signature, status
+            FROM report_signatories
+            WHERE id = %s AND lab_id = %s
+        """, (id, lab_id))
+
+        signatory = cursor.fetchone()
+
+        if not signatory:
+            flash("Signatory not found.", "danger")
+            return redirect(url_for("settings"))
+
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            designation = request.form.get("designation", "").strip()
+            status = request.form.get("status", "Active")
+
+            if not name or not designation:
+                flash("Name and designation are required.", "danger")
+                return redirect(url_for("edit_signatory", id=id))
+
+            cursor.execute("""
+                UPDATE report_signatories
+                SET name = %s,
+                    designation = %s,
+                    status = %s
+                WHERE id = %s AND lab_id = %s
+            """, (name, designation, status, id, lab_id))
+
+            db.commit()
+
+            flash("Signatory updated successfully.", "success")
+            return redirect(url_for("settings"))
+
+        return render_template(
+            "edit_signatory.html",
+            signatory=signatory
+        )
+
+    except Exception as e:
+        if db:
+            db.rollback()
+
+        app.logger.exception("Edit signatory error")
+        flash("Unable to update signatory.", "danger")
+        return redirect(url_for("settings"))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            
+            db.close()
+@app.route("/delete-signatory/<int:id>", methods=["POST"])
+def delete_signatory(id):
+    if "lab_id" not in session:
+        return redirect(url_for("login"))
+
+    lab_id = session["lab_id"]
+    db = None
+    cursor = None
+
+    try:
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            DELETE FROM report_signatories
+            WHERE id = %s AND lab_id = %s
+        """, (id, lab_id))
+
+        if cursor.rowcount == 0:
+            flash("Signatory not found.", "warning")
+        else:
+            db.commit()
+            flash("Signatory deleted successfully.", "success")
+
+        return redirect(url_for("settings"))
+
+    except Exception:
+        if db:
+            db.rollback()
+
+        app.logger.exception("Delete signatory error")
+        flash("Unable to delete signatory.", "danger")
+        return redirect(url_for("settings"))
+
+    finally:
+        if cursor:
+            cursor.close()
+        if db:
+            db.close()
 
 @app.context_processor
 def inject_lab_settings():

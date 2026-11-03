@@ -797,122 +797,178 @@ def logout():
     session.clear()
 
     return redirect(url_for("login"))
+
 @app.route("/register-lab", methods=["GET", "POST"])
 def register_lab():
 
-    if request.method == "POST":
+    if request.method == "GET":
+        return render_template("register_lab.html")
 
-        db = get_db()
-        cursor = db.cursor()
+    db = get_db()
+    cursor = db.cursor()
 
-        try:
+    lock_name = "diagnora_lab_id_allocation_lock"
+    lock_acquired = False
 
-            lab_name = request.form["lab_name"].strip()
-            owner_name = request.form["owner_name"].strip()
-            mobile = request.form["mobile"].strip()
-            email = request.form["email"].strip().lower()
-            address = request.form["address"].strip()
-            username = request.form["username"].strip()
-            password = request.form["password"]
-            confirm_password = request.form["confirm_password"]
+    try:
+        # ==========================================
+        # FORM DATA
+        # ==========================================
 
-            # -----------------------------
-            # Password Validation
-            # -----------------------------
+        lab_name = request.form["lab_name"].strip()
+        owner_name = request.form["owner_name"].strip()
+        mobile = request.form["mobile"].strip()
+        email = request.form["email"].strip().lower()
+        address = request.form["address"].strip()
+        username = request.form["username"].strip()
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
 
-            if password != confirm_password:
-                flash("Passwords do not match.", "danger")
-                return redirect(url_for("register_lab"))
+        # ==========================================
+        # PASSWORD VALIDATION
+        # ==========================================
 
-            if len(password) < 8:
-                flash("Password must be at least 8 characters.", "danger")
-                return redirect(url_for("register_lab"))
+        if password != confirm_password:
+            flash("Passwords do not match.", "danger")
+            return redirect(url_for("register_lab"))
 
-            hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+        if len(password) < 8:
+            flash("Password must be at least 8 characters.", "danger")
+            return redirect(url_for("register_lab"))
 
-            # -----------------------------
-            # Username Exists?
-            # -----------------------------
+        hashed_password = bcrypt.generate_password_hash(
+            password
+        ).decode("utf-8")
+
+        # ==========================================
+        # USERNAME DUPLICATE CHECK
+        # ==========================================
+
+        cursor.execute("""
+            SELECT id
+            FROM laboratories
+            WHERE username = %s
+            LIMIT 1
+        """, (username,))
+
+        if cursor.fetchone():
+            flash("Username already exists.", "danger")
+            return redirect(url_for("register_lab"))
+
+        # ==========================================
+        # EMAIL DUPLICATE CHECK
+        # ==========================================
+
+        cursor.execute("""
+            SELECT id
+            FROM laboratories
+            WHERE email = %s
+            AND lab_name = %s
+            LIMIT 1
+        """, (email, lab_name))
+
+        if cursor.fetchone():
+            flash(
+                "This laboratory is already registered with this email.",
+                "danger"
+            )
+            return redirect(url_for("register_lab"))
+
+        # ==========================================
+        # MOBILE DUPLICATE CHECK
+        # ==========================================
+
+        cursor.execute("""
+            SELECT id
+            FROM laboratories
+            WHERE mobile = %s
+            AND lab_name = %s
+            LIMIT 1
+        """, (mobile, lab_name))
+
+        if cursor.fetchone():
+            flash(
+                "This laboratory is already registered with this mobile number.",
+                "danger"
+            )
+            return redirect(url_for("register_lab"))
+
+        # ==========================================
+        # BEGIN TRANSACTION
+        # ==========================================
+
+        db.begin()
+
+        # ==========================================
+        # ACQUIRE LAB ID ALLOCATION LOCK
+        # ==========================================
+
+        cursor.execute("""
+            SELECT GET_LOCK(%s, 10)
+        """, (lock_name,))
+
+        lock_result = cursor.fetchone()
+
+        if not lock_result or lock_result[0] != 1:
+            raise Exception(
+                "Could not acquire Lab ID allocation lock. "
+                "Please try again."
+            )
+
+        lock_acquired = True
+
+        # ==========================================
+        # CHECK RELEASED LAB IDs
+        # ==========================================
+
+        cursor.execute("""
+            SELECT lab_code
+            FROM released_lab_codes
+            ORDER BY CAST(SUBSTRING(lab_code, 4) AS UNSIGNED) ASC
+            LIMIT 1
+        """)
+
+        released_row = cursor.fetchone()
+
+        if released_row:
+
+            # Reuse smallest released Lab ID
+            lab_id = released_row[0]
 
             cursor.execute("""
-                SELECT id
+                DELETE FROM released_lab_codes
+                WHERE lab_code = %s
+            """, (lab_id,))
+
+        else:
+
+            # ======================================
+            # GENERATE NEXT SEQUENTIAL LAB ID
+            # ======================================
+
+            cursor.execute("""
+                SELECT MAX(
+                    CAST(SUBSTRING(lab_id, 4) AS UNSIGNED)
+                )
                 FROM laboratories
-                WHERE username=%s
-            """, (username,))
-
-            if cursor.fetchone():
-                flash("Username already exists.", "danger")
-                return redirect(url_for("register_lab"))
-
-            # -----------------------------
-            # Email Exists?
-            # -----------------------------
-
-            cursor.execute("""
-    SELECT id
-    FROM laboratories
-    WHERE email = %s
-    AND lab_name = %s
-""", (email, lab_name))
-
-            if cursor.fetchone():
-             flash("This laboratory is already registered with this email.", "danger")
-             return redirect(url_for("register_lab"))
-
-            # -----------------------------
-            # Mobile Exists?
-            # -----------------------------
-
-            cursor.execute("""
-    SELECT id
-    FROM laboratories
-    WHERE mobile = %s
-    AND lab_name = %s
-""", (mobile, lab_name))
-
-            if cursor.fetchone():
-             flash("This laboratory is already registered with this mobile number.", "danger")
-             return redirect(url_for("register_lab"))
-
-            # -----------------------------
-            # Generate Lab ID
-            # -----------------------------
-
-            cursor.execute("""
-                SELECT lab_id
-                FROM laboratories
-                ORDER BY id DESC
-                LIMIT 1
             """)
 
             row = cursor.fetchone()
 
-            if row:
-                next_no = int(row[0].replace("LAB", "")) + 1
+            if row and row[0] is not None:
+                next_no = int(row[0]) + 1
             else:
                 next_no = 1
 
             lab_id = f"LAB{next_no:04d}"
 
-            # -----------------------------
-            # Insert Laboratory
-            # -----------------------------
+        # ==========================================
+        # INSERT LABORATORY
+        # ==========================================
 
-            cursor.execute("""
-                INSERT INTO laboratories
-                (
-                    lab_id,
-                    lab_name,
-                    owner_name,
-                    mobile,
-                    email,
-                    address,
-                    username,
-                    password
-                )
-                VALUES
-                (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
+        cursor.execute("""
+            INSERT INTO laboratories
+            (
                 lab_id,
                 lab_name,
                 owner_name,
@@ -920,83 +976,124 @@ def register_lab():
                 email,
                 address,
                 username,
-                hashed_password
-            ))
-            
-            cursor.execute("""
-    INSERT INTO users
-    (
-        lab_id,
-        username,
-        password,
-        email,
-        mobile,
-        role,
-        status
-    )
-    VALUES (%s,%s,%s,%s,%s,%s,%s)
-""", (
-    lab_id,
-    username.lower(),
-    hashed_password,
-    email,
-    mobile,
-    "Admin",
-    "Active"
-))
+                password
+            )
+            VALUES
+            (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            lab_id,
+            lab_name,
+            owner_name,
+            mobile,
+            email,
+            address,
+            username,
+            hashed_password
+        ))
 
+        # ==========================================
+        # INSERT LAB ADMIN USER
+        # ==========================================
 
-            # -----------------------------
-            # Default Settings
-            # -----------------------------
+        cursor.execute("""
+            INSERT INTO users
+            (
+                lab_id,
+                username,
+                password,
+                email,
+                mobile,
+                role,
+                status
+            )
+            VALUES
+            (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            lab_id,
+            username.lower(),
+            hashed_password,
+            email,
+            mobile,
+            "Admin",
+            "Active"
+        ))
 
-            cursor.execute("""
-                INSERT INTO lab_settings
-                (
-                    lab_id,
-                    lab_name,
-                    owner_name,
-                    mobile,
-                    email,
-                    address,
-                    patient_prefix,
-                    receipt_prefix
-                )
-                VALUES
-                (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
+        # ==========================================
+        # INSERT DEFAULT LAB SETTINGS
+        # ==========================================
+
+        cursor.execute("""
+            INSERT INTO lab_settings
+            (
                 lab_id,
                 lab_name,
                 owner_name,
                 mobile,
                 email,
                 address,
-                "PAT",
-                "RCPT"
-            ))
-
-            db.commit()
-
-            return render_template(
-                "registration_success.html",
-                lab_id=lab_id,
-                username=username
+                patient_prefix,
+                receipt_prefix
             )
+            VALUES
+            (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            lab_id,
+            lab_name,
+            owner_name,
+            mobile,
+            email,
+            address,
+            "PAT",
+            "RCPT"
+        ))
 
-        except Exception as e:
+        # ==========================================
+        # COMMIT TRANSACTION
+        # ==========================================
 
-            db.rollback()
-            raise e
+        db.commit()
 
-        finally:
+        return render_template(
+            "registration_success.html",
+            lab_id=lab_id,
+            username=username
+        )
 
-            cursor.close()
-            db.close()
+    except Exception as e:
 
-    return render_template("register_lab.html")
+        db.rollback()
+
+        app.logger.exception(
+            "Laboratory registration failed"
+        )
+
+        flash(
+            "Laboratory registration failed. Please try again.",
+            "danger"
+        )
+
+        return redirect(url_for("register_lab"))
+
+    finally:
+
+        # ==========================================
+        # RELEASE ADVISORY LOCK
+        # ==========================================
+
+        if lock_acquired:
+            try:
+                cursor.execute("""
+                    SELECT RELEASE_LOCK(%s)
+                """, (lock_name,))
+            except Exception:
+                app.logger.exception(
+                    "Failed to release Lab ID allocation lock"
+                )
+
+        cursor.close()
+        db.close()
 
 
-from concurrent.futures import ThreadPoolExecutor
 
 
 @app.route("/dashboard")

@@ -5994,6 +5994,7 @@ def edit_doctor(doctor_id):
     finally:
         cursor.close()
         db.close()
+
 @app.route("/payment-entries")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -6001,81 +6002,78 @@ def payment_entries():
 
     db = get_db()
     cursor = db.cursor()
+
     lab_id = session["lab_id"]
 
     try:
+        search = request.args.get("search", "").strip()
+        status = request.args.get("status", "").strip()
+        mode = request.args.get("mode", "").strip()
 
-        search = request.args.get("search", "").strip().lower()
+        query = """
+            SELECT
+                p.id,
+                p.receipt_no,
+                p.patient_id,
+                pa.name,
+                pa.mobile,
+                p.total_amount,
+                p.paid_amount,
+                p.remaining_amount,
+                p.payment_mode,
+                p.payment_status,
+                p.payment_date
 
+            FROM payments p
+
+            JOIN patients pa
+                ON p.patient_id = pa.patient_id
+                AND p.lab_id = pa.lab_id
+
+            WHERE p.lab_id = %s
+        """
+
+        params = [lab_id]
+
+        # Search filter
         if search:
+            search_pattern = f"%{search}%"
 
-            cursor.execute("""
-            SELECT
-                p.id,
-                p.receipt_no,
-                p.patient_id,
-                pa.name,
-                pa.mobile,
-                p.total_amount,
-                p.paid_amount,
-                p.remaining_amount,
-                p.payment_mode,
-                p.payment_status,
-                p.payment_date
+            query += """
+                AND (
+                    p.receipt_no LIKE %s
+                    OR p.patient_id LIKE %s
+                    OR pa.name LIKE %s
+                    OR pa.mobile LIKE %s
+                )
+            """
 
-            FROM payments p
+            params.extend([
+                search_pattern,
+                search_pattern,
+                search_pattern,
+                search_pattern
+            ])
 
-            JOIN patients pa
-                ON p.patient_id = pa.patient_id
-                AND p.lab_id = pa.lab_id
+        # Payment status filter
+        if status:
+            query += """
+                AND p.payment_status = %s
+            """
+            params.append(status)
 
-            WHERE p.lab_id=%s
-            AND
-            (
-                LOWER(p.receipt_no) LIKE %s
-                OR LOWER(p.patient_id) LIKE %s
-                OR LOWER(pa.name) LIKE %s
-                OR LOWER(pa.mobile) LIKE %s
-                OR LOWER(p.payment_status) LIKE %s
-            )
+        # Payment mode filter
+        if mode:
+            query += """
+                AND p.payment_mode = %s
+            """
+            params.append(mode)
 
+        query += """
             ORDER BY p.payment_date DESC
-            """,
-            (
-                lab_id,
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%",
-                f"%{search}%"
-            ))
+        """
 
-        else:
-
-            cursor.execute("""
-            SELECT
-                p.id,
-                p.receipt_no,
-                p.patient_id,
-                pa.name,
-                pa.mobile,
-                p.total_amount,
-                p.paid_amount,
-                p.remaining_amount,
-                p.payment_mode,
-                p.payment_status,
-                p.payment_date
-
-            FROM payments p
-
-            JOIN patients pa
-                ON p.patient_id = pa.patient_id
-                AND p.lab_id = pa.lab_id
-
-            WHERE p.lab_id=%s
-
-            ORDER BY p.payment_date DESC
-            """, (lab_id,))
+        cursor.execute(query, tuple(params))
 
         payments = cursor.fetchall()
 
@@ -6087,6 +6085,8 @@ def payment_entries():
     finally:
         cursor.close()
         db.close()
+
+
 
 @app.route("/payment-details/<receipt_no>")
 @login_required

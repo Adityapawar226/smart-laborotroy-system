@@ -4862,20 +4862,29 @@ def billing():
         cursor.close()
         db.close()
 
-@app.route("/view-bill/<patient_id>")
+@app.route("/view-bill/<patient_id>", methods=["GET"])
 @login_required
 @role_required("Developer", "Admin", "Technician")
 def view_bill(patient_id):
 
-    lab_id = session["lab_id"]
-
-    db = get_db()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
     try:
-        # -------- Bill Details --------
+        lab_id = session.get("lab_id")
+
+        if not lab_id:
+            abort(403)
+
+        db = get_db()
+        cursor = db.cursor()
+
+        # ==========================================
+        # FETCH SPECIFIC BILL
+        # ==========================================
         cursor.execute("""
             SELECT
+                p.id AS payment_id,
                 p.receipt_no,
                 pa.patient_id,
                 pa.name,
@@ -4888,15 +4897,14 @@ def view_bill(patient_id):
                 p.payment_mode,
                 p.payment_status,
                 p.payment_date
-
             FROM payments p
-
             JOIN patients pa
                 ON p.patient_id = pa.patient_id
-                AND p.lab_id = pa.lab_id
-
-            WHERE pa.patient_id=%s
-            AND pa.lab_id=%s
+               AND p.lab_id = pa.lab_id
+            WHERE pa.patient_id = %s
+              AND pa.lab_id = %s
+            ORDER BY p.id DESC
+            LIMIT 1
         """, (
             patient_id,
             lab_id
@@ -4904,24 +4912,23 @@ def view_bill(patient_id):
 
         bill = cursor.fetchone()
 
-        if bill is None:
-            return "Bill not found"
+        if not bill:
+            flash("Bill not found for this patient.", "danger")
+            return redirect(url_for("billing"))
 
-
-        # -------- Test Details --------
+        # ==========================================
+        # FETCH TEST DETAILS
+        # ==========================================
         cursor.execute("""
             SELECT
                 t.test_name,
                 pt.amount
-
             FROM patient_tests pt
-
             JOIN tests t
-                ON pt.test_id=t.id
-                AND pt.lab_id=t.lab_id
-
-            WHERE pt.patient_id=%s
-            AND pt.lab_id=%s
+                ON pt.test_id = t.id
+               AND pt.lab_id = t.lab_id
+            WHERE pt.patient_id = %s
+              AND pt.lab_id = %s
         """, (
             patient_id,
             lab_id
@@ -4929,11 +4936,10 @@ def view_bill(patient_id):
 
         tests = cursor.fetchall()
 
-
-        # -------- Load Lab Settings --------
-        settings_cursor = db.cursor()
-
-        settings_cursor.execute("""
+        # ==========================================
+        # FETCH LAB SETTINGS
+        # ==========================================
+        cursor.execute("""
             SELECT
                 lab_name,
                 logo,
@@ -4941,32 +4947,16 @@ def view_bill(patient_id):
                 stamp,
                 report_header,
                 report_footer
-
             FROM lab_settings
-
-            WHERE lab_id=%s
-
+            WHERE lab_id = %s
             LIMIT 1
         """, (lab_id,))
 
-        lab_settings = settings_cursor.fetchone()
+        lab_settings = cursor.fetchone()
 
-        settings_cursor.close()
-
-
-        # -------- Debug --------
-        print("\n===== BILL =====")
-        print(bill)
-
-        print("\n===== TESTS =====")
-        for t in tests:
-            print(t)
-
-        print("\n===== LAB SETTINGS =====")
-        print(lab_settings)
-
-
-        # -------- Render Bill --------
+        # ==========================================
+        # RENDER PARTICULAR BILL
+        # ==========================================
         return render_template(
             "view_bill.html",
             bill=bill,
@@ -4974,10 +4964,20 @@ def view_bill(patient_id):
             lab_settings=lab_settings
         )
 
+    except Exception:
+        app.logger.exception(
+            "View Bill Error | Patient ID=%s | Lab ID=%s",
+            patient_id,
+            session.get("lab_id")
+        )
+        raise
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+
+        if db:
+            db.close()
 @app.route("/patient-search")
 @login_required
 @role_required("Developer", "Admin", "Technician")

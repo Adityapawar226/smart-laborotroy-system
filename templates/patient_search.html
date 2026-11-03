@@ -287,10 +287,10 @@
         <td>
             <div class="actions">
 
-                <a class="btn btn-bill"
-                   href="{{ url_for('billing', patient_id=patient['patient_id']) }}">
-                    ▤ Bill
-                </a>
+                <a href="{{ url_for('view_bill', patient_id=patient['patient_id']) }}"
+   class="btn btn-bill">
+    View Bill
+</a>
 
                 <a class="btn btn-report"
                    href="/view-report/{{ patient['patient_id']|urlencode }}">
@@ -400,7 +400,7 @@
                     <td>${displayValue(patient.mobile)}</td>
                     <td>${displayValue(patient.doctor_name)}</td>
                     <td><div class="actions">
-                        <a class="btn btn-bill" href="{{ url_for('billing') }}?patient_id=${safeId}">▤ Bill</a>
+                        <a class="btn btn-bill" href="/view-bill/${safeId}">▤ Bill</a>
                         <a class="btn btn-report" href="/view-report/${safeId}">▣ Report</a>
                         ${canDeletePatients ? `
     <button class="btn btn-delete" type="button"

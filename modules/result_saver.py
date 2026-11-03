@@ -80,29 +80,24 @@ def save_signatories(
         )
 
 
-def save_manual_results(
-    cursor,
-    patient_id,
-    lab_id,
-    form
-):
+def save_manual_results(cursor, patient_id, lab_id, form):
     """
     Save manually entered parameter values.
 
-    Formula parameters are not saved manually.
-
-    Returns a dictionary containing the manually entered values,
-    indexed by display name, short name, parameter code, and ID.
-
-    The dictionary is passed to the formula service.
+    Formula parameters are handled separately.
+    Returns parameter values for formula calculation.
     """
 
     parameter_values = {}
 
+    # ====================================================
+    # 1. LOAD PARAMETER DEFINITIONS
+    # ====================================================
+
     cursor.execute(
         """
         SELECT
-            pd.id,
+            pd.id AS parameter_id,
             pd.parameter_code,
             pd.display_name,
             pd.short_name,
@@ -110,9 +105,9 @@ def save_manual_results(
             pd.formula_id,
             pd.component_id,
             rc.component_name,
-            ts.id,
+            ts.id AS section_id,
             ts.section_name,
-            t.id,
+            t.id AS test_id,
             t.test_name
 
         FROM parameter_definition pd
@@ -162,22 +157,41 @@ def save_manual_results(
     print("Parameters loaded:", len(parameters))
     print("=" * 60)
 
+    # ====================================================
+    # 2. PROCESS PARAMETERS
+    # ====================================================
+
     for p in parameters:
 
         parameter_id = p["parameter_id"]
+        section_id = p["section_id"]
+        component_id = p["component_id"]
+
         parameter_code = p["parameter_code"]
         display_name = p["display_name"]
         short_name = p["short_name"]
         unit = p["unit"]
         formula_id = p["formula_id"]
-        component_id = p["component_id"]
-        section_id = p["section_id"]
         test_name = p["test_name"]
-        # Formula parameters must be calculated separately.
+
+        print(
+            "[PARAMETER]",
+            parameter_id,
+            display_name,
+            "Section:",
+            section_id,
+            "Component:",
+            component_id
+        )
+
+        # Formula parameters are not manually saved.
         if formula_id is not None:
             continue
 
-        # Read the submitted value.
+        # ====================================================
+        # 3. GET FORM VALUE
+        # ====================================================
+
         raw_value = form.get(
             f"param_{parameter_id}",
             ""
@@ -191,7 +205,10 @@ def save_manual_results(
         if not result:
             continue
 
-        # Store the value using the parameter's available identifiers.
+        # ====================================================
+        # 4. PREPARE FORMULA INPUT VALUES
+        # ====================================================
+
         if display_name:
             parameter_values[display_name] = result
 
@@ -203,16 +220,10 @@ def save_manual_results(
 
         parameter_values[f"param_{parameter_id}"] = result
 
-        print(
-            "[MANUAL RESULT]",
-            "parameter_id =", parameter_id,
-            "code =", parameter_code,
-            "name =", display_name,
-            "short_name =", short_name,
-            "value =", result
-        )
+        # ====================================================
+        # 5. SAVE MANUAL RESULT
+        # ====================================================
 
-        # Save the manually entered result.
         cursor.execute(
             """
             INSERT INTO test_results (
@@ -247,6 +258,18 @@ def save_manual_results(
                 ""
             )
         )
+
+        print(
+            "[MANUAL RESULT SAVED]",
+            parameter_id,
+            display_name,
+            "=",
+            result
+        )
+
+    # ====================================================
+    # 6. RETURN VALUES FOR FORMULA ENGINE
+    # ====================================================
 
     print("=" * 60)
     print("[PARAMETER VALUES FOR FORMULA]")
@@ -387,17 +410,19 @@ def save_formula_results(
     return calculated_results
 
 
-def save_dictionary_results(
-    cursor,
-    patient_id,
-    lab_id,
-    form
-):
-    """
-    Save dictionary-based component results.
-    """
+def save_dictionary_results(cursor, patient_id, lab_id, form):
 
-    # Remove previous dictionary results for this patient and lab.
+    print("=" * 60)
+    print("[DICTIONARY SAVE STARTED]")
+    print("Patient:", patient_id)
+    print("Lab:", lab_id)
+
+    print(
+        "Dictionary form keys:",
+        [key for key in form if key.startswith("dictionary_component_")]
+    )
+
+    # Delete previous results for this patient and lab.
     cursor.execute(
         """
         DELETE FROM report_component_results
@@ -422,22 +447,14 @@ def save_dictionary_results(
 
         try:
             component_id = int(component_id_text)
-
         except (ValueError, TypeError):
-            print(
-                "[DICTIONARY ERROR] Invalid component ID:",
-                key
-            )
+            print("[DICTIONARY ERROR] Invalid key:", key)
             continue
 
-        raw_value = form.get(key, "")
-
-        if raw_value is None:
-            continue
-
-        value = str(raw_value).strip()
+        value = str(form.get(key, "") or "").strip()
 
         if not value:
+            print("[DICTIONARY EMPTY]", component_id)
             continue
 
         cursor.execute(
@@ -460,9 +477,13 @@ def save_dictionary_results(
 
         saved_count += 1
 
-    print(
-        "[DICTIONARY RESULTS SAVED]",
-        saved_count
-    )
+        print(
+            "[DICTIONARY SAVED]",
+            "Component:", component_id,
+            "Value:", value
+        )
+
+    print("[DICTIONARY RESULTS SAVED]", saved_count)
+    print("=" * 60)
 
     return saved_count

@@ -120,7 +120,7 @@
                                         <div class="report-paragraph">{{ component.component_content }}</div>
                                         {% endif %}
 
-                                        {% if component.component_type in ["parameter", "parameter_table", "formula", "dictionary"] %}
+                                        {% if component.component_type in ["parameter", "parameter_table", "formula"] %}
                                             {% if component.parameters %}
                                             <table class="report-table">
                                                 {% if not table_state.header_shown %}
@@ -164,7 +164,7 @@
                                             {% endif %}
                                         {% endif %}
 
-                                        {% if component.component_type == "dictionary_result" and component.selected_value %}
+                                        {% if component.component_type in ["dictionary_result", "dictionary"] and component.selected_value %}
                                         <div class="dictionary-result">
                                             <span class="dictionary-result-label">{{ component.component_name }}</span>
                                             <span class="dictionary-result-value">{{ component.selected_value }}</span>

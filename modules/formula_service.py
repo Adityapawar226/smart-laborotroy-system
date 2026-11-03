@@ -22,23 +22,19 @@ def calculate_all_formulas(
     Returns:
         A list of dictionaries containing calculated results.
 
-    Important:
-        This function calculates results but does not insert them
-        into test_results. Saving is handled by result_saver.py.
+    Formula results are calculated here.
+    Saving is handled by result_saver.py.
     """
 
     calculated_results = []
 
-    # Track formula parameters that have been calculated successfully.
     calculated_parameter_ids = set()
 
-    # Copy the dictionary so that the caller's original dictionary
-    # is not modified.
     available_values = dict(parameter_values or {})
 
-    # ---------------------------------------------------------
+    # =========================================================
     # STEP 1: LOAD FORMULA DEFINITIONS
-    # ---------------------------------------------------------
+    # =========================================================
 
     formula_definitions = {}
 
@@ -47,18 +43,22 @@ def calculate_all_formulas(
         cursor.execute(
             """
             SELECT
-                pd.id,
-                pd.display_name,
-                pd.short_name,
-                pd.parameter_code,
-                pd.unit,
-                pd.component_id,
-                rc.component_name,
-                ts.id,
-                ts.section_name,
-                t.id,
-                t.test_name,
-                rf.formula_expression
+                pd.id AS parameter_id,
+                pd.display_name AS display_name,
+                pd.short_name AS short_name,
+                pd.parameter_code AS parameter_code,
+                pd.unit AS unit,
+                pd.component_id AS component_id,
+
+                rc.component_name AS component_name,
+
+                ts.id AS section_id,
+                ts.section_name AS section_name,
+
+                t.id AS test_id,
+                t.test_name AS test_name,
+
+                rf.formula_expression AS formula_expression
 
             FROM parameter_definition pd
 
@@ -90,6 +90,7 @@ def calculate_all_formulas(
                     OR pd.lab_id IS NULL
                 )
 
+            LIMIT 1
             """,
             (
                 parameter_id,
@@ -112,67 +113,107 @@ def calculate_all_formulas(
 
             continue
 
+        print("[FORMULA DEFINITION ROW]", row)
+
+        # DictCursor mapping
         formula_definitions[parameter_id] = {
-            "parameter_id": row[0],
-            "display_name": row[1],
-            "short_name": row[2],
-            "parameter_code": row[3],
-            "unit": row[4],
-            "component_id": row[5],
-            "component_name": row[6],
-            "section_id": row[7],
-            "section_name": row[8],
-            "test_id": row[9],
-            "test_name": row[10],
-            "formula_expression": row[11],
+
+            "parameter_id": row["parameter_id"],
+
+            "display_name": row["display_name"],
+
+            "short_name": row["short_name"],
+
+            "parameter_code": row["parameter_code"],
+
+            "unit": row["unit"],
+
+            "component_id": row["component_id"],
+
+            "component_name": row["component_name"],
+
+            "section_id": row["section_id"],
+
+            "section_name": row["section_name"],
+
+            "test_id": row["test_id"],
+
+            "test_name": row["test_name"],
+
+            "formula_expression": row["formula_expression"],
+
             "formula_id": formula_id
         }
 
-    print("=" * 70)
-    print("[FORMULA SERVICE STARTED]")
-    print("Patient ID:", patient_id)
-    print("Lab ID:", lab_id)
-    print("Formula definitions loaded:", len(formula_definitions))
-    print("Initial parameter values:", available_values)
+    # =========================================================
+    # STEP 2: FORMULA SERVICE INITIALIZATION
+    # =========================================================
+
     print("=" * 70)
 
-    # ---------------------------------------------------------
-    # STEP 2: HANDLE FORMULAS IN MULTIPLE PASSES
-    # ---------------------------------------------------------
+    print("[FORMULA SERVICE STARTED]")
+
+    print("Patient ID:", patient_id)
+
+    print("Lab ID:", lab_id)
+
+    print(
+        "Formula definitions loaded:",
+        len(formula_definitions)
+    )
+
+    print("Initial parameter values:", available_values)
+
+    print("=" * 70)
+
+    # =========================================================
+    # STEP 3: HANDLE FORMULAS IN MULTIPLE PASSES
+    # =========================================================
 
     pending_parameter_ids = list(formula_definitions.keys())
 
     while pending_parameter_ids:
 
         progress_made = False
+
         remaining_parameter_ids = []
 
         for parameter_id in pending_parameter_ids:
 
-            # Do not calculate the same parameter twice.
             if parameter_id in calculated_parameter_ids:
                 continue
 
             definition = formula_definitions[parameter_id]
 
             display_name = definition["display_name"]
+
             short_name = definition["short_name"]
+
             parameter_code = definition["parameter_code"]
+
             formula_expression = definition["formula_expression"]
 
             print("-" * 70)
+
             print("[FORMULA DEBUG]")
+
             print("Patient ID:", patient_id)
+
             print("Lab ID:", lab_id)
+
             print("Parameter ID:", parameter_id)
+
             print("Parameter:", display_name)
+
             print("Parameter Code:", parameter_code)
+
             print("Formula ID:", definition["formula_id"])
+
             print("Formula:", formula_expression)
 
-            # -------------------------------------------------
-            # STEP 3: CALCULATE THE FORMULA
-            # -------------------------------------------------
+            # =================================================
+            # STEP 4: CALCULATE FORMULA
+            # =================================================
 
             try:
 
@@ -190,11 +231,12 @@ def calculate_all_formulas(
                 )
 
                 remaining_parameter_ids.append(parameter_id)
+
                 continue
 
-            # -------------------------------------------------
-            # STEP 4: HANDLE UNSUCCESSFUL CALCULATIONS
-            # -------------------------------------------------
+            # =================================================
+            # STEP 5: HANDLE UNSUCCESSFUL CALCULATIONS
+            # =================================================
 
             if result is None:
 
@@ -205,6 +247,7 @@ def calculate_all_formulas(
                 )
 
                 remaining_parameter_ids.append(parameter_id)
+
                 continue
 
             try:
@@ -220,33 +263,44 @@ def calculate_all_formulas(
                 )
 
                 remaining_parameter_ids.append(parameter_id)
+
                 continue
 
-            # -------------------------------------------------
-            # STEP 5: SAVE THE RESULT IN MEMORY
-            # -------------------------------------------------
+            # =================================================
+            # STEP 6: STORE CALCULATED RESULT
+            # =================================================
 
             calculated_results.append(
                 {
                     "parameter_id": parameter_id,
+
                     "component_id": definition["component_id"],
+
                     "section_id": definition["section_id"],
+
                     "test_id": definition["test_id"],
+
                     "test_name": definition["test_name"],
+
                     "display_name": display_name,
+
                     "short_name": short_name,
+
                     "parameter_code": parameter_code,
+
                     "unit": definition["unit"],
+
                     "result": result
                 }
             )
 
             calculated_parameter_ids.add(parameter_id)
+
             progress_made = True
 
-            # -------------------------------------------------
-            # STEP 6: MAKE THE RESULT AVAILABLE TO OTHER FORMULAS
-            # -------------------------------------------------
+            # =================================================
+            # STEP 7: MAKE RESULT AVAILABLE TO OTHER FORMULAS
+            # =================================================
 
             if display_name:
                 available_values[display_name] = result
@@ -267,9 +321,9 @@ def calculate_all_formulas(
                 definition["unit"] or ""
             )
 
-        # -----------------------------------------------------
-        # STEP 7: PREPARE ANOTHER PASS
-        # -----------------------------------------------------
+        # =====================================================
+        # STEP 8: PREPARE NEXT CALCULATION PASS
+        # =====================================================
 
         if not remaining_parameter_ids:
             break
@@ -277,7 +331,9 @@ def calculate_all_formulas(
         if not progress_made:
 
             print("=" * 70)
+
             print("[FORMULA PROCESSING STOPPED]")
+
             print(
                 "Some formulas could not be calculated "
                 "because their variables are missing or "
@@ -301,18 +357,29 @@ def calculate_all_formulas(
 
         pending_parameter_ids = remaining_parameter_ids
 
-    # ---------------------------------------------------------
-    # STEP 8: RETURN RESULTS
-    # ---------------------------------------------------------
+    # =========================================================
+    # STEP 9: RETURN RESULTS
+    # =========================================================
 
     print("=" * 70)
+
     print("[FORMULA SERVICE COMPLETE]")
-    print("Total formulas loaded:", len(formula_definitions))
-    print("Successfully calculated:", len(calculated_results))
+
+    print(
+        "Total formulas loaded:",
+        len(formula_definitions)
+    )
+
+    print(
+        "Successfully calculated:",
+        len(calculated_results)
+    )
+
     print(
         "Not calculated:",
         len(formula_definitions) - len(calculated_parameter_ids)
     )
+
     print("=" * 70)
 
     return calculated_results

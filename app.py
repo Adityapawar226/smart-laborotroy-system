@@ -3533,7 +3533,7 @@ def enter_results(patient_id):
 
             for row in parameter_rows:
 
-                parameter_id = row["parameter_id"]
+                parameter_id = row["id"]
                 display_name = row["display_name"]
                 short_name = row["short_name"]
                 parameter_code = row["parameter_code"]
@@ -3600,6 +3600,29 @@ def enter_results(patient_id):
                 lab_id,
                 request.form
             )
+            cursor.execute(
+    """
+    SELECT
+        id,
+        lab_id,
+        patient_id,
+        component_id,
+        result_value
+    FROM report_component_results
+    WHERE patient_id = %s
+      AND lab_id = %s
+    """,
+    (patient_id, lab_id)
+)
+
+            debug_rows = cursor.fetchall()
+
+            print("=" * 60)
+            print("[VERIFY DICTIONARY RESULTS IN DATABASE]")
+            print("Patient:", patient_id)
+            print("Lab:", lab_id)
+            print("Rows:", debug_rows)
+            print("=" * 60)
 
             # ----------------------------------------------
             # Update report generation date

@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <div class="card shadow">
+
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-signature"></i>
+                Edit Report Signatory
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <form
+                method="POST"
+                action="{{ url_for('edit_signatory', id=sign.id) }}"
+                enctype="multipart/form-data"
+            >
+
+                <!-- Name -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        <b>Name</b>
+                    </label>
+
+                    <input
+                        type="text"
+                        class="form-control"
+                        name="name"
+                        value="{{ sign.name }}"
+                        required
+                    >
+
+                </div>
+
+                <!-- Designation -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        <b>Designation</b>
+                    </label>
+
+                    <select
+                        class="form-control"
+                        name="designation"
+                        required
+                    >
+
+                        <option value="">Select Designation</option>
+
+                        <option
+                            value="Pathologist"
+                            {% if sign.designation == "Pathologist" %}
+                                selected
+                            {% endif %}
+                        >
+                            Pathologist
+                        </option>
+
+                        <option
+                            value="Lab Technician"
+                            {% if sign.designation == "Lab Technician" %}
+                                selected
+                            {% endif %}
+                        >
+                            Lab Technician
+                        </option>
+
+                        <option
+                            value="Microbiologist"
+                            {% if sign.designation == "Microbiologist" %}
+                                selected
+                            {% endif %}
+                        >
+                            Microbiologist
+                        </option>
+
+                        <option
+                            value="Authorized Signatory"
+                            {% if sign.designation == "Authorized Signatory" %}
+                                selected
+                            {% endif %}
+                        >
+                            Authorized Signatory
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <!-- Current Signature -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        <b>Current Signature</b>
+                    </label>
+
+                    {% if sign.signature %}
+
+                        {% set sign_asset = sign.signature|string %}
+
+                        <div class="mb-2">
+
+                            <img
+                                src="{{ sign_asset if sign_asset.startswith('http') or sign_asset.startswith('data:') else url_for('static', filename='uploads/signatories/' ~ sign_asset) }}"
+                                class="img-thumbnail"
+                                style="
+                                    max-height: 120px;
+                                    max-width: 300px;
+                                    object-fit: contain;
+                                "
+                                alt="Current Signature"
+                            >
+
+                        </div>
+
+                    {% else %}
+
+                        <p class="text-muted">
+                            No signature uploaded.
+                        </p>
+
+                    {% endif %}
+
+                </div>
+
+                <!-- New Signature -->
+                <div class="mb-3">
+
+                    <label class="form-label">
+                        <b>Upload New Signature (Optional)</b>
+                    </label>
+
+                    <input
+                        type="file"
+                        class="form-control"
+                        name="signature"
+                        accept=".png,.jpg,.jpeg,.webp"
+                    >
+
+                    <small class="text-muted">
+                        Leave empty to keep the existing signature.
+                    </small>
+
+                </div>
+
+                <!-- Buttons -->
+                <div class="d-flex gap-2">
+
+                    <button
+                        type="submit"
+                        class="btn btn-success"
+                    >
+                        <i class="fas fa-save"></i>
+                        Update Signatory
+                    </button>
+
+                    <a
+                        href="{{ url_for('settings') }}"
+                        class="btn btn-secondary"
+                    >
+                        <i class="fas fa-arrow-left"></i>
+                        Back
+                    </a>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

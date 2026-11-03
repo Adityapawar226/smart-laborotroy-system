@@ -6,7 +6,7 @@ import json
 
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
-
+from werkzeug.utils import secure_filename
 from flask import abort
 from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -5700,39 +5700,49 @@ def expenses():
     except Exception:
         raise
 
-@app.route("/doctor-patients/<int:doctor_id>")
+@app.route("/doctor-patients/<int:doctor_id>", methods=["GET"])
 @login_required
 @role_required("Developer", "Admin")
 def doctor_patients(doctor_id):
 
-    db = get_db()
-    cursor = db.cursor()
-    lab_id = session["lab_id"]
+    db = None
+    cursor = None
 
     try:
+        # =========================================================
+        # SESSION / DATABASE
+        # =========================================================
+        lab_id = session.get("lab_id")
+
+        if not lab_id:
+            flash("Session expired. Please login again.", "warning")
+            return redirect(url_for("login"))
+
+        db = get_db()
+        cursor = db.cursor()
 
         # =========================================================
         # DATE FILTER
         # =========================================================
-
         from_date = request.args.get("from_date", "").strip()
         to_date = request.args.get("to_date", "").strip()
 
-        # Validate date range
         if from_date and to_date and from_date > to_date:
             return "From Date cannot be greater than To Date", 400
 
         # =========================================================
         # DOCTOR INFORMATION
         # =========================================================
-
         cursor.execute("""
             SELECT
                 doctor_name,
-                commission_percent
+                commission_percent,
+                status,
+                lab_id
             FROM doctors
             WHERE id = %s
               AND lab_id = %s
+            LIMIT 1
         """, (
             doctor_id,
             lab_id
@@ -5741,15 +5751,16 @@ def doctor_patients(doctor_id):
         doctor = cursor.fetchone()
 
         if not doctor:
-            return "Doctor not found", 404
+            return "Doctor not found for this laboratory.", 404
 
-        doctor_name = doctor[0]
-        commission_percent = float(doctor[1])
+        doctor_name = doctor["doctor_name"]
+        commission_percent = float(
+            doctor["commission_percent"] or 0
+        )
 
         # =========================================================
         # PATIENTS
         # =========================================================
-
         query = """
             SELECT
                 p.patient_id,
@@ -5760,13 +5771,10 @@ def doctor_patients(doctor_id):
                 pay.paid_amount,
                 pay.remaining_amount,
                 pay.payment_status
-
             FROM patients p
-
             JOIN payments pay
                 ON p.patient_id = pay.patient_id
-                AND p.lab_id = pay.lab_id
-
+               AND p.lab_id = pay.lab_id
             WHERE p.doctor_id = %s
               AND p.lab_id = %s
         """
@@ -5779,7 +5787,6 @@ def doctor_patients(doctor_id):
         # =========================================================
         # DATE RANGE FILTER
         # =========================================================
-
         if from_date and to_date:
 
             query += """
@@ -5811,7 +5818,6 @@ def doctor_patients(doctor_id):
         # =========================================================
         # ORDER
         # =========================================================
-
         query += """
             ORDER BY p.created_at DESC
         """
@@ -5824,13 +5830,12 @@ def doctor_patients(doctor_id):
         patients = cursor.fetchall()
 
         # =========================================================
-        # CALCULATE TOTALS FROM FILTERED PATIENTS
+        # CALCULATE TOTALS
         # =========================================================
-
         total_patients = len(patients)
 
         total_business = sum(
-            float(row[4] or 0)
+            float(row["total_amount"] or 0)
             for row in patients
         )
 
@@ -5841,31 +5846,41 @@ def doctor_patients(doctor_id):
         # =========================================================
         # RENDER
         # =========================================================
-
         return render_template(
             "doctor_patients.html",
-
             doctor_id=doctor_id,
             doctor_name=doctor_name,
             commission_percent=commission_percent,
-
             patients=patients,
-
             total_patients=total_patients,
             total_business=total_business,
             total_commission=total_commission,
-
             from_date=from_date,
             to_date=to_date
         )
 
     except Exception:
-        db.rollback()
+        if db:
+            try:
+                db.rollback()
+            except Exception:
+                app.logger.exception(
+                    "Rollback failed in doctor_patients."
+                )
+
+        app.logger.exception(
+            "Error in doctor_patients route | Doctor ID=%s",
+            doctor_id
+        )
+
         raise
 
     finally:
-        cursor.close()
-        db.close()
+        if cursor:
+            cursor.close()
+
+        if db:
+            db.close()
 @app.route("/toggle-doctor-status/<int:doctor_id>")
 @login_required
 @role_required("Developer", "Admin", "Technician")
@@ -6193,42 +6208,32 @@ def settings():
     cursor = None
 
     try:
-        # --------------------------------------------------
-        # 1. Validate session and connect to database
-        # --------------------------------------------------
-        lab_id = session.get("lab_id")
-
-        if not lab_id:
+        # 1. Validate session and connect
+        lab_code = session.get("lab_id")
+        if not lab_code:
             flash("Your session has expired. Please log in again.", "warning")
             return redirect(url_for("login"))
 
         db = get_db()
         cursor = db.cursor()
 
-        # --------------------------------------------------
-        # 2. Get internal integer laboratory ID
-        # --------------------------------------------------
-        cursor.execute(
-            """
-            SELECT id
+        # 2. Resolve public lab code (LAB0008) to internal numeric ID (18)
+        cursor.execute("""
+            SELECT id, lab_name
             FROM laboratories
             WHERE lab_id = %s
             LIMIT 1
-            """,
-            (lab_id,)
-        )
+        """, (lab_code,))
+        laboratory = cursor.fetchone()
 
-        lab = cursor.fetchone()
-
-        if not lab:
+        if not laboratory:
             flash("Laboratory not found.", "danger")
             return redirect(url_for("dashboard"))
 
-        laboratory_id = lab["id"]
+        laboratory_id = laboratory["id"]
+        actual_lab_name = laboratory["lab_name"] or ""
 
-        # --------------------------------------------------
         # 3. Ensure upload directories exist
-        # --------------------------------------------------
         upload_dirs = {
             "logo": app.config.get("UPLOAD_LOGO"),
             "signature": app.config.get("UPLOAD_SIGNATURE"),
@@ -6240,98 +6245,92 @@ def settings():
             if directory:
                 os.makedirs(directory, exist_ok=True)
 
-        report_header_dir = os.path.join(
-            str(UPLOAD_BASE_DIR), "report_header"
-        )
-        report_footer_dir = os.path.join(
-            str(UPLOAD_BASE_DIR), "report_footer"
-        )
-
+        report_header_dir = os.path.join(str(UPLOAD_BASE_DIR), "report_header")
+        report_footer_dir = os.path.join(str(UPLOAD_BASE_DIR), "report_footer")
         os.makedirs(report_header_dir, exist_ok=True)
         os.makedirs(report_footer_dir, exist_ok=True)
 
-        # --------------------------------------------------
-        # 4. Handle POST request
-        # --------------------------------------------------
+        # 4. Handle form submission
         if request.method == "POST":
+            # The input name in settings.html must be name="lab_name"
+            new_lab_name = request.form.get("lab_name", "").strip()
+            if not new_lab_name:
+                flash("Laboratory name is required.", "danger")
+                return redirect(url_for("settings"))
 
-            # Fetch existing settings
-            cursor.execute(
-                """
+            cursor.execute("""
                 SELECT id
                 FROM lab_settings
                 WHERE lab_id = %s
                 LIMIT 1
-                """,
-                (lab_id,)
-            )
-
+            """, (lab_code,))
             existing = cursor.fetchone()
 
-            # Get uploaded files ONLY inside the request
             logo = request.files.get("logo")
             signature = request.files.get("signature")
             stamp = request.files.get("stamp")
             report_header = request.files.get("report_header")
             report_footer = request.files.get("report_footer")
-            signatory_signature = request.files.get(
-                "signatory_signature"
-            )
+            signatory_signature = request.files.get("signatory_signature")
 
-            # --------------------------------------------------
-            # 5. Save uploaded files
-            # --------------------------------------------------
+            # Upload images to Cloudinary and store secure URLs
             def save_upload(file, directory, prefix=None):
                 if not file or not file.filename:
                     return None
 
                 safe_name = secure_filename(file.filename)
-
                 if not safe_name:
                     raise ValueError("Invalid uploaded filename.")
 
-                filename = (
+                generated_name = (
                     f"{prefix}_{uuid.uuid4().hex}_{safe_name}"
                     if prefix
                     else f"{uuid.uuid4().hex}_{safe_name}"
                 )
 
-                os.makedirs(directory, exist_ok=True)
+                if directory:
+                    os.makedirs(directory, exist_ok=True)
+
                 upload_result = cloudinary.uploader.upload(
-    file,
-    folder="medilens/lab-assets",
-    resource_type="image"
-)
+                    file,
+                    folder="medilens/lab-assets",
+                    resource_type="image",
+                )
+                return upload_result["secure_url"]
 
-                image_url = upload_result["secure_url"]
-
-                return image_url
-
-            logo_name = save_upload(
-                logo, upload_dirs["logo"]
-            ) if logo and logo.filename and upload_dirs["logo"] else None
-
-            signature_name = save_upload(
-                signature, upload_dirs["signature"]
-            ) if signature and signature.filename and upload_dirs["signature"] else None
-
-            stamp_name = save_upload(
-                stamp, upload_dirs["stamp"]
-            ) if stamp and stamp.filename and upload_dirs["stamp"] else None
-
+            logo_name = (
+                save_upload(logo, upload_dirs["logo"])
+                if logo and logo.filename and upload_dirs["logo"]
+                else None
+            )
+            signature_name = (
+                save_upload(signature, upload_dirs["signature"])
+                if signature and signature.filename and upload_dirs["signature"]
+                else None
+            )
+            stamp_name = (
+                save_upload(stamp, upload_dirs["stamp"])
+                if stamp and stamp.filename and upload_dirs["stamp"]
+                else None
+            )
             report_header_name = save_upload(
                 report_header, report_header_dir, "header"
             )
-
             report_footer_name = save_upload(
                 report_footer, report_footer_dir, "footer"
             )
 
-            # --------------------------------------------------
-            # 6. Collect settings form data
-            # --------------------------------------------------
+            # 5. Update master laboratory name.
+            # lab_code is the public code; laboratory_id is the numeric FK.
+            cursor.execute("""
+                UPDATE laboratories
+                SET lab_name = %s
+                WHERE lab_id = %s
+            """, (new_lab_name, lab_code))
+
+            # 6. Collect settings values (use new name, not stale DB name)
             data = (
-                request.form.get("lab_name", "").strip(),
+                new_lab_name,
                 request.form.get("owner_name", "").strip(),
                 request.form.get("registration_no", "").strip(),
                 request.form.get("gst_no", "").strip(),
@@ -6349,12 +6348,9 @@ def settings():
                 request.form.get("upi_id", "").strip(),
             )
 
-            # --------------------------------------------------
-            # 7. Update or insert laboratory settings
-            # --------------------------------------------------
+            # 7. Update or insert lab_settings
             if existing:
-                cursor.execute(
-                    """
+                cursor.execute("""
                     UPDATE lab_settings
                     SET
                         lab_name = %s,
@@ -6379,68 +6375,37 @@ def settings():
                         report_header = COALESCE(%s, report_header),
                         report_footer = COALESCE(%s, report_footer)
                     WHERE lab_id = %s
-                    """,
-                    data + (
-                        logo_name,
-                        signature_name,
-                        stamp_name,
-                        report_header_name,
-                        report_footer_name,
-                        lab_id,
-                    )
-                )
-
+                """, data + (
+                    logo_name,
+                    signature_name,
+                    stamp_name,
+                    report_header_name,
+                    report_footer_name,
+                    lab_code,
+                ))
             else:
-                cursor.execute(
-                    """
+                cursor.execute("""
                     INSERT INTO lab_settings (
-                        lab_id,
-                        lab_name,
-                        owner_name,
-                        registration_no,
-                        gst_no,
-                        nabl_no,
-                        address,
-                        city,
-                        state,
-                        pincode,
-                        mobile,
-                        alt_mobile,
-                        email,
-                        website,
-                        receipt_prefix,
-                        patient_prefix,
-                        upi_id,
-                        logo,
-                        signature,
-                        stamp,
-                        report_header,
-                        report_footer
+                        lab_id, lab_name, owner_name, registration_no,
+                        gst_no, nabl_no, address, city, state, pincode,
+                        mobile, alt_mobile, email, website, receipt_prefix,
+                        patient_prefix, upi_id, logo, signature, stamp,
+                        report_header, report_footer
                     )
                     VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
                     )
-                    """,
-                    (
-                        lab_id,
-                    ) + data + (
-                        logo_name,
-                        signature_name,
-                        stamp_name,
-                        report_header_name,
-                        report_footer_name,
-                    )
-                )
+                """, (lab_code,) + data + (
+                    logo_name,
+                    signature_name,
+                    stamp_name,
+                    report_header_name,
+                    report_footer_name,
+                ))
 
-            # --------------------------------------------------
-            # 8. Save report signatory when submitted
-            # --------------------------------------------------
-            signatory_name = request.form.get(
-                "signatory_name", ""
-            ).strip()
-
+            # 8. Save a new report signatory if all required inputs are present
+            signatory_name = request.form.get("signatory_name", "").strip()
             signatory_designation = request.form.get(
                 "signatory_designation", ""
             ).strip()
@@ -6452,9 +6417,7 @@ def settings():
                 and signatory_signature.filename
             ):
                 if not upload_dirs["signatory"]:
-                    raise RuntimeError(
-                        "UPLOAD_SIGNATORY is not configured."
-                    )
+                    raise RuntimeError("UPLOAD_SIGNATORY is not configured.")
 
                 sign_filename = save_upload(
                     signatory_signature,
@@ -6462,84 +6425,62 @@ def settings():
                     "signatory",
                 )
 
-                cursor.execute(
-                    """
+                cursor.execute("""
                     INSERT INTO report_signatories (
-                        lab_id,
-                        name,
-                        designation,
-                        signature,
-                        status
+                        lab_id, name, designation, signature, status
                     )
                     VALUES (%s, %s, %s, %s, %s)
-                    """,
-                    (
-                        laboratory_id,
-                        signatory_name,
-                        signatory_designation,
-                        sign_filename,
-                        "Active",
-                    )
-                )
+                """, (
+                    laboratory_id,
+                    signatory_name,
+                    signatory_designation,
+                    sign_filename,
+                    "Active",
+                ))
 
-            # --------------------------------------------------
-            # 9. Commit changes
-            # --------------------------------------------------
             db.commit()
 
+# Update laboratory name in current session
+            session["lab_name"] = new_lab_name
+
             flash("Settings saved successfully.", "success")
+
+            
             return redirect(url_for("settings"))
 
-        # --------------------------------------------------
-        # 10. Load settings for GET request
-        # --------------------------------------------------
-        cursor.execute(
-            """
+        # 9. Load settings for GET. Master table name is canonical.
+        cursor.execute("""
             SELECT *
             FROM lab_settings
             WHERE lab_id = %s
             LIMIT 1
-            """,
-            (lab_id,)
-        )
+        """, (lab_code,))
         settings_data = cursor.fetchone()
 
-        # --------------------------------------------------
-        # 11. Load laboratory users
-        # --------------------------------------------------
-        cursor.execute(
-            """
+        # Ensure template receives the canonical name even if lab_settings
+        # contains an old name. Template should use value="{{ laboratory_name }}".
+        cursor.execute("""
             SELECT username, role, status
             FROM users
             WHERE lab_id = %s
             ORDER BY role
-            """,
-            (lab_id,)
-        )
+        """, (lab_code,))
         users = cursor.fetchall()
 
-        # --------------------------------------------------
-        # 12. Load report signatories
-        # --------------------------------------------------
-        cursor.execute(
-            """
+        cursor.execute("""
             SELECT *
             FROM report_signatories
             WHERE lab_id = %s
             ORDER BY name
-            """,
-            (laboratory_id,)
-        )
+        """, (laboratory_id,))
         signatories = cursor.fetchall()
 
-        # --------------------------------------------------
-        # 13. Render page
-        # --------------------------------------------------
         return render_template(
             "settings.html",
             settings=settings_data,
             users=users,
             signatories=signatories,
+            laboratory_name=actual_lab_name,
         )
 
     except Exception:
@@ -6547,16 +6488,13 @@ def settings():
             try:
                 db.rollback()
             except Exception:
-                app.logger.exception(
-                    "Rollback failed in settings route."
-                )
+                app.logger.exception("Rollback failed in settings route.")
 
         app.logger.exception("Error in /settings route.")
         flash(
             "Unable to process settings. Please check the application logs.",
             "danger",
         )
-
         return redirect(url_for("dashboard"))
 
     finally:
@@ -6564,115 +6502,84 @@ def settings():
             try:
                 cursor.close()
             except Exception:
-                app.logger.exception(
-                    "Failed to close settings cursor."
-                )
+                app.logger.exception("Failed to close settings cursor.")
 
         if db:
             try:
                 db.close()
             except Exception:
-                app.logger.exception(
-                    "Failed to close settings database connection."
-                )
-@app.route("/edit-signatory/<int:id>", methods=["GET", "POST"])
-def edit_signatory(id):
-    if "lab_id" not in session:
-        return redirect(url_for("login"))
+                app.logger.exception("Failed to close settings database connection.")
 
-    lab_id = session["lab_id"]
+@app.route("/delete-signatory/<int:id>", methods=["POST"])
+@login_required
+@role_required("Developer", "Admin")
+def delete_signatory(id):
     db = None
     cursor = None
 
     try:
+        lab_code = session.get("lab_id")
+        if not lab_code:
+            flash("Session expired. Please login again.", "warning")
+            return redirect(url_for("login"))
+
         db = get_db()
         cursor = db.cursor()
 
+        # Resolve LAB0008 to the numeric laboratory ID (18).
         cursor.execute("""
-            SELECT id, name, designation, signature, status
-            FROM report_signatories
-            WHERE id = %s AND lab_id = %s
-        """, (id, lab_id))
+            SELECT id
+            FROM laboratories
+            WHERE lab_id = %s
+            LIMIT 1
+        """, (lab_code,))
+        laboratory = cursor.fetchone()
 
+        if not laboratory:
+            flash("Laboratory not found.", "danger")
+            return redirect(url_for("settings"))
+
+        laboratory_id = laboratory["id"]
+
+        # Ownership check keeps this operation tenant-safe.
+        cursor.execute("""
+            SELECT id
+            FROM report_signatories
+            WHERE id = %s
+              AND lab_id = %s
+            LIMIT 1
+        """, (id, laboratory_id))
         signatory = cursor.fetchone()
 
         if not signatory:
-            flash("Signatory not found.", "danger")
+            flash("Signatory not found for this laboratory.", "warning")
             return redirect(url_for("settings"))
-
-        if request.method == "POST":
-            name = request.form.get("name", "").strip()
-            designation = request.form.get("designation", "").strip()
-            status = request.form.get("status", "Active")
-
-            if not name or not designation:
-                flash("Name and designation are required.", "danger")
-                return redirect(url_for("edit_signatory", id=id))
-
-            cursor.execute("""
-                UPDATE report_signatories
-                SET name = %s,
-                    designation = %s,
-                    status = %s
-                WHERE id = %s AND lab_id = %s
-            """, (name, designation, status, id, lab_id))
-
-            db.commit()
-
-            flash("Signatory updated successfully.", "success")
-            return redirect(url_for("settings"))
-
-        return render_template(
-            "edit_signatory.html",
-            signatory=signatory
-        )
-
-    except Exception as e:
-        if db:
-            db.rollback()
-
-        app.logger.exception("Edit signatory error")
-        flash("Unable to update signatory.", "danger")
-        return redirect(url_for("settings"))
-
-    finally:
-        if cursor:
-            cursor.close()
-        if db:
-            
-            db.close()
-@app.route("/delete-signatory/<int:id>", methods=["POST"])
-def delete_signatory(id):
-    if "lab_id" not in session:
-        return redirect(url_for("login"))
-
-    lab_id = session["lab_id"]
-    db = None
-    cursor = None
-
-    try:
-        db = get_db()
-        cursor = db.cursor()
 
         cursor.execute("""
             DELETE FROM report_signatories
-            WHERE id = %s AND lab_id = %s
-        """, (id, lab_id))
+            WHERE id = %s
+              AND lab_id = %s
+        """, (id, laboratory_id))
 
-        if cursor.rowcount == 0:
-            flash("Signatory not found.", "warning")
-        else:
-            db.commit()
-            flash("Signatory deleted successfully.", "success")
+        if cursor.rowcount != 1:
+            db.rollback()
+            flash("Signatory was not deleted.", "warning")
+            return redirect(url_for("settings"))
 
+        db.commit()
+        app.logger.info(
+            "SIGNATORY DELETED | ID=%s | LAB_ID=%s",
+            id,
+            laboratory_id
+        )
+        flash("Signatory deleted successfully.", "success")
         return redirect(url_for("settings"))
 
     except Exception:
         if db:
             db.rollback()
-
         app.logger.exception("Delete signatory error")
-        flash("Unable to delete signatory.", "danger")
+        flash("Unable to delete signatory. Check application logs.", "danger")
         return redirect(url_for("settings"))
 
     finally:
@@ -6680,6 +6587,7 @@ def delete_signatory(id):
             cursor.close()
         if db:
             db.close()
+
 
 @app.context_processor
 def inject_lab_settings():
@@ -7236,128 +7144,218 @@ def delete_user(user_id):
         db.close()
 
     return redirect(url_for("user_management"))
-@app.route("/delete-signatory/<int:id>")
-@login_required
-@role_required("Developer", "Admin")
-def delete_signatory(id):
 
-    db = get_db()
-    cursor = db.cursor()
 
-    # Get image filename
-    cursor.execute("""
-        SELECT signature
-        FROM report_signatories
-        WHERE id=%s
-        AND lab_id=%s
-    """, (id, session["lab_id"]))
-
-    sign = cursor.fetchone()
-
-    if sign:
-
-        image_path = os.path.join(
-            app.config["UPLOAD_SIGNATORY"],
-            sign["signature"]
-        )
-
-        if os.path.exists(image_path):
-            os.remove(image_path)
-
-        cursor.execute("""
-            DELETE
-            FROM report_signatories
-            WHERE id=%s
-            AND lab_id=%s
-        """, (id, session["lab_id"]))
-
-        db.commit()
-
-    cursor.close()
-    db.close()
-
-    flash("Signatory deleted successfully.", "success")
-
-    return redirect(url_for("settings"))
-@app.route("/edit-signatory/<int:id>", methods=["POST"])
+@app.route("/edit-signatory/<int:id>", methods=["GET", "POST"])
 @login_required
 @role_required("Developer", "Admin")
 def edit_signatory(id):
 
-    db = get_db()
-    cursor = db.cursor()
+    db = None
+    cursor = None
 
-    cursor.execute("""
-        SELECT *
-        FROM report_signatories
-        WHERE id=%s
-        AND lab_id=%s
-    """, (id, session["lab_id"]))
+    try:
+        # ==================================================
+        # GET LAB ID FROM SESSION
+        # ==================================================
+        lab_code = session.get("lab_id")
 
-    sign = cursor.fetchone()
+        if not lab_code:
+         flash("Session expired. Please login again.", "warning")
+         return redirect(url_for("login"))
 
-    if not sign:
+        db = get_db()
+        cursor = db.cursor()
 
-        flash("Signatory not found.", "danger")
+        cursor.execute("""
+    SELECT id
+    FROM laboratories
+    WHERE lab_id = %s
+""", (lab_code,))
+
+        lab = cursor.fetchone()
+
+        if not lab:
+         flash("Laboratory not found.", "danger")
+         return redirect(url_for("settings"))
+
+        lab_id = lab["id"]
+
+        if not lab_id:
+            flash("Session expired. Please login again.", "warning")
+            return redirect(url_for("login"))
+
+        # ==================================================
+        # DATABASE CONNECTION
+        # ==================================================
+        db = get_db()
+        cursor = db.cursor()
+
+        # ==================================================
+        # FETCH SIGNATORY FOR CURRENT LABORATORY
+        # ==================================================
+        cursor.execute("""
+            SELECT *
+            FROM report_signatories
+            WHERE id = %s
+              AND lab_id = %s
+        """, (id, lab_id))
+
+        sign = cursor.fetchone()
+
+        app.logger.info(
+            "EDIT SIGNATORY | ID=%s | LAB_ID=%s | SIGN=%s",
+            id,
+            lab_id,
+            sign
+        )
+
+        # ==================================================
+        # SIGNATORY NOT FOUND
+        # ==================================================
+        if not sign:
+            flash(
+                f"Signatory ID {id} not found for Lab ID {lab_id}",
+                "danger"
+            )
+            return redirect(url_for("settings"))
+
+        # ==================================================
+        # GET: DISPLAY EDIT PAGE
+        # ==================================================
+        if request.method == "GET":
+
+            app.logger.info(
+                "EDIT SIGNATORY | Rendering edit_signatory.html"
+            )
+
+            return render_template(
+                "edit_signatory.html",
+                sign=sign
+            )
+
+        # ==================================================
+        # POST: UPDATE SIGNATORY
+        # ==================================================
+        name = request.form.get("name", "").strip()
+        designation = request.form.get("designation", "").strip()
+
+        if not name or not designation:
+            flash(
+                "Name and designation are required.",
+                "danger"
+            )
+            return redirect(url_for("edit_signatory", id=id))
+
+        # Keep existing signature by default
+        filename = sign["signature"]
+
+        file = request.files.get("signature")
+
+        # ==================================================
+        # UPLOAD NEW SIGNATURE IF SELECTED
+        # ==================================================
+        if file and file.filename:
+
+            allowed_extensions = (
+                ".png",
+                ".jpg",
+                ".jpeg",
+                ".webp"
+            )
+
+            if not file.filename.lower().endswith(
+                allowed_extensions
+            ):
+                flash(
+                    "Only PNG, JPG, JPEG and WEBP files are allowed.",
+                    "danger"
+                )
+                return redirect(url_for("edit_signatory", id=id))
+
+            import uuid
+
+            filename = (
+                f"{uuid.uuid4().hex}_"
+                f"{secure_filename(file.filename)}"
+            )
+
+            upload_folder = app.config["UPLOAD_SIGNATORY"]
+
+            os.makedirs(
+                upload_folder,
+                exist_ok=True
+            )
+
+            file.save(
+                os.path.join(upload_folder, filename)
+            )
+
+        # ==================================================
+        # UPDATE DATABASE
+        # ==================================================
+        cursor.execute("""
+            UPDATE report_signatories
+            SET
+                name = %s,
+                designation = %s,
+                signature = %s
+            WHERE id = %s
+              AND lab_id = %s
+        """, (
+            name,
+            designation,
+            filename,
+            id,
+            lab_id
+        ))
+
+        db.commit()
+
+        app.logger.info(
+            "SIGNATORY UPDATED | ID=%s | LAB_ID=%s",
+            id,
+            lab_id
+        )
+
+        flash(
+            "Signatory updated successfully.",
+            "success"
+        )
+
         return redirect(url_for("settings"))
 
-    filename = sign["signature"]
+    # ==================================================
+    # ERROR HANDLING
+    # ==================================================
+    except Exception:
 
-    file = request.files.get("signature")
+        if db:
+            db.rollback()
 
-    if file and file.filename:
-
-        if sign["signature"]:
-
-            old = os.path.join(
-                app.config["UPLOAD_SIGNATORY"],
-                sign["signature"]
-            )
-
-            if os.path.exists(old):
-                os.remove(old)
-
-        import uuid
-
-        filename = (
-            f"{uuid.uuid4().hex}_"
-            f"{secure_filename(file.filename)}"
+        app.logger.exception(
+            "Edit signatory error"
         )
 
-        file.save(
-            os.path.join(
-                app.config["UPLOAD_SIGNATORY"],
-                filename
-            )
+        flash(
+            "Unable to update signatory.",
+            "danger"
         )
 
-    cursor.execute("""
-        UPDATE report_signatories
-        SET
+        return redirect(url_for("settings"))
 
-        name=%s,
-        designation=%s,
-        signature=%s
+    # ==================================================
+    # CLEANUP
+    # ==================================================
+    finally:
 
-        WHERE id=%s
-        AND lab_id=%s
-    """,
-    (
-        request.form["name"],
-        request.form["designation"],
-        filename,
-        id,
-        session["lab_id"]
-    ))
+        if cursor:
+            cursor.close()
 
-    db.commit()
+        if db:
+            db.close()
 
-    cursor.close()
-    db.close()
 
-    flash("Signatory updated successfully.", "success")
-
-    return redirect(url_for("settings"))
 @app.route('/edit-parameter/<int:parameter_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('Developer', 'Admin')

@@ -37,6 +37,38 @@
                 </div>
 
                <div class="mb-3">
+                <!-- Input Type -->
+<div class="mb-3">
+    <label class="form-label">Input Type</label>
+
+    <select
+        name="input_type"
+        id="input_type"
+        class="form-select"
+        required>
+
+        <option value="numeric"
+            {% if parameter['input_type'] == 'numeric' %}selected{% endif %}>
+            Manual Numeric Input
+        </option>
+
+        <option value="text"
+            {% if parameter['input_type'] == 'text' %}selected{% endif %}>
+            Manual Text Input
+        </option>
+
+        <option value="dropdown"
+            {% if parameter['input_type'] == 'dropdown' %}selected{% endif %}>
+            Dropdown
+        </option>
+
+        <option value="formula"
+            {% if parameter['input_type'] == 'formula' %}selected{% endif %}>
+            Auto Calculated (Formula)
+        </option>
+
+    </select>
+</div>
     <label class="form-label">Reference Type</label>
 
     <select

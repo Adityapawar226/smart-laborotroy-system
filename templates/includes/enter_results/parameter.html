@@ -1,9 +1,11 @@
+
 <h6 class="card-title text-secondary fw-semibold mb-3">
     <i class="fas fa-vial me-1 text-muted"></i>
     {{ component.component_name }}
 </h6>
 
-<div class="table-responsive">
+<div class="table-responsive differential-parameter-container">
+
     <table class="table table-hover table-bordered align-middle bg-white mb-0">
 
         <thead class="table-light">
@@ -22,39 +24,52 @@
             {% for param in component.parameters %}
 
             <tr>
+
+                <!-- PARAMETER NAME -->
                 <td>
-                    <strong>{{ param.display_name or param.name }}</strong>
+                    <strong>
+                        {{ param.display_name or param.name }}
+                    </strong>
                 </td>
 
+                <!-- RESULT -->
                 <td>
 
                     {# FORMULA PARAMETER #}
-                    {% if param.input_type|string|lower == "formula" or param.formula_id or param.formula_expression %}
+                    {% if param.input_type|string|lower == "formula" %}
 
                         <input
                             type="text"
                             class="form-control form-control-sm formula-result bg-light"
+
                             id="param_{{ param.parameter_id or param.id }}"
                             name="param_{{ param.parameter_id or param.id }}"
+
                             value="{{ param.result or '' }}"
                             readonly
+
                             data-code="{{ param.parameter_code or param.code or '' }}"
                             data-short-name="{{ param.short_name or '' }}"
                             data-display-name="{{ param.display_name or param.name or '' }}"
                             data-formula="{{ param.formula_expression or '' }}"
                             data-decimals="{{ param.formula_decimal_places or param.decimal_places or 2 }}"
+
                             placeholder="Auto calculated"
                         >
 
-                        <small class="text-primary">Auto Calculated</small>
+                        <small class="text-primary">
+                            Auto Calculated
+                        </small>
 
                     {# DROPDOWN PARAMETER #}
                     {% elif param.input_type|string|lower == "dropdown" %}
 
                         <select
                             class="form-select form-select-sm result-input"
+
                             id="param_{{ param.parameter_id or param.id }}"
                             name="param_{{ param.parameter_id or param.id }}"
+
                             data-code="{{ param.parameter_code or param.code or '' }}"
                             data-short-name="{{ param.short_name or '' }}"
                             data-display-name="{{ param.display_name or param.name or '' }}"
@@ -80,13 +95,35 @@
                     {# NORMAL MANUAL PARAMETER #}
                     {% else %}
 
+                        {% set param_name = (param.display_name or param.name or '')|lower|trim %}
+
+                        {% set is_differential = param_name in [
+                            'neutrophil',
+                            'neutrophils',
+                            'lymphocytes',
+                            'eosinophil',
+                            'eosinophils',
+                            'monocyte',
+                            'monocytes',
+                            'basophil',
+                            'basophils'
+                        ] %}
+
                         <input
                             type="text"
-                            class="form-control form-control-sm result-input"
+
+                            class="form-control form-control-sm result-input
+                            {% if is_differential %}
+                                differential-percent-input
+                            {% endif %}"
+
                             id="param_{{ param.parameter_id or param.id }}"
                             name="param_{{ param.parameter_id or param.id }}"
+
                             value="{{ param.result if param.result is not none else '' }}"
+
                             placeholder="Enter Result"
+
                             data-code="{{ param.parameter_code or param.code or '' }}"
                             data-short-name="{{ param.short_name or '' }}"
                             data-display-name="{{ param.display_name or param.name or '' }}"
@@ -98,13 +135,29 @@
 
                 </td>
 
+                <!-- UNIT -->
                 <td>
                     {{ param.unit or "-" }}
                 </td>
 
+                <!-- REFERENCE RANGE -->
                 <td>
-                    {{ param.reference_range or "-" }}
-                </td>
+    {% if param.reference_range %}
+        {{ param.reference_range }}
+
+    {% elif param.min_range is not none and param.max_range is not none %}
+        {{ param.min_range }} - {{ param.max_range }}
+
+    {% elif param.min_range is not none %}
+        {{ param.min_range }} +
+
+    {% elif param.max_range is not none %}
+        Up to {{ param.max_range }}
+
+    {% else %}
+        -
+    {% endif %}
+</td>
 
             </tr>
 
@@ -121,5 +174,198 @@
         {% endif %}
 
         </tbody>
+
     </table>
+
 </div>
+
+
+<!-- DIFFERENTIAL WBC AUTOMATIC PERCENTAGE BALANCING -->
+<script>
+(function () {
+
+    function initializeDifferentialWBC() {
+
+        // Find all differential parameter containers
+        document.querySelectorAll(
+            ".differential-parameter-container"
+        ).forEach(function (container) {
+
+            const fields = Array.from(
+                container.querySelectorAll(
+                    ".differential-percent-input"
+                )
+            );
+
+            // Ensure exactly 5 percentage fields exist
+            if (fields.length !== 5) {
+                return;
+            }
+
+            // Prevent duplicate event binding
+            if (container.dataset.differentialBound === "true") {
+                return;
+            }
+
+            container.dataset.differentialBound = "true";
+
+            let isAdjusting = false;
+
+            function adjustPercentages(activeField) {
+
+                if (isAdjusting) {
+                    return;
+                }
+
+                let activeValue = parseFloat(activeField.value);
+
+                if (isNaN(activeValue)) {
+                    return;
+                }
+
+                // Clamp entered value to 0–100
+                activeValue = Math.max(
+                    0,
+                    Math.min(100, activeValue)
+                );
+
+                activeField.value = activeValue;
+
+                const remainingFields = fields.filter(
+                    field => field !== activeField
+                );
+
+                const remainingTotal = 100 - activeValue;
+
+                // Read existing remaining percentages
+                let values = remainingFields.map(function (field) {
+
+                    const value = parseFloat(field.value);
+
+                    if (isNaN(value) || value < 0) {
+                        return 0;
+                    }
+
+                    return value;
+
+                });
+
+                const currentTotal = values.reduce(
+                    (sum, value) => sum + value,
+                    0
+                );
+
+                // Distribute equally if remaining fields are empty
+                if (currentTotal === 0) {
+
+                    const equalValue =
+                        remainingTotal / remainingFields.length;
+
+                    values = remainingFields.map(
+                        () => equalValue
+                    );
+
+                } else {
+
+                    // Proportionally adjust remaining values
+                    values = values.map(function (value) {
+
+                        return (
+                            (value / currentTotal) *
+                            remainingTotal
+                        );
+
+                    });
+
+                }
+
+                // Round to 2 decimal places
+                values = values.map(function (value) {
+
+                    return Math.round(value * 100) / 100;
+
+                });
+
+                // Correct rounding error
+                const roundedTotal = values.reduce(
+                    (sum, value) => sum + value,
+                    0
+                );
+
+                const difference = Math.round(
+                    (remainingTotal - roundedTotal) * 100
+                ) / 100;
+
+                values[values.length - 1] += difference;
+
+                isAdjusting = true;
+
+                remainingFields.forEach(function (field, index) {
+
+                    field.value = values[index].toFixed(2);
+
+                    // Trigger existing formula calculation listeners
+                    field.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                    );
+
+                    field.dispatchEvent(
+                        new Event("change", { bubbles: true })
+                    );
+
+                });
+
+                isAdjusting = false;
+
+                // Verify the total
+                const finalTotal = fields.reduce(
+                    function (sum, field) {
+
+                        const value = parseFloat(field.value);
+
+                        return sum + (
+                            isNaN(value) ? 0 : value
+                        );
+
+                    },
+                    0
+                );
+
+                console.log(
+                    "Differential WBC total:",
+                    finalTotal.toFixed(2)
+                );
+
+            }
+
+            // Attach listeners to each percentage field
+            fields.forEach(function (field) {
+
+                field.addEventListener(
+                    "input",
+                    function () {
+                        adjustPercentages(field);
+                    }
+                );
+
+            });
+
+        });
+
+    }
+
+    if (document.readyState === "loading") {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeDifferentialWBC
+        );
+
+    } else {
+
+        initializeDifferentialWBC();
+
+    }
+
+})();
+</script>

@@ -1,4 +1,3 @@
-
 document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
@@ -18,14 +17,34 @@ document.addEventListener("DOMContentLoaded", function () {
             .trim()
             .toUpperCase();
 
-        // R.B.C Count -> RBC Count
-        // R.B.C_COUNT -> RBC_COUNT
         value = value.replace(/\./g, "");
-
-        // Convert remaining punctuation and spaces to underscores.
         value = value.replace(/[^A-Z0-9]+/g, "_");
 
         return value.replace(/^_+|_+$/g, "");
+    }
+
+    // --------------------------------------------------
+    // DIFFERENTIAL WBC ALIASES
+    // --------------------------------------------------
+    function expandAliases(alias) {
+        const synonymMap = {
+            "NEUTROPHIL": ["NEUTROPHIL", "NEUTROPHILS"],
+            "NEUTROPHILS": ["NEUTROPHIL", "NEUTROPHILS"],
+
+            "LYMPHOCYTE": ["LYMPHOCYTE", "LYMPHOCYTES"],
+            "LYMPHOCYTES": ["LYMPHOCYTE", "LYMPHOCYTES"],
+
+            "MONOCYTE": ["MONOCYTE", "MONOCYTES"],
+            "MONOCYTES": ["MONOCYTE", "MONOCYTES"],
+
+            "EOSINOPHIL": ["EOSINOPHIL", "EOSINOPHILS"],
+            "EOSINOPHILS": ["EOSINOPHIL", "EOSINOPHILS"],
+
+            "BASOPHIL": ["BASOPHIL", "BASOPHILS"],
+            "BASOPHILS": ["BASOPHIL", "BASOPHILS"]
+        };
+
+        return synonymMap[alias] || [alias];
     }
 
     // --------------------------------------------------
@@ -44,7 +63,6 @@ document.addEventListener("DOMContentLoaded", function () {
             input.dataset.displayName || ""
         );
 
-        // Hemoglobin (Hb) -> also register HB.
         const parentheticalMatches =
             displayName.matchAll(/\(([^)]+)\)/g);
 
@@ -52,7 +70,6 @@ document.addEventListener("DOMContentLoaded", function () {
             aliases.push(match[1]);
         }
 
-        // Add the numeric parameter ID as an alias.
         const fieldName = String(input.name || "");
         const idMatch = fieldName.match(/^param_(\d+)$/i);
 
@@ -64,11 +81,10 @@ document.addEventListener("DOMContentLoaded", function () {
             .map(normalizeName)
             .filter(Boolean);
 
-        // Add known CBC aliases.
         const expanded = [];
 
         normalized.forEach(function (alias) {
-            expanded.push(alias);
+            expanded.push(...expandAliases(alias));
 
             // RBC aliases
             if (
@@ -93,7 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 expanded.push("HEMOGLOBIN_HB");
             }
 
-            // Hematocrit / packed cell volume aliases
+            // Hematocrit aliases
             if (
                 alias === "HCT" ||
                 alias === "PCV" ||
@@ -140,7 +156,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // --------------------------------------------------
     // SAFE ARITHMETIC EXPRESSION EVALUATOR
-    // Supports + - * / % and parentheses.
+    // Supports + - * / % and parentheses
     // --------------------------------------------------
     function calculateExpression(expression) {
         const source = String(expression || "")
@@ -252,6 +268,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             return Number.isFinite(result) ? result : null;
+
         } catch (error) {
             return null;
         }
@@ -270,8 +287,64 @@ document.addEventListener("DOMContentLoaded", function () {
             .replace(/×/g, "*")
             .replace(/÷/g, "/");
 
-        // Replace longer variable names first.
-        const keys = Object.keys(values).sort(
+        const normalizedValues = {};
+
+        Object.keys(values || {}).forEach(function (key) {
+            const normalizedKey = normalizeName(key);
+
+            if (normalizedKey) {
+                normalizedValues[normalizedKey] = values[key];
+            }
+        });
+
+        // Resolve bracketed formula variables.
+        let missingVariable = false;
+
+        processed = processed.replace(
+            /\[([^\]]+)\]/g,
+            function (match, variableName) {
+                const normalizedVariable =
+                    normalizeName(variableName);
+
+                if (
+                    !normalizedVariable ||
+                    !Object.prototype.hasOwnProperty.call(
+                        normalizedValues,
+                        normalizedVariable
+                    )
+                ) {
+                    console.warn(
+                        "[Formula Live] Missing formula variable:",
+                        variableName
+                    );
+
+                    missingVariable = true;
+                    return match;
+                }
+
+                const numericValue = Number(
+                    normalizedValues[normalizedVariable]
+                );
+
+                if (!Number.isFinite(numericValue)) {
+                    missingVariable = true;
+                    return match;
+                }
+
+                return String(numericValue);
+            }
+        );
+
+        if (
+            missingVariable ||
+            processed.includes("[") ||
+            processed.includes("]")
+        ) {
+            return null;
+        }
+
+        // Support unbracketed normalized aliases.
+        const keys = Object.keys(normalizedValues).sort(
             function (a, b) {
                 return b.length - a.length;
             }
@@ -292,11 +365,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
             processed = processed.replace(
                 pattern,
-                String(values[key])
+                String(normalizedValues[key])
             );
         });
 
-        // Do not calculate if variables remain unresolved.
         if (/[A-Z_][A-Z0-9_]*/i.test(processed)) {
             return null;
         }
@@ -308,6 +380,12 @@ document.addEventListener("DOMContentLoaded", function () {
     // RECALCULATE FORMULA FIELDS
     // --------------------------------------------------
     function updateFormulaFields() {
+        // Clear old calculated values.
+        formulaInputs.forEach(function (input) {
+            input.value = "";
+        });
+
+        // Start with manually entered values.
         const values = readValues();
 
         let pending = formulaInputs.slice();
@@ -330,7 +408,10 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
 
-                const result = calculateFormula(formula, values);
+                const result = calculateFormula(
+                    formula,
+                    values
+                );
 
                 if (result === null) {
                     remaining.push(input);
@@ -348,7 +429,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
                 input.value = result.toFixed(decimals);
 
-                // Make this result available to dependent formulas.
+                // Make calculated results available to dependent formulas.
                 getAliases(input).forEach(function (alias) {
                     values[alias] = result;
                 });
@@ -363,7 +444,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
-        // Keep unresolved formulas empty.
+        // Unresolved formulas remain empty.
         pending.forEach(function (input) {
             input.value = "";
         });
@@ -373,11 +454,18 @@ document.addEventListener("DOMContentLoaded", function () {
     // LISTEN FOR USER INPUT
     // --------------------------------------------------
     manualInputs.forEach(function (input) {
-        input.addEventListener("input", updateFormulaFields);
-        input.addEventListener("change", updateFormulaFields);
+        input.addEventListener(
+            "input",
+            updateFormulaFields
+        );
+
+        input.addEventListener(
+            "change",
+            updateFormulaFields
+        );
     });
 
-    // Recalculate on page load.
+    // Recalculate when the page loads.
     updateFormulaFields();
 
     // --------------------------------------------------
@@ -387,16 +475,118 @@ document.addEventListener("DOMContentLoaded", function () {
         manualFields: manualInputs.length,
         formulaFields: formulaInputs.length,
 
-        formulaExpressions: formulaInputs.map(function (input) {
-            return {
-                id: input.id,
-                name: input.name,
-                formula: input.dataset.formula,
-                code: input.dataset.code,
-                shortName: input.dataset.shortName,
-                displayName: input.dataset.displayName
-            };
-        })
+        formulaExpressions: formulaInputs.map(
+            function (input) {
+                return {
+                    id: input.id,
+                    name: input.name,
+                    formula: input.dataset.formula,
+                    code: input.dataset.code,
+                    shortName: input.dataset.shortName,
+                    displayName: input.dataset.displayName
+                };
+            }
+        )
     });
 });
+document.addEventListener("DOMContentLoaded", function () {
 
+    const differentialCodes = [
+        "NEUTROPHIL",
+        "LYMPHOCYTES",
+        "EOSINOPHIL",
+        "MONOCYTES",
+        "BASOPHILS"
+    ];
+
+    const differentialInputs = Array.from(
+        document.querySelectorAll(".result-input")
+    ).filter(input =>
+        differentialCodes.includes(
+            (input.dataset.code || "").trim().toUpperCase()
+        )
+    );
+
+    if (differentialInputs.length !== 5) {
+        console.warn(
+            "Differential WBC validation: Expected 5 inputs, found",
+            differentialInputs.length
+        );
+    }
+
+    function getValue(input) {
+        const value = parseFloat(input.value);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function calculateTotal() {
+        return differentialInputs.reduce(
+            (total, input) => total + getValue(input),
+            0
+        );
+    }
+
+    // Prevent the total from exceeding 100%
+    differentialInputs.forEach(input => {
+
+        input.addEventListener("input", function () {
+
+            const otherTotal = differentialInputs
+                .filter(other => other !== input)
+                .reduce((total, other) => total + getValue(other), 0);
+
+            const maximumAllowed = Math.max(0, 100 - otherTotal);
+
+            const currentValue = parseFloat(input.value);
+
+            if (
+                Number.isFinite(currentValue) &&
+                currentValue > maximumAllowed
+            ) {
+                input.value = maximumAllowed;
+
+                input.dispatchEvent(
+                    new Event("change", { bubbles: true })
+                );
+            }
+
+        });
+
+    });
+
+    // Validate exact 100% when saving
+    const resultForm = document.querySelector("form[method='POST']");
+
+    if (resultForm) {
+
+        resultForm.addEventListener("submit", function (event) {
+
+            const total = calculateTotal();
+
+            if (Math.abs(total - 100) > 0.001) {
+
+                event.preventDefault();
+
+                alert(
+                    "Differential WBC percentages must total exactly 100%.\n" +
+                    "Current Total: " + total.toFixed(2) + "%\n\n" +
+                    "Please correct Neutrophil, Lymphocytes, Eosinophils, " +
+                    "Monocytes and Basophils."
+                );
+
+                differentialInputs.forEach(input => {
+                    input.classList.add("is-invalid");
+                });
+
+                return false;
+            }
+
+            differentialInputs.forEach(input => {
+                input.classList.remove("is-invalid");
+            });
+
+        });
+
+    }
+
+});

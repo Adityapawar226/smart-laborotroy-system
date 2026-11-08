@@ -7466,7 +7466,10 @@ def edit_parameter(parameter_id):
         FROM test_parameters
         WHERE id=%s
         AND lab_id=%s
-    """, (parameter_id, session["lab_id"]))
+    """, (
+        parameter_id,
+        session["lab_id"]
+    ))
 
     parameter = cursor.fetchone()
 
@@ -7476,20 +7479,45 @@ def edit_parameter(parameter_id):
 
     if request.method == "POST":
 
+        parameter_name = request.form["parameter_name"]
+        unit = request.form["unit"]
+        reference_type = request.form["reference_type"]
+        display_order = request.form["display_order"]
+
+        input_type = request.form.get("input_type", "numeric")
+
+        # Formula association
+        formula_id = request.form.get("formula_id")
+
+        if input_type == "numeric":
+            formula_id = None
+
+        elif input_type == "formula":
+            if not formula_id:
+                flash(
+                    "Formula must be selected for formula parameters.",
+                    "danger"
+                )
+                return redirect(request.url)
+
         cursor.execute("""
             UPDATE test_parameters
             SET
                 parameter_name=%s,
                 unit=%s,
                 reference_type=%s,
-                display_order=%s
+                display_order=%s,
+                input_type=%s,
+                formula_id=%s
             WHERE id=%s
             AND lab_id=%s
         """, (
-            request.form["parameter_name"],
-            request.form["unit"],
-            request.form["reference_type"],
-            request.form["display_order"],
+            parameter_name,
+            unit,
+            reference_type,
+            display_order,
+            input_type,
+            formula_id,
             parameter_id,
             session["lab_id"]
         ))
